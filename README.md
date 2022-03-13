@@ -14,3 +14,9 @@ Repositorio para experimentar la migración de la librería xAct de Wolfram a ot
 https://reference.wolfram.com/language/ref/$UserBaseDirectory.html
 
 C:\Program Files\Wolfram Research\Wolfram Engine\12.1\AddOns\Applications\xAct\Documentation\English
+
+Some additional documentation of the things that I'm figuring out:
+
+[Wolfram](./docs/wolfram.md)
+
+[xAct](./docs/xact.md)
