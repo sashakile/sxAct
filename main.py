@@ -1,7 +1,11 @@
+import os
+from pathlib import Path
 from wolframclient.evaluation import WolframLanguageSession
 from wolframclient.language import expression, wl, wlexpr
 
-session = WolframLanguageSession()
+KERNEL_PATH = Path( os.getenv("WOLFRAM_PATH") ) / "WolframKernel.exe"
+
+session = WolframLanguageSession(KERNEL_PATH)
 basePath = "C:\\Program Files\\Wolfram Research\\Wolfram Engine\\12.1\\AddOns\\Applications\\"
 
 notebookPath = "xAct\\xTensor\\xTensorTests.nb"
