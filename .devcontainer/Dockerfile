@@ -6,7 +6,7 @@ ARG WOLFRAM_MATHPASS=""
 # # Install needed packages and setup non-root user. Use a separate RUN statement to add your own dependencies.
 USER root
 RUN mkdir -p ~/.WolframEngine/Licensing
-RUN echo ${WOLFRAM_MATHPASS} > ~/.WolframEngine/Licensing/mathpass
+RUN echo -e ${WOLFRAM_MATHPASS} > ~/.WolframEngine/Licensing/mathpass
 
 
 # from https://github.com/WolframResearch/AWSLambda-WolframLanguage/blob/c85d96b8625c5935b3bffe094cc456fd0b477ab2/Dockerfile#L5
