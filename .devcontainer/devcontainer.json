@@ -11,6 +11,9 @@
 	// Set *default* container specific settings.json values on container create.
 	"settings": {},
 
+	"features" : {
+	"python":"latest"
+	},
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
   
