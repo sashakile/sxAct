@@ -9,14 +9,14 @@
 	},
 
 	// Set *default* container specific settings.json values on container create.
-	"settings": {},
+	// "settings": {},
 
 	"features": {
 		"python": "latest",
-		"fish":"latest",
-		"jupyterlab": {
-			"version": "latest"
-		  }
+		"fish":"latest"
+		// "jupyterlab": {
+		// 	"version": "latest"
+		//   }
 	},
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
