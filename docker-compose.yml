@@ -1,0 +1,20 @@
+services:
+  wolfram:
+    image: wolframresearch/wolframengine:latest
+    user: root
+    volumes:
+      # Mount xAct library
+      - ./resources/xAct:/opt/xAct:ro
+      # Mount working directory for scripts
+      - ./notebooks:/notebooks
+      # Persist Wolfram configuration
+      - wolfram-config:/root/.WolframEngine
+    environment:
+      # xAct will be available at /opt/xAct
+      - XACT_PATH=/opt/xAct
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+volumes:
+  wolfram-config:

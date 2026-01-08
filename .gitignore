@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# uv package manager
+uv.lock
+
+# Wolfram
+*.nb~
+*.mx
+*.wlhistory
+
+# xAct (keep tarball, ignore extracted)
+resources/xAct/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
