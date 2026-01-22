@@ -3,18 +3,29 @@ services:
     image: wolframresearch/wolframengine:latest
     user: root
     volumes:
-      # Mount xAct library
       - ./resources/xAct:/opt/xAct:ro
-      # Mount working directory for scripts
       - ./notebooks:/notebooks
-      # Persist Wolfram configuration
       - wolfram-config:/root/.WolframEngine
     environment:
-      # xAct will be available at /opt/xAct
       - XACT_PATH=/opt/xAct
     stdin_open: true
     tty: true
     command: /bin/bash
+
+  oracle:
+    build: ./oracle
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./resources/xAct:/opt/xAct:ro
+      - wolfram-config:/root/.WolframEngine
+    environment:
+      - XACT_PATH=/opt/xAct
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   wolfram-config:
