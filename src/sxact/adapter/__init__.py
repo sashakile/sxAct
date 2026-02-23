@@ -13,6 +13,7 @@ from sxact.adapter.base import (
 )
 from sxact.adapter.julia_stub import JuliaAdapter
 from sxact.adapter.python_stub import PythonAdapter
+from sxact.adapter.wolfram import WolframAdapter
 
 __all__ = [
     "AdapterError",
@@ -22,4 +23,5 @@ __all__ = [
     "PythonAdapter",
     "TestAdapter",
     "VersionInfo",
+    "WolframAdapter",
 ]
