@@ -1,0 +1,139 @@
+# xcore/options.toml
+# Tests for xCore option utilities: CheckOptions, TrueOrFalse.
+# These are Category-A (must-implement) symbols from sxAct-0q8.
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id          = "xcore/options"
+description = "xCore option utility functions: CheckOptions, TrueOrFalse (layer 1)"
+tags        = ["xcore", "layer:1"]
+layer       = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "check_options_empty"
+description = "CheckOptions[] with no arguments returns an empty list"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "CheckOptions[] === {}"
+message   = "CheckOptions[] should return {}"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "check_options_single_rule"
+description = "CheckOptions[a->1] returns a flat list containing a->1"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "opts1"
+[tests.operations.args]
+expression = "CheckOptions[a -> 1]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$opts1 === {a -> 1}"
+message   = "CheckOptions should return a flat list for a single rule"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "check_options_multiple_rules"
+description = "CheckOptions with multiple rules flattens and returns them"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "opts2"
+[tests.operations.args]
+expression = "CheckOptions[a -> 1, b -> 2]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[$opts2] === 2"
+message   = "CheckOptions[a->1, b->2] should return a list of length 2"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "check_options_list_of_rules"
+description = "CheckOptions accepts a list of rules and flattens it"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "opts3"
+[tests.operations.args]
+expression = "CheckOptions[{a -> 1, b -> 2}]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[$opts3] === 2"
+message   = "CheckOptions[{a->1, b->2}] should flatten to a 2-element list"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "true_or_false_with_true"
+description = "TrueOrFalse[True] returns True"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TrueOrFalse[True] === True"
+message   = "TrueOrFalse[True] should be True"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "true_or_false_with_false"
+description = "TrueOrFalse[False] returns True (False is a valid boolean)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TrueOrFalse[False] === True"
+message   = "TrueOrFalse[False] should be True (False is a valid Bool literal)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "true_or_false_with_symbol"
+description = "TrueOrFalse[x] returns False for a non-boolean symbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TrueOrFalse[x] === False"
+message   = "TrueOrFalse should return False for any non-True/False argument"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "true_or_false_with_integer"
+description = "TrueOrFalse[1] returns False (integer is not a boolean)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TrueOrFalse[1] === False"
+message   = "TrueOrFalse[1] should be False"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "true_or_false_with_string"
+description = "TrueOrFalse[\"True\"] returns False (string is not a boolean)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TrueOrFalse[\"True\"] === False"
+message   = "TrueOrFalse[\"True\"] should be False (only symbol True is valid)"

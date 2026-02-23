@@ -1,0 +1,163 @@
+# xcore/upvalues.toml
+# Tests for xCore upvalue management functions:
+#   xUpSet, xUpSetDelayed, xUpAppendTo, xUpDeleteCasesTo,
+#   xTagSet, xTagSetDelayed.
+# These are Category-A (must-implement) symbols from sxAct-0q8.
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id          = "xcore/upvalues"
+description = "xCore upvalue management functions (layer 1 unit tests)"
+tags        = ["xcore", "layer:1"]
+layer       = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: define test symbols in a clean state
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action = "Evaluate"
+[setup.args]
+expression = "ClearAll[upvProp, upvSym, upvSym2, upvSym3, tagSym, tagF]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupset_basic"
+description = "xUpSet stores a value as an upvalue and it can be retrieved"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpSet[upvProp[upvSym], 42]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym] === 42"
+message   = "xUpSet should store 42 as upvalue of upvSym under upvProp"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupset_overwrite"
+description = "xUpSet overwrites a previously set upvalue"
+dependencies = ["xupset_basic"]
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpSet[upvProp[upvSym], 99]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym] === 99"
+message   = "xUpSet should overwrite the previous upvalue with 99"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupappendto_initializes"
+description = "xUpAppendTo initializes to a singleton list when no prior value"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpAppendTo[upvProp[upvSym2], \"first\"]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym2] === {\"first\"}"
+message   = "xUpAppendTo on fresh symbol should create {\"first\"}"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupappendto_grows"
+description = "xUpAppendTo appends to an existing list"
+dependencies = ["xupappendto_initializes"]
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpAppendTo[upvProp[upvSym2], \"second\"]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym2] === {\"first\", \"second\"}"
+message   = "xUpAppendTo should grow the list to {\"first\", \"second\"}"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupdeletecasesto_removes"
+description = "xUpDeleteCasesTo removes matching elements from the upvalue list"
+dependencies = ["xupappendto_grows"]
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpDeleteCasesTo[upvProp[upvSym2], \"first\"]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym2] === {\"second\"}"
+message   = "xUpDeleteCasesTo should remove \"first\", leaving {\"second\"}"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xupsetdelayed_stores_thunk"
+description = "xUpSetDelayed stores a delayed rule; evaluating it gives the RHS"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xUpSetDelayed[upvProp[upvSym3], 2 + 2]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "upvProp[upvSym3] === 4"
+message   = "xUpSetDelayed should store a delayed upvalue that evaluates to 4"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xtagset_basic"
+description = "xTagSet assigns a value to an expression tagged with a symbol"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xTagSet[{tagF, tagF[tagSym]}, \"tagval\"]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "tagF[tagSym] === \"tagval\""
+message   = "xTagSet should create a tag-based rule returning \"tagval\""
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "xtagsetdelayed_basic"
+description = "xTagSetDelayed assigns a delayed rule to a tagged symbol"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "xTagSetDelayed[{tagF, tagF[tagSym]}, \"delayed\"]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "tagF[tagSym] === \"delayed\""
+message   = "xTagSetDelayed should overwrite the tag rule with \"delayed\""

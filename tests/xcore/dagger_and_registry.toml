@@ -1,0 +1,235 @@
+# xcore/dagger_and_registry.toml
+# Tests for xCore dagger character functions and symbol registry:
+#   $DaggerCharacter, HasDaggerCharacterQ, MakeDaggerSymbol,
+#   ValidateSymbol, AppendToUnevaluated, LinkSymbols, UnlinkSymbol.
+# These are Category-A (must-implement) symbols from sxAct-0q8.
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id          = "xcore/dagger_and_registry"
+description = "xCore dagger utilities, ValidateSymbol, and AppendToUnevaluated (layer 1)"
+tags        = ["xcore", "layer:1"]
+layer       = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: initialize mutable symbols used in AppendToUnevaluated test.
+# All other test symbols are fresh (not pre-assigned).
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action = "Evaluate"
+[setup.args]
+expression = "myUnevalList = {1, 2, 3}"
+
+# ---------------------------------------------------------------------------
+# Tests: $DaggerCharacter and HasDaggerCharacterQ
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "dagger_char_is_string"
+description = "$DaggerCharacter is a String"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "StringQ[$DaggerCharacter] === True"
+message   = "$DaggerCharacter should be a String (the dagger Unicode character)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "dagger_char_nonempty"
+description = "$DaggerCharacter is a non-empty string"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "StringLength[$DaggerCharacter] > 0"
+message   = "$DaggerCharacter should be a non-empty string"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "has_dagger_false_plain"
+description = "HasDaggerCharacterQ returns False for a plain symbol without dagger"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "HasDaggerCharacterQ[myPlainSym] === False"
+message   = "HasDaggerCharacterQ should be False for a symbol without the dagger char"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "make_dagger_adds_character"
+description = "MakeDaggerSymbol adds the dagger character to a plain symbol"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "daggered"
+[tests.operations.args]
+expression = "MakeDaggerSymbol[myBaseSym]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "HasDaggerCharacterQ[$daggered] === True"
+message   = "MakeDaggerSymbol should produce a symbol that HasDaggerCharacterQ recognizes"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "make_dagger_toggle"
+description = "Applying MakeDaggerSymbol twice returns the original symbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "MakeDaggerSymbol[MakeDaggerSymbol[myToggleSym]] === myToggleSym"
+message   = "MakeDaggerSymbol should toggle: twice applied gives back the original"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "has_dagger_true_after_make"
+description = "HasDaggerCharacterQ is True for a symbol produced by MakeDaggerSymbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "HasDaggerCharacterQ[MakeDaggerSymbol[testHDCQ]] === True"
+message   = "MakeDaggerSymbol output should satisfy HasDaggerCharacterQ"
+
+# ---------------------------------------------------------------------------
+# Tests: ValidateSymbol
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "validate_symbol_fresh"
+description = "ValidateSymbol passes (returns Null) for a fresh, unused symbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "ValidateSymbol[myFreshSymXXX123] === Null"
+message   = "ValidateSymbol should return Null for a genuinely fresh symbol"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "validate_symbol_rejects_pi"
+description = "ValidateSymbol throws for Pi (has numeric value)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Catch[ValidateSymbol[Pi]] === Null"
+message   = "ValidateSymbol should Throw for Pi (NumericQ[Pi] is True)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "validate_symbol_rejects_list"
+description = "ValidateSymbol throws for List (Protected Mathematica built-in)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Catch[ValidateSymbol[List]] === Null"
+message   = "ValidateSymbol should Throw for List (Protected or used by Mathematica)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "validate_symbol_rejects_xcore_name"
+description = "ValidateSymbol throws for JustOne (already used by xCore)"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Catch[ValidateSymbol[JustOne]] === Null"
+message   = "ValidateSymbol should Throw for a symbol already defined in xCore"
+
+# ---------------------------------------------------------------------------
+# Tests: AppendToUnevaluated
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "appendtounevaluated_basic"
+description = "AppendToUnevaluated grows a list symbol without evaluating elements"
+
+[[tests.operations]]
+action = "Evaluate"
+[tests.operations.args]
+expression = "AppendToUnevaluated[myUnevalList, 4]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "myUnevalList === {1, 2, 3, 4}"
+message   = "AppendToUnevaluated should append 4 to myUnevalList"
+
+# ---------------------------------------------------------------------------
+# Tests: LinkSymbols / UnlinkSymbol
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "link_symbols_two"
+description = "LinkSymbols joins two symbols with $LinkCharacter in between"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "linked"
+[tests.operations.args]
+expression = "LinkSymbols[{aaLink, bbLink}]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "AtomQ[$linked] === True"
+message   = "LinkSymbols should return an atomic symbol"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "unlink_symbol_roundtrip"
+description = "UnlinkSymbol on LinkSymbols[{a, b}] gives back {a, b}"
+dependencies = ["link_symbols_two"]
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "linked2"
+[tests.operations.args]
+expression = "LinkSymbols[{aaRound, bbRound}]"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "unlinked"
+[tests.operations.args]
+expression = "UnlinkSymbol[$linked2]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$unlinked === {aaRound, bbRound}"
+message   = "UnlinkSymbol should recover the original symbol list"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "link_three_symbols"
+description = "LinkSymbols works for three symbols and UnlinkSymbol recovers all"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "linked3"
+[tests.operations.args]
+expression = "LinkSymbols[{aa3, bb3, cc3}]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[UnlinkSymbol[$linked3]] === 3"
+message   = "UnlinkSymbol of a 3-part linked symbol should give a list of length 3"

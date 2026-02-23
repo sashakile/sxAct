@@ -1,0 +1,182 @@
+# xcore/symbol_utils.toml
+# Tests for xCore symbol utility functions: SymbolJoin, NoPattern,
+# SubHead, FindSymbols.
+# These are Category-A (must-implement) symbols from sxAct-0q8.
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id          = "xcore/symbol_utils"
+description = "xCore symbol utility functions (layer 1 unit tests)"
+tags        = ["xcore", "layer:1"]
+layer       = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symboljoin_two_strings"
+description = "SymbolJoin concatenates string args into a new symbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SymbolName[SymbolJoin[\"foo\", \"Bar\"]] === \"fooBar\""
+message   = "SymbolJoin should create symbol with concatenated name"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symboljoin_result_is_symbol"
+description = "SymbolJoin returns an atom with head Symbol"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "AtomQ[SymbolJoin[\"aa\", \"bb\"]] === True"
+message   = "SymbolJoin result should be atomic (a Symbol)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symboljoin_mixed_types"
+description = "SymbolJoin accepts a mix of strings and numbers"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SymbolName[SymbolJoin[\"x\", 1, \"y\"]] === \"x1y\""
+message   = "SymbolJoin should convert each argument to string"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "nopattern_named_blank"
+description = "NoPattern strips the pattern wrapper from x_, returning x"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "NoPattern[x_] === x"
+message   = "NoPattern[x_] should return the bare symbol x"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "nopattern_typed_blank"
+description = "NoPattern strips x_Integer to x"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "NoPattern[x_Integer] === x"
+message   = "NoPattern[x_Integer] should return x (the name, not the pattern)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "nopattern_atomic"
+description = "NoPattern is identity on atoms"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "NoPattern[42] === 42"
+message   = "NoPattern on a non-pattern atom should be identity"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "nopattern_nested"
+description = "NoPattern strips patterns recursively from compound expressions"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "NoPattern[f[x_, y_]] === f[x, y]"
+message   = "NoPattern should strip patterns from arguments of a compound expr"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "subhead_symbol"
+description = "SubHead of a Symbol returns the symbol itself"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SubHead[x] === x"
+message   = "SubHead of an atomic symbol should be the symbol itself"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "subhead_one_level"
+description = "SubHead of f[x] returns f"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SubHead[f[x]] === f"
+message   = "SubHead should strip one level of application"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "subhead_nested"
+description = "SubHead of f[g[x]] descends to the innermost atomic head"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SubHead[f[g[x]]] === f"
+message   = "SubHead of f[g[x]] should return f (Head of the whole expr)"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "findsymbols_contains_parts"
+description = "FindSymbols on a+b returns a list containing a and b"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "syms"
+[tests.operations.args]
+expression = "FindSymbols[a + b]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "MemberQ[$syms, a] && MemberQ[$syms, b]"
+message   = "FindSymbols[a+b] should include both a and b"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "findsymbols_includes_head"
+description = "FindSymbols includes the head symbol (Plus) at level -1"
+
+[[tests.operations]]
+action = "Evaluate"
+store_as = "syms2"
+[tests.operations.args]
+expression = "FindSymbols[a + b]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "MemberQ[$syms2, Plus]"
+message   = "FindSymbols[a+b] should include the head Plus"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "findsymbols_empty"
+description = "FindSymbols[] returns an empty list"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "FindSymbols[] === {}"
+message   = "FindSymbols with no arguments should return {}"
