@@ -11,11 +11,15 @@ from sxact.adapter.base import (
     TestAdapter,
     VersionInfo,
 )
+from sxact.adapter.julia_stub import JuliaAdapter
+from sxact.adapter.python_stub import PythonAdapter
 
 __all__ = [
     "AdapterError",
     "EqualityMode",
+    "JuliaAdapter",
     "NormalizedExpr",
+    "PythonAdapter",
     "TestAdapter",
     "VersionInfo",
 ]
