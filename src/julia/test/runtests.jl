@@ -277,3 +277,450 @@ end
     MakexTensions(:DefTensor, "End")
     @test log == [:metric, :tensor]
 end
+
+# ============================================================
+# JustOne
+# ============================================================
+
+@testset "JustOne — singleton extraction" begin
+    @test JustOne([42]) == 42
+    @test JustOne(["hello"]) == "hello"
+    @test JustOne([:sym]) == :sym
+end
+
+@testset "JustOne — throws on empty" begin
+    @test_throws ErrorException JustOne([])
+end
+
+@testset "JustOne — throws on multi-element" begin
+    @test_throws ErrorException JustOne([1, 2])
+    @test_throws ErrorException JustOne([1, 2, 3])
+end
+
+# ============================================================
+# MapIfPlus
+# ============================================================
+
+@testset "MapIfPlus — maps over vector" begin
+    @test MapIfPlus(x -> x * 2, [1, 2, 3]) == [2, 4, 6]
+end
+
+@testset "MapIfPlus — maps over tuple" begin
+    result = MapIfPlus(x -> x + 1, (10, 20))
+    @test result == (11, 21)
+end
+
+@testset "MapIfPlus — applies once to scalar" begin
+    @test MapIfPlus(x -> x * 10, 5) == 50
+    @test MapIfPlus(identity, :sym) === :sym
+end
+
+@testset "MapIfPlus — scalar string" begin
+    @test MapIfPlus(identity, "hello") == "hello"
+end
+
+# ============================================================
+# SetNumberOfArguments
+# ============================================================
+
+@testset "SetNumberOfArguments — is a no-op shim" begin
+    @test SetNumberOfArguments(sin, 1) === nothing
+    @test SetNumberOfArguments(+, 2) === nothing
+end
+
+# ============================================================
+# CheckOptions
+# ============================================================
+
+@testset "CheckOptions — empty returns empty vector" begin
+    result = CheckOptions()
+    @test result == Pair[]
+    @test result isa Vector{Pair}
+end
+
+@testset "CheckOptions — single pair" begin
+    result = CheckOptions(:a => 1)
+    @test length(result) == 1
+    @test result[1] == (:a => 1)
+end
+
+@testset "CheckOptions — multiple pairs" begin
+    result = CheckOptions(:a => 1, :b => 2)
+    @test length(result) == 2
+end
+
+@testset "CheckOptions — list of pairs is flattened" begin
+    result = CheckOptions([:a => 1, :b => 2])
+    @test length(result) == 2
+end
+
+@testset "CheckOptions — non-pair throws" begin
+    @test_throws ErrorException CheckOptions(:not_a_pair)
+    @test_throws ErrorException CheckOptions(42)
+end
+
+# ============================================================
+# TrueOrFalse
+# ============================================================
+
+@testset "TrueOrFalse — true for Bool values" begin
+    @test TrueOrFalse(true) == true
+    @test TrueOrFalse(false) == true
+end
+
+@testset "TrueOrFalse — false for non-Bool" begin
+    @test TrueOrFalse(1) == false
+    @test TrueOrFalse(:sym) == false
+    @test TrueOrFalse("true") == false
+    @test TrueOrFalse(nothing) == false
+end
+
+# ============================================================
+# SymbolJoin
+# ============================================================
+
+@testset "SymbolJoin — concatenates symbols" begin
+    @test SymbolJoin(:foo, :Bar) == :fooBar
+end
+
+@testset "SymbolJoin — accepts strings" begin
+    @test SymbolJoin("foo", "Bar") == :fooBar
+end
+
+@testset "SymbolJoin — mixed types" begin
+    @test SymbolJoin("x", 1, "y") == :x1y
+end
+
+@testset "SymbolJoin — single argument" begin
+    @test SymbolJoin(:hello) == :hello
+end
+
+@testset "SymbolJoin — result is a Symbol" begin
+    @test SymbolJoin("a", "b") isa Symbol
+end
+
+# ============================================================
+# NoPattern
+# ============================================================
+
+@testset "NoPattern — identity on non-patterns" begin
+    @test NoPattern(42) === 42
+    @test NoPattern(:x) === :x
+    @test NoPattern("hello") === "hello"
+end
+
+@testset "NoPattern — identity on any value" begin
+    v = [1, 2, 3]
+    @test NoPattern(v) === v
+end
+
+# ============================================================
+# DaggerCharacter / HasDaggerCharacterQ / MakeDaggerSymbol
+# ============================================================
+
+@testset "DaggerCharacter — is a Ref{String} with non-empty default" begin
+    @test DaggerCharacter isa Ref{String}
+    @test !isempty(DaggerCharacter[])
+end
+
+@testset "HasDaggerCharacterQ — false for plain symbol" begin
+    @test HasDaggerCharacterQ(:foo) == false
+end
+
+@testset "HasDaggerCharacterQ — true after MakeDaggerSymbol" begin
+    daggered = MakeDaggerSymbol(:myBase)
+    @test HasDaggerCharacterQ(daggered) == true
+end
+
+@testset "MakeDaggerSymbol — toggle: twice gives original" begin
+    @test MakeDaggerSymbol(MakeDaggerSymbol(:foo)) == :foo
+    @test MakeDaggerSymbol(MakeDaggerSymbol(:alpha)) == :alpha
+end
+
+@testset "MakeDaggerSymbol — adds dagger to plain symbol" begin
+    daggered = MakeDaggerSymbol(:v)
+    @test occursin(DaggerCharacter[], string(daggered))
+end
+
+@testset "MakeDaggerSymbol — removes dagger from daggered symbol" begin
+    daggered = MakeDaggerSymbol(:w)
+    plain = MakeDaggerSymbol(daggered)
+    @test plain == :w
+end
+
+# ============================================================
+# SubHead
+# ============================================================
+
+@testset "SubHead — bare symbol returns itself" begin
+    @test SubHead(:x) === :x
+    @test SubHead(:MyTensor) === :MyTensor
+end
+
+@testset "SubHead — Expr returns head symbol" begin
+    # In Julia, :(f(x,y)).head is :call, so SubHead recurses to :call.
+    e = :(f(x, y))
+    @test SubHead(e) === :call
+end
+
+@testset "SubHead — non-symbol non-Expr is identity" begin
+    @test SubHead(42) === 42
+end
+
+# ============================================================
+# xUpSet! / xUpSetDelayed! / xUpAppendTo! / xUpDeleteCasesTo!
+# ============================================================
+
+function reset_upvalues!()
+    empty!(XCore._upvalue_store)
+end
+
+@testset "xUpSet! — stores value" begin
+    reset_upvalues!()
+    xUpSet!(:MyProp, :MySym, 42)
+    d = XCore._upvalue_store[:MySym]
+    @test d[:MyProp] == 42
+end
+
+@testset "xUpSet! — returns value" begin
+    reset_upvalues!()
+    ret = xUpSet!(:P, :S, "hello")
+    @test ret == "hello"
+end
+
+@testset "xUpSet! — overwrites previous value" begin
+    reset_upvalues!()
+    xUpSet!(:P, :S, 1)
+    xUpSet!(:P, :S, 2)
+    @test XCore._upvalue_store[:S][:P] == 2
+end
+
+@testset "xUpSetDelayed! — stores thunk, returns nothing" begin
+    reset_upvalues!()
+    ret = xUpSetDelayed!(:P, :S, () -> 99)
+    @test ret === nothing
+    thunk = XCore._upvalue_store[:S][:P]
+    @test thunk isa Function
+    @test thunk() == 99
+end
+
+@testset "xUpAppendTo! — initializes list" begin
+    reset_upvalues!()
+    xUpAppendTo!(:P, :S, "first")
+    @test XCore._upvalue_store[:S][:P] == ["first"]
+end
+
+@testset "xUpAppendTo! — appends to list" begin
+    reset_upvalues!()
+    xUpAppendTo!(:P, :S, "a")
+    xUpAppendTo!(:P, :S, "b")
+    @test XCore._upvalue_store[:S][:P] == ["a", "b"]
+end
+
+@testset "xUpAppendTo! — returns the list" begin
+    reset_upvalues!()
+    lst = xUpAppendTo!(:P, :S, 1)
+    @test lst == [1]
+end
+
+@testset "xUpDeleteCasesTo! — removes matching element" begin
+    reset_upvalues!()
+    xUpAppendTo!(:P, :S, 1)
+    xUpAppendTo!(:P, :S, 2)
+    xUpAppendTo!(:P, :S, 3)
+    xUpDeleteCasesTo!(:P, :S, x -> x == 2)
+    @test XCore._upvalue_store[:S][:P] == [1, 3]
+end
+
+@testset "xUpDeleteCasesTo! — no-op when property absent" begin
+    reset_upvalues!()
+    @test_nowarn xUpDeleteCasesTo!(:Missing, :S, _ -> true)
+end
+
+# ============================================================
+# xTagSet! / xTagSetDelayed!
+# ============================================================
+
+@testset "xTagSet! — stores value under tag" begin
+    reset_upvalues!()
+    xTagSet!(:MyTag, :key, "val")
+    stored = XCore._upvalue_store[:MyTag]
+    @test haskey(stored, Symbol(:tag_, :key))
+    @test stored[Symbol(:tag_, :key)] == "val"
+end
+
+@testset "xTagSetDelayed! — stores thunk under tag" begin
+    reset_upvalues!()
+    xTagSetDelayed!(:MyTag, :key, () -> 7)
+    stored = XCore._upvalue_store[:MyTag]
+    thunk = stored[Symbol(:tag_, :key)]
+    @test thunk() == 7
+end
+
+# ============================================================
+# push_unevaluated!
+# ============================================================
+
+@testset "push_unevaluated! — is alias for push!" begin
+    v = [1, 2, 3]
+    push_unevaluated!(v, 4)
+    @test v == [1, 2, 3, 4]
+end
+
+# ============================================================
+# XHold / xEvaluateAt
+# ============================================================
+
+@testset "XHold — wraps a value" begin
+    h = XHold(42)
+    @test h.value == 42
+end
+
+@testset "XHold — show does not throw" begin
+    h = XHold(:sym)
+    @test_nowarn repr(h)
+    @test occursin("XHold", repr(h))
+end
+
+@testset "xEvaluateAt — returns expr unchanged" begin
+    e = :( f(x) )
+    @test xEvaluateAt(e, [1]) === e
+    @test xEvaluateAt(42, []) === 42
+end
+
+# ============================================================
+# WarningFrom / xActDirectory / xActDocDirectory
+# ============================================================
+
+@testset "WarningFrom — is a Ref{String}" begin
+    @test WarningFrom isa Ref{String}
+    @test WarningFrom[] isa String
+end
+
+@testset "xActDirectory — is a Ref{String}" begin
+    @test xActDirectory isa Ref{String}
+    @test xActDirectory[] isa String
+end
+
+@testset "xActDocDirectory — is a Ref{String}" begin
+    @test xActDocDirectory isa Ref{String}
+    @test xActDocDirectory[] isa String
+end
+
+# ============================================================
+# Disclaimer
+# ============================================================
+
+@testset "Disclaimer — prints without throwing" begin
+    @test_nowarn Disclaimer()
+end
+
+# ============================================================
+# DeleteDuplicates / DuplicateFreeQ (Category B aliases)
+# ============================================================
+
+@testset "DeleteDuplicates — removes duplicates preserving order" begin
+    @test DeleteDuplicates([1, 2, 1, 3, 2]) == [1, 2, 3]
+    @test DeleteDuplicates([:a, :b, :a]) == [:a, :b]
+end
+
+@testset "DeleteDuplicates — unique list unchanged" begin
+    @test DeleteDuplicates([1, 2, 3]) == [1, 2, 3]
+end
+
+@testset "DeleteDuplicates — all same gives singleton" begin
+    @test DeleteDuplicates([:x, :x, :x]) == [:x]
+end
+
+@testset "DuplicateFreeQ — true for unique list" begin
+    @test DuplicateFreeQ([1, 2, 3]) == true
+    @test DuplicateFreeQ([:a, :b]) == true
+end
+
+@testset "DuplicateFreeQ — false for list with duplicates" begin
+    @test DuplicateFreeQ([1, 2, 1]) == false
+end
+
+@testset "DuplicateFreeQ — true for empty list" begin
+    @test DuplicateFreeQ([]) == true
+end
+
+# ============================================================
+# Layer 2: Property-based tests (randomized invariants)
+# ============================================================
+
+# Helper: generate a unique symbol name not already in the registry.
+function fresh_name(prefix="sym")
+    string(prefix, "_", rand(UInt32))
+end
+
+@testset "L2: no two packages register the same name" begin
+    reset_registry!()
+    for _ in 1:50
+        name = fresh_name("prop")
+        pkg1 = "PkgA"
+        pkg2 = "PkgB"
+        register_symbol(name, pkg1)
+        # Second registration by a different package must throw.
+        @test_throws ErrorException register_symbol(name, pkg2)
+        # Registry still contains the original owner.
+        @test XCore._symbol_registry[name] == pkg1
+    end
+end
+
+@testset "L2: register_symbol idempotent for same package (random names)" begin
+    reset_registry!()
+    for _ in 1:50
+        name = fresh_name("idem")
+        register_symbol(name, "XCore")
+        @test_nowarn register_symbol(name, "XCore")
+        @test count(==(name), xCoreNames) == 1
+    end
+end
+
+@testset "L2: ValidateSymbol always throws for any registered symbol" begin
+    reset_registry!()
+    names = [fresh_name("vs") for _ in 1:30]
+    for n in names
+        register_symbol(n, "XTensor")
+    end
+    for n in names
+        @test_throws ErrorException ValidateSymbol(Symbol(n))
+    end
+end
+
+@testset "L2: hook registration ordering preserved for N hooks" begin
+    reset_xtensions!()
+    N = 20
+    log = Int[]
+    for i in 1:N
+        local j = i
+        xTension!("Pkg", :DefProp, "Beginning", (_...) -> push!(log, j))
+    end
+    MakexTensions(:DefProp, "Beginning")
+    @test log == collect(1:N)
+end
+
+@testset "L2: hooks are independent across (command, moment) pairs" begin
+    reset_xtensions!()
+    results = Dict{Tuple{Symbol,String}, Vector{Int}}()
+    cmds = [:Cmd1, :Cmd2, :Cmd3]
+    moments = ["Beginning", "End"]
+    # Register hooks for all combos, tracking a unique value per combo.
+    for (ci, cmd) in enumerate(cmds)
+        for (mi, moment) in enumerate(moments)
+            key = (cmd, moment)
+            results[key] = Int[]
+            local k = key
+            xTension!("Pkg", cmd, moment, (_...) -> push!(results[k], ci * 10 + mi))
+        end
+    end
+    # Fire each combo and verify only the right hook ran.
+    for cmd in cmds
+        for moment in moments
+            key = (cmd, moment)
+            MakexTensions(cmd, moment)
+            @test length(results[key]) == 1
+        end
+    end
+end

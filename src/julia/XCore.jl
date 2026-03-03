@@ -167,12 +167,28 @@ ReportSetOption(symbol, pair::Pair) = nothing
 
 Validate that every element (after flattening one level) is a `Pair`.
 Returns a flat `Vector{Pair}` on success; throws on invalid structure.
+
+Each argument must be either a `Pair` (kept as-is) or an iterable of
+`Pair`s (flattened one level).  Iterating over a bare `Pair` would
+yield its key and value, not a single rule, so `Pair` arguments are
+treated as atomic here.
 """
 function CheckOptions(opts...)
     isempty(opts) && return Pair[]
-    flat = collect(Iterators.flatten(opts))
-    all(o -> o isa Pair, flat) ||
-        error("CheckOptions: expected Pair rules, got: $(flat)")
+    flat = Pair[]
+    for o in opts
+        if o isa Pair
+            push!(flat, o)
+        elseif o isa Union{AbstractVector, Tuple}
+            for item in o
+                item isa Pair ||
+                    error("CheckOptions: expected Pair rules, got: $(o)")
+                push!(flat, item)
+            end
+        else
+            error("CheckOptions: expected Pair rules, got: $(o)")
+        end
+    end
     flat
 end
 
