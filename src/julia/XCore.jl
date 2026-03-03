@@ -49,7 +49,9 @@ export xEvaluateAt, XHold
 
 # 10. Symbol registry and validation
 export ValidateSymbol, FindSymbols
+export register_symbol
 export xPermNames, xTensorNames, xCoreNames
+export xTableauNames, xCobaNames, InvarNames, HarmonicsNames, xPertNames, SpinorsNames, EMNames
 export WarningFrom, xActDirectory, xActDocDirectory
 
 # 11. Misc
@@ -367,10 +369,36 @@ xEvaluateAt(expr, _positions) = expr
 # 10. Symbol registry and validation
 # ============================================================
 
-# Mutable name lists populated at package-load time by downstream packages.
-const xPermNames   = String[]
-const xTensorNames = String[]
-const xCoreNames   = String[]
+# Central registry: symbol name → owning package name.
+# All packages call register_symbol() at load time to populate this.
+const _symbol_registry = Dict{String, String}()
+
+# Per-package name lists.  Populated via register_symbol(); also open for
+# direct push!() by packages that manage their own registration.
+const xPermNames     = String[]
+const xTensorNames   = String[]
+const xCoreNames     = String[]
+const xTableauNames  = String[]
+const xCobaNames     = String[]
+const InvarNames     = String[]
+const HarmonicsNames = String[]
+const xPertNames     = String[]
+const SpinorsNames   = String[]
+const EMNames        = String[]
+
+# Map package label → per-package list (used by register_symbol).
+const _PACKAGE_LISTS = Dict{String, Vector{String}}(
+    "XCore"    => xCoreNames,
+    "XPerm"    => xPermNames,
+    "XTensor"  => xTensorNames,
+    "XTableau" => xTableauNames,
+    "XCoba"    => xCobaNames,
+    "Invar"    => InvarNames,
+    "Harmonics"=> HarmonicsNames,
+    "XPert"    => xPertNames,
+    "Spinors"  => SpinorsNames,
+    "EM"       => EMNames,
+)
 
 """Current warning source label, analogous to Mathematica `\$WarningFrom`."""
 const WarningFrom = Ref{String}("XCore")
@@ -382,18 +410,48 @@ const xActDirectory = Ref{String}("")
 const xActDocDirectory = Ref{String}("")
 
 """
+    register_symbol(name, package)
+
+Register `name` (a `Symbol` or string) as owned by `package`.
+
+- If the name is already registered by the **same** package, the call is a
+  no-op (idempotent).
+- If the name is already registered by a **different** package, throws an error.
+- On success, also appends `name` to the per-package name list if `package` is
+  one of the known xAct package labels.
+"""
+function register_symbol(name::Union{Symbol, AbstractString}, package::AbstractString)
+    sname = string(name)
+    if haskey(_symbol_registry, sname)
+        existing = _symbol_registry[sname]
+        existing == package && return nothing   # idempotent
+        error("register_symbol: \"$sname\" already registered by $existing")
+    end
+    _symbol_registry[sname] = package
+    lst = get(_PACKAGE_LISTS, package, nothing)
+    isnothing(lst) || push!(lst, sname)
+    nothing
+end
+
+"""
     ValidateSymbol(name::Symbol)
 
-Throw if `name` is already registered in xCore, xPerm, or xTensor name lists,
-or if it is exported by `Base`.  Returns `nothing` on success.
+Throw if `name` collides with any symbol already registered in the xAct
+registry, or if it is exported by Julia's `Base`.  Returns `nothing` on success.
+
+Error conditions (mirrors Mathematica `ValidateSymbol`):
+- `name` is in `_symbol_registry` → already used by that package
+- `name` is a `Base` export → reserved by Julia
 """
 function ValidateSymbol(name::Symbol)
     sname = string(name)
-    sname in xCoreNames   && error("ValidateSymbol: $sname already used by xCore")
-    sname in xPermNames   && error("ValidateSymbol: $sname already used by xPerm")
-    sname in xTensorNames && error("ValidateSymbol: $sname already used by xTensor")
-    isdefined(Base, name) && Base.isexported(Base, name) &&
-        error("ValidateSymbol: $sname is a Julia Base export")
+    if haskey(_symbol_registry, sname)
+        pkg = _symbol_registry[sname]
+        error("ValidateSymbol: \"$sname\" already used by $pkg")
+    end
+    if isdefined(Base, name) && Base.isexported(Base, name)
+        error("ValidateSymbol: \"$sname\" is a Julia Base export")
+    end
     nothing
 end
 
