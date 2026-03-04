@@ -96,12 +96,10 @@ end
     # Base internals that are not exported should not trigger the check.
     # Use a name that is defined in Base but not exported.
     # (We verify it is not exported first so the test is self-consistent.)
-    sym = :_setindex_once!   # internal Base helper, not exported
-    if isdefined(Base, sym) && !Base.isexported(Base, sym)
-        @test_nowarn ValidateSymbol(sym)
-    else
-        @test_skip "symbol not suitable for this test on this Julia version"
-    end
+    # AbstractCmd is a stable internal Base type, not part of the public API.
+    sym = :AbstractCmd
+    @assert isdefined(Base, sym) && !Base.isexported(Base, sym) "test assumption broken on this Julia version"
+    @test_nowarn ValidateSymbol(sym)
 end
 
 @testset "ValidateSymbol — collision message contains symbol name" begin
