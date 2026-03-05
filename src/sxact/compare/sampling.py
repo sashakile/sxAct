@@ -188,19 +188,72 @@ def sample_numeric(
 # Internal helpers — scalars
 # ---------------------------------------------------------------------------
 
-_MATH_CONSTANTS = frozenset({"e", "i"})
+_MATH_CONSTANTS = frozenset({"e", "i", "E", "I", "Pi"})
+
+# Wolfram built-in operator heads whose arguments are free expressions (not indices).
+_WOLFRAM_OPERATORS = frozenset({
+    "Plus", "Times", "Power", "Subtract", "Minus", "Divide",
+    "Sin", "Cos", "Tan", "ArcSin", "ArcCos", "ArcTan",
+    "Sinh", "Cosh", "Tanh", "ArcSinh", "ArcCosh", "ArcTanh",
+    "Exp", "Log", "Log10", "Log2", "Sqrt", "Abs",
+    "Re", "Im", "Conjugate", "Factorial",
+    "N", "Simplify", "FullSimplify", "Expand", "Factor",
+})
+
+_IDENT_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
+
+
+def _collect_ast_vars(node: object) -> set[str]:
+    """Walk an AST node and collect free variable symbols."""
+    from sxact.normalize.ast_parser import Leaf, Node
+
+    if isinstance(node, Leaf):
+        val = node.value
+        if _IDENT_RE.match(val):
+            return {val}
+        return set()
+
+    assert isinstance(node, Node)
+    # Only recurse into args of known Wolfram operators.
+    # Unknown heads (user tensors) treat their args as indices.
+    if isinstance(node.head, str) and node.head in _WOLFRAM_OPERATORS:
+        result: set[str] = set()
+        for arg in node.args:
+            result |= _collect_ast_vars(arg)
+        return result
+    return set()
 
 
 def _extract_variables(expr: str) -> set[str]:
     """Extract free scalar variable names from an expression.
 
-    Looks for single lowercase letters not inside brackets.
-    Excludes 'e' (Euler's number) and 'i' (imaginary unit).
+    For FullForm expressions (e.g. ``Plus[a, b]``) the AST parser is used so
+    that multi-character names and arbitrarily nested brackets are handled
+    correctly.  For infix expressions (e.g. ``a*x + b``) that the parser
+    cannot consume, the function falls back to iterative bracket-stripping
+    followed by a regex identifier scan.
+
+    Excludes mathematical constants ``e`` (Euler), ``i`` (imaginary unit),
+    ``E``, ``I``, and ``Pi``.
     """
-    bracket_content = re.sub(r"\[[^\]]*\]", "", expr)
-    pattern = r"\b([a-z])\b"
-    matches = re.findall(pattern, bracket_content)
-    return set(matches) - _MATH_CONSTANTS
+    try:
+        from sxact.normalize.ast_parser import parse
+        tree = parse(expr)
+        return _collect_ast_vars(tree) - _MATH_CONSTANTS
+    except Exception:
+        pass
+
+    # Regex fallback for infix notation: strip nested brackets iteratively.
+    stripped = expr
+    while True:
+        reduced = re.sub(r"\[[^\]]*\]", "", stripped)
+        if reduced == stripped:
+            break
+        stripped = reduced
+
+    pattern = r"\b([a-zA-Z][a-zA-Z0-9_]*)\b"
+    matches = re.findall(pattern, stripped)
+    return {m for m in matches if m not in _MATH_CONSTANTS}
 
 
 def _evaluate_numeric_diff(

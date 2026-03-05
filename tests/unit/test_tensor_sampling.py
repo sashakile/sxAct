@@ -245,3 +245,28 @@ class TestExtractVariables:
         # The function strips bracket content first
         assert "a" not in result
         assert "b" not in result
+
+    def test_nested_brackets_excluded(self):
+        # T[a,b][c] has three indices — none are free variables
+        result = _extract_variables("T[a,b][c]")
+        assert "a" not in result
+        assert "b" not in result
+        assert "c" not in result
+
+    def test_multichar_variable_fullform(self):
+        # FullForm expression with multi-character variable names
+        result = _extract_variables("Plus[var1, var2]")
+        assert "var1" in result
+        assert "var2" in result
+
+    def test_multichar_variable_infix(self):
+        # Infix expression with multi-character variable names (regex fallback)
+        result = _extract_variables("var1 + var2")
+        assert "var1" in result
+        assert "var2" in result
+
+    def test_operator_args_are_variables(self):
+        # In FullForm, args of known operators are free variables
+        result = _extract_variables("Plus[x, y]")
+        assert "x" in result
+        assert "y" in result
