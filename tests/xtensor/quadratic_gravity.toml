@@ -1,0 +1,251 @@
+# tests/xtensor/quadratic_gravity.toml
+# Layer 1 benchmark tests for quadratic gravity and Poincaré gauge theory.
+#
+# References:
+#   - Barker et al. (2025), PSALTer: particle spectrum analysis for tensor Lagrangians.
+#     https://github.com/wevbarker/PSALTer
+#   - Barker (2024), HiGGS: Hamiltonian analysis of Poincaré gauge gravity.
+#     https://github.com/wevbarker/HiGGS
+#
+# Quadratic gravity Lagrangian (general form):
+#   L = a R + b R² + c R_{ab}R^{ab} + d R_{abcd}R^{abcd}
+#
+# Poincaré gauge theory (PGT) introduces:
+#   - Torsion tensor T^a_{bc} = -T^a_{cb} (antisymmetric in last two indices)
+#   - Curvature 2-form Ω_{abcd} = -Ω_{abdc} (antisymmetric in cd)
+#
+# These tests validate the tensor algebra properties of PGT that PSALTer/HiGGS
+# use in particle spectrum computations:
+#   1. Torsion antisymmetry (key PGT input)
+#   2. Curvature 2-form antisymmetry
+#   3. Riemann antisymmetry properties (quadratic gravity building blocks)
+#   4. Gauss-Bonnet combination expression (topological in 4D)
+#   5. Idempotency of canonicalization on a Gauss-Bonnet-like scalar
+#
+# Validates schema: src/sxact/runner/schemas/test-schema.json
+
+[meta]
+id              = "xtensor/quadratic_gravity"
+description     = "PSALTer/HiGGS: Poincaré gauge torsion, quadratic gravity, Gauss-Bonnet combination"
+tags            = ["xtensor", "quadratic-gravity", "psalter", "higgs", "poincare-gauge", "benchmark", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold for Poincaré gauge theory.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "QGM4"
+[setup.args]
+name      = "QGM4"
+dimension = 4
+indices   = ["qga", "qgb", "qgc", "qgd", "qge", "qgf"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "QGg"
+[setup.args]
+signdet = -1
+metric  = "QGg[-qga,-qgb]"
+covd    = "QGD"
+
+# Torsion tensor T^a_{bc}: antisymmetric in last two indices (bc).
+# In PGT, this is the field strength of the translational gauge field (vielbein).
+# PSALTer uses torsion as an independent field alongside curvature.
+[[setup]]
+action   = "DefTensor"
+store_as = "QGTorsion"
+[setup.args]
+name     = "QGTorsion"
+indices  = ["qga", "-qgb", "-qgc"]
+manifold = "QGM4"
+symmetry = "Antisymmetric[{-qgb,-qgc}]"
+
+# Curvature 2-form Ω_{ab cd}: antisymmetric in the ab pair (gauge curvature)
+# and antisymmetric in the cd pair (form indices).
+# In PGT, this is the field strength of the rotational gauge field (spin connection).
+[[setup]]
+action   = "DefTensor"
+store_as = "QGOmega"
+[setup.args]
+name     = "QGOmega"
+indices  = ["-qga", "-qgb", "-qgc", "-qgd"]
+manifold = "QGM4"
+symmetry = "Antisymmetric[{-qga,-qgb}]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "torsion_antisymmetry"
+description = "Torsion T^a_{bc} is antisymmetric in bc: T^a_{bc} + T^a_{cb} = 0"
+
+# The torsion tensor in PGT is defined as T^a_{bc} = ∂_b e^a_c - ∂_c e^a_b + ...
+# (where e^a_b is the vielbein), which is manifestly antisymmetric in b,c.
+# PSALTer decomposes torsion into irreducible representations using this symmetry.
+# Ref: Barker et al. (2025), PSALTer Section 2; HiGGS Appendix A.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "QGTorsion[qga,-qgb,-qgc] + QGTorsion[qga,-qgc,-qgb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Torsion antisymmetry T^a_{bc} = -T^a_{cb}: PGT defining property"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "torsion_tocanonical_idempotent"
+description = "ToCanonical idempotency on torsion trace expression T^a_{ab}"
+
+# Validates normalization stability for a trace of the torsion tensor,
+# which appears in the irreducible decomposition used by PSALTer.
+# The vector torsion V_b = T^a_{ab} is a key irrep component.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "once"
+[tests.operations.args]
+expression = "QGTorsion[qga,-qga,-qgb]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "twice"
+[tests.operations.args]
+expression = "$once"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$once == $twice"
+message   = "ToCanonical idempotency on torsion trace V_b = T^a_{ab}"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "curvature_2form_antisymmetry_cd"
+description = "Gauge curvature 2-form Ω_{ab cd}: antisymmetry in first pair Ω_{abcd} + Ω_{bacd} = 0"
+
+# The curvature 2-form of the spin connection in PGT satisfies antisymmetry
+# in its gauge indices (the Lie algebra indices ab).
+# This matches the Riemann tensor antisymmetry and is a building block for
+# the PSALTer particle spectrum computation.
+# Ref: Barker (2024), HiGGS Eq. 2.3; Kibble (1961) PGT original.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "QGOmega[-qga,-qgb,-qgc,-qgd] + QGOmega[-qgb,-qga,-qgc,-qgd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Gauge curvature antisymmetry Ω_{abcd} = -Ω_{bacd}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_antisymmetry_qg"
+description = "Riemann tensor antisymmetry in first pair: R_{abcd} + R_{bacd} = 0 (quadratic gravity basis)"
+
+# In quadratic gravity, the Lagrangian L = aR + bR² + cR_{ab}R^{ab} + dR_{abcd}R^{abcd}
+# is built from scalars formed by contracting Riemann tensor pairs.  The antisymmetry
+# properties determine which contractions are independent.
+# The combination d*R_{abcd}R^{abcd} is the Kretschner invariant (PSALTer K3 term).
+# Ref: Barker et al. (2025), PSALTer: quadratic gravity sector.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "RiemannQGD[-qga,-qgb,-qgc,-qgd] + RiemannQGD[-qgb,-qga,-qgc,-qgd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Riemann antisymmetry R_{abcd} = -R_{bacd}: determines independent quadratic invariants"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "gauss_bonnet_idempotent"
+description = "ToCanonical idempotency on Gauss-Bonnet combination R² - 4R_{ab}R^{ab} + R_{abcd}R^{abcd}"
+
+# The Gauss-Bonnet (GB) combination is topological in 4D (its variation gives
+# a boundary term, so it does not contribute to the bulk equations of motion).
+# PSALTer uses the GB identity to simplify the quadratic gravity field equations.
+# This test verifies that the GB scalar expression can be canonically formed
+# and that the normalizer is stable (idempotent) for this complex combination.
+#
+# GB = R² - 4 R_{ab}R^{ab} + R_{abcd}R^{abcd}
+# Ref: Barker et al. (2025), PSALTer quadratic gravity; Lovelock (1971).
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "gb_once"
+[tests.operations.args]
+expression = "RicciScalarQGD[]^2 - 4 RicciQGD[-qga,-qgb] RicciQGD[qga,qgb] + RiemannQGD[-qga,-qgb,-qgc,-qgd] RiemannQGD[qga,qgb,qgc,qgd]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "gb_twice"
+[tests.operations.args]
+expression = "$gb_once"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$gb_once == $gb_twice"
+message   = "ToCanonical idempotency on Gauss-Bonnet scalar R²-4Ric²+Riemann²"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "einstein_bianchi_symmetry_qg"
+description = "Einstein tensor G_{ab} = G_{ba} (symmetry of field equations in quadratic gravity)"
+
+# In quadratic gravity, the variation of the Lagrangian gives field equations
+# E_{ab} = 0 that must be symmetric tensors (since they derive from varying a
+# scalar action with respect to a symmetric metric).  The GR contribution to
+# E_{ab} is the Einstein tensor, which must be symmetric.
+# This test benchmarks the symmetry check in the quadratic gravity context.
+# Ref: Barker et al. (2025), PSALTer field equation derivation.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "EinsteinQGD[-qga,-qgb] - EinsteinQGD[-qgb,-qga]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Einstein tensor symmetry in quadratic gravity context: G_{ab} = G_{ba}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1

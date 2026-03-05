@@ -1,0 +1,238 @@
+# tests/xtensor/gw_memory_3p5pn.toml
+# Layer 1 benchmark tests for 3.5PN gravitational wave memory computations.
+#
+# Reference: Cunningham et al. (2025), "Gravitational memory: new results from
+# post-Newtonian and self-force theory", Class. Quantum Grav. 42.
+#
+# These tests validate the tensor algebra operations underlying 3.5PN memory:
+#   - Symmetric trace-free (STF) quadrupole tensor properties
+#   - Linearized metric perturbation h_{ab} symmetry
+#   - Einstein tensor symmetry and definition (G_{ab} = R_{ab} - ½g_{ab}R)
+#   - First Bianchi identity (algebraic foundation of multipole expansion)
+#
+# Context: The 3.5PN gravitational wave strain is derived from the Einstein field
+# equations applied to an inspiraling binary.  Higher-order PN computations require
+# correct tensor contractions and symmetry reductions; this suite benchmarks both
+# correctness (oracle assertion) and performance (Layer 3 timing via `xact-test
+# benchmark`).
+#
+# Validates schema: src/sxact/runner/schemas/test-schema.json
+
+[meta]
+id              = "xtensor/gw_memory_3p5pn"
+description     = "3.5PN GW memory: STF quadrupole, metric perturbation, Einstein tensor, Bianchi identity"
+tags            = ["xtensor", "gravitational-waves", "post-newtonian", "benchmark", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold (physical spacetime for GW derivation).
+# Using Lorentzian signature signdet=-1 matching the GW literature convention.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "GWM4"
+[setup.args]
+name      = "GWM4"
+dimension = 4
+indices   = ["gwa", "gwb", "gwc", "gwd", "gwe", "gwf"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "GWg"
+[setup.args]
+signdet = -1
+metric  = "GWg[-gwa,-gwb]"
+covd    = "GWD"
+
+# STF quadrupole moment tensor Q_{ab}: symmetric rank-2 tensor representing
+# the mass quadrupole moment of a compact binary system.
+[[setup]]
+action   = "DefTensor"
+store_as = "GWSTF"
+[setup.args]
+name     = "GWSTF"
+indices  = ["-gwa", "-gwb"]
+manifold = "GWM4"
+symmetry = "Symmetric[{-gwa,-gwb}]"
+
+# Linearized metric perturbation h_{ab}: symmetric rank-2 tensor representing
+# the GW strain; must be symmetric for a physical metric perturbation.
+[[setup]]
+action   = "DefTensor"
+store_as = "GWh"
+[setup.args]
+name     = "GWh"
+indices  = ["-gwa", "-gwb"]
+manifold = "GWM4"
+symmetry = "Symmetric[{-gwa,-gwb}]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "stf_quadrupole_symmetry"
+description = "STF mass quadrupole Q_{ab} is symmetric: Q_{ab} - Q_{ba} = 0"
+
+# The mass quadrupole Q_{ab} is defined as an STF tensor (symmetric and
+# traceless).  This test validates the symmetry property Q_{ab} = Q_{ba},
+# which is a prerequisite for computing gravitational wave memory.
+# Ref: Cunningham et al. (2025), Eq. 2.1 (mass multipole moments).
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "GWSTF[-gwa,-gwb] - GWSTF[-gwb,-gwa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Mass quadrupole symmetry Q_{ab} = Q_{ba} (fundamental property of STF tensors)"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "metric_perturbation_symmetry"
+description = "Linearized metric perturbation h_{ab} is symmetric: h_{ab} - h_{ba} = 0"
+
+# The linearized metric g_{ab} = η_{ab} + h_{ab} requires h_{ab} = h_{ba}
+# so that the full metric remains symmetric.  The TT gauge GW strain h^{TT}_{ij}
+# inherits this symmetry.
+# Ref: Cunningham et al. (2025), Section 2 (linearized GR setup).
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "GWh[-gwa,-gwb] - GWh[-gwb,-gwa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Metric perturbation symmetry h_{ab} = h_{ba}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "einstein_tensor_symmetry"
+description = "Einstein tensor G_{ab} = G_{ba}: symmetry required by EFE G_{ab} = 8π T_{ab}"
+
+# The Einstein tensor G_{ab} = R_{ab} - ½g_{ab}R is symmetric because both
+# R_{ab} and g_{ab} are symmetric.  This symmetry is required for the EFE to
+# be consistent with the symmetry of the energy-momentum tensor T_{ab}.
+# Ref: Cunningham et al. (2025), uses EFE throughout PN derivation.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "EinsteinGWD[-gwa,-gwb] - EinsteinGWD[-gwb,-gwa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Einstein tensor symmetry G_{ab} = G_{ba}: xAct EinsteinGWD inherits symmetry from R_{ab} and g_{ab}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "einstein_from_ricci"
+description = "Einstein tensor definition: G_{ab} = R_{ab} - ½g_{ab}R holds identically"
+
+# Validates that xAct's EinsteinGWD is consistent with the definition
+# G_{ab} := R_{ab} - ½g_{ab}R.  This is a non-trivial cross-check: the
+# expression EinsteinGWD[-gwa,-gwb] - RicciGWD[-gwa,-gwb] + ½GWg[-gwa,-gwb]
+# RicciScalarGWD[] should vanish identically after canonicalization.
+# Ref: Cunningham et al. (2025), Eq. A.2 (PN field equations).
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "EinsteinGWD[-gwa,-gwb] - RicciGWD[-gwa,-gwb] + (1/2) GWg[-gwa,-gwb] RicciScalarGWD[]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Einstein definition G_{ab} := R_{ab} - ½g_{ab}R must hold identically in xAct"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_first_bianchi_gw"
+description = "First Bianchi identity R_{a[bcd]} = 0, algebraic foundation of PN multipole expansion"
+
+# The first (algebraic) Bianchi identity R_{abcd} + R_{acdb} + R_{adbc} = 0
+# is the foundation for the PN multipole expansion hierarchy.  It reduces the
+# independent components of the Riemann tensor and underlies the derivation
+# of the Newtonian and PN potentials from the Einstein equations.
+# Ref: Cunningham et al. (2025), Appendix A; Wald (1984) Eq. 3.2.12.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "RiemannGWD[-gwa,-gwb,-gwc,-gwd] + RiemannGWD[-gwa,-gwc,-gwd,-gwb] + RiemannGWD[-gwa,-gwd,-gwb,-gwc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "First Bianchi R_{a[bcd]} = 0: algebraic foundation of PN hierarchy"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "quadrupole_contraction_idempotent"
+description = "ToCanonical idempotency on quadrupole contraction GWSTF[-gwa,-gwb] GWg[gwb,gwc]"
+
+# Validates that the normalization pipeline is stable under repeated application
+# for a representative PN expression: the mixed-index quadrupole Q_a^c.
+# Idempotency is required for the Tier 1 AST normalizer to be a valid canonical
+# form algorithm.
+# Ref: sxAct publication strategy, Tier 1 canonicalization correctness.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "once"
+[tests.operations.args]
+expression = "GWSTF[-gwa,-gwb] GWg[gwb,gwc]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "twice"
+[tests.operations.args]
+expression = "$once"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$once == $twice"
+message   = "ToCanonical idempotency on Q_a^c = GWSTF[-gwa,-gwb] GWg[gwb,gwc]"

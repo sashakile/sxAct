@@ -1,0 +1,278 @@
+# tests/xtensor/curvature_invariants.toml
+# Layer 1 benchmark tests for polynomial curvature invariants (TInvar-style).
+#
+# Reference: TInvar package, xAct 1.3.0 (released Dec 2025).
+# TInvar computes polynomial invariants of the Riemann tensor.
+# See: http://xact.es/TInvar/
+#
+# The basic curvature invariants of a 4D (pseudo-)Riemannian manifold are:
+#   K1  = R                    (Ricci scalar)
+#   K2  = R_{ab} R^{ab}        (Ricci square)
+#   K3  = R_{abcd} R^{abcd}    (Kretschner / Gauss-Bonnet-Kretschner)
+#   K4  = R_{abcd} R^{acbd}    (Riemann square, second contraction)
+#
+# These tests validate xAct's ability to:
+#   1. Form scalar contractions of curvature tensors (Kretschner, Ricci^2)
+#   2. Apply Riemann symmetries in product expressions
+#   3. Verify the Einstein tensor trace identity g^{ab} G_{ab} = -R (4D)
+#   4. Verify Weyl tensor antisymmetry properties
+#
+# Validates schema: src/sxact/runner/schemas/test-schema.json
+
+[meta]
+id              = "xtensor/curvature_invariants"
+description     = "TInvar-style curvature invariants: Kretschner, Ricci^2, Weyl symmetries, Einstein trace"
+tags            = ["xtensor", "curvature-invariants", "tinvar", "benchmark", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold for curvature invariant computation.
+# Six abstract indices cover all contractions in degree-2 invariants.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "CInv4"
+[setup.args]
+name      = "CInv4"
+dimension = 4
+indices   = ["cia", "cib", "cic", "cid", "cie", "cif"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "CIg"
+[setup.args]
+signdet = -1
+metric  = "CIg[-cia,-cib]"
+covd    = "CID"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "ricci_tensor_symmetry"
+description = "Ricci tensor is symmetric: R_{ab} - R_{ba} = 0 (prerequisite for K2 = R_{ab}R^{ab})"
+
+# The Ricci tensor R_{ab} = R^c_{acb} inherits symmetry from the pair-exchange
+# symmetry of Riemann: R_{ab} = R_{ba}.  This must hold before forming the
+# invariant K2 = R_{ab} R^{ab}.
+# Ref: TInvar documentation; Wald (1984) Section 3.2.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "RicciCID[-cia,-cib] - RicciCID[-cib,-cia]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Ricci symmetry R_{ab} = R_{ba}: required for K2 = R_{ab}R^{ab} to be well-defined"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "kretschner_pair_exchange_symmetry"
+description = "Kretschner K3: R_{abcd}R^{abcd} = R_{cdab}R^{cdab} via Riemann pair exchange"
+
+# The Kretschner scalar K3 = R_{abcd} R^{abcd} is unchanged under relabeling
+# of dummy indices (cia,cib,cic,cid) → (cic,cid,cia,cib), which combined with
+# the Riemann pair-exchange symmetry R_{abcd} = R_{cdab} shows both expressions
+# equal the same scalar.  Their difference must vanish identically.
+# Ref: TInvar, Degree-2 invariant basis; Martin-Garcia (2025).
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "RiemannCID[-cia,-cib,-cic,-cid] RiemannCID[cia,cib,cic,cid] - RiemannCID[-cic,-cid,-cia,-cib] RiemannCID[cic,cid,cia,cib]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Kretschner K3 = R_{abcd}R^{abcd} is unchanged by pair exchange of dummy index labels"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "einstein_tensor_symmetry_ci"
+description = "Einstein tensor G_{ab} is symmetric: G_{ab} - G_{ba} = 0"
+
+# Symmetry of the Einstein tensor is required for all curvature invariant
+# formulations (e.g., G_{ab} G^{ab} is a valid degree-2 invariant).
+# Ref: TInvar invariant catalog; Wald (1984) Section 4.3.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "EinsteinCID[-cia,-cib] - EinsteinCID[-cib,-cia]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Einstein symmetry G_{ab} = G_{ba}: prerequisite for G_{ab}G^{ab} invariant"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "einstein_trace_in_4d"
+description = "Einstein tensor trace: g^{ab} G_{ab} + R = 0 in 4D"
+
+# In n dimensions, g^{ab} G_{ab} = R - (n/2) R = R(1 - n/2).
+# In 4D: g^{ab} G_{ab} = -R.
+# Equivalently: ContractMetric[CIg[cia,cib] EinsteinCID[-cia,-cib]] + RicciScalarCID[] = 0.
+# This is a key identity used in the trace of the Einstein field equations.
+# Ref: TInvar, Section on trace relations; Wald (1984) Exercise 4.3b.
+
+[[tests.operations]]
+action   = "Contract"
+store_as = "trace_G"
+[tests.operations.args]
+expression = "CIg[cia,cib] EinsteinCID[-cia,-cib]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "$trace_G + RicciScalarCID[]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "4D Einstein trace: g^{ab} G_{ab} = -R, i.e., trace_G + RicciScalar = 0"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "weyl_first_pair_antisymmetry"
+description = "Weyl tensor antisymmetry: W_{abcd} + W_{bacd} = 0"
+
+# The Weyl (conformal) tensor W_{abcd} inherits Riemann antisymmetry in the
+# first index pair.  In 4D: W_{abcd} = R_{abcd} - (1/2)(g_{ac}R_{bd} -
+# g_{ad}R_{bc} - g_{bc}R_{ad} + g_{bd}R_{ac}) + (1/6)(g_{ac}g_{bd} - g_{ad}g_{bc})R.
+# TInvar uses Weyl as part of the irreducible decomposition of the Riemann tensor.
+# Ref: TInvar documentation; xAct WeylCD definition.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "WeylCID[-cia,-cib,-cic,-cid] + WeylCID[-cib,-cia,-cic,-cid]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Weyl antisymmetry W_{abcd} = -W_{bacd}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "weyl_second_pair_antisymmetry"
+description = "Weyl tensor antisymmetry: W_{abcd} + W_{abdc} = 0"
+
+# Weyl tensor inherits Riemann antisymmetry in the second index pair.
+# Ref: TInvar documentation; xAct WeylCD definition.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "WeylCID[-cia,-cib,-cic,-cid] + WeylCID[-cia,-cib,-cid,-cic]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Weyl antisymmetry W_{abcd} = -W_{abdc}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "weyl_pair_exchange"
+description = "Weyl tensor pair-exchange symmetry: W_{abcd} - W_{cdab} = 0"
+
+# The Weyl tensor inherits the Riemann pair-exchange symmetry W_{abcd} = W_{cdab}.
+# This property is used in TInvar to reduce the number of independent degree-2
+# invariants from the Weyl sector.
+# Ref: TInvar invariant decomposition; Wald (1984) Eq. 3.2.16.
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "WeylCID[-cia,-cib,-cic,-cid] - WeylCID[-cic,-cid,-cia,-cib]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Weyl pair-exchange symmetry W_{abcd} = W_{cdab}"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "weyl_traceless"
+description = "Weyl tensor is trace-free: g^{ac} W_{abcd} = 0"
+
+# In any dimension ≥ 3, the Weyl tensor is traceless on every pair of indices.
+# For the first and third indices: g^{ac} W_{abcd} = 0.
+# This is the defining property that distinguishes Weyl from Riemann.
+# Ref: TInvar; Wald (1984) Definition after Eq. 3.2.28.
+
+[[tests.operations]]
+action   = "Contract"
+store_as = "trace_W"
+[tests.operations.args]
+expression = "CIg[cia,cic] WeylCID[-cia,-cib,-cic,-cid]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "result"
+[tests.operations.args]
+expression = "$trace_W"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 0"
+message   = "Weyl tracelessness: g^{ac} W_{abcd} = 0 (defining property of conformal curvature)"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
