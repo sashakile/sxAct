@@ -11,11 +11,11 @@
 
 Five design decisions for Layer 2 property testing:
 
-1. **Format**: Separate TOML format in `tests/properties/`, extending the spec schema
+1. **Format**: Separate TOML format in `tests/properties/`, with `layer = "property"`
 2. **Runner**: New `xact-test property` CLI subcommand
 3. **Backend**: Custom sampling (existing `sampling.py`) as primary; Hypothesis deferred
-4. **Cross-adapter**: Same random inputs executed on all adapters; results compared
-5. **Scalar scope**: 10+ xCore properties tractable; real value is in xTensor invariants
+4. **Cross-adapter**: Single-adapter self-validation is primary; cross-adapter comparison is secondary
+5. **Scalar scope**: 12 xCore properties tractable (smoke tests); 10 xTensor invariants are the research contribution
 
 ---
 
@@ -27,36 +27,98 @@ The Layer 1 TOML format (`tests/xcore/*.toml`) uses `[[tests]]` + `[[tests.opera
 with imperative `action` steps. This doesn't map naturally to declarative "for all X, P(X)".
 
 The Layer 2 format defined in `specs/2026-01-09-three-layer-testing-architecture.md` is
-already detailed and well-reasoned. Use it as-is:
+already detailed and well-reasoned. Use it as-is, with two additions below.
+
+### Variable substitution syntax
+
+In property expressions, `$name` is a substitution reference to a generator named `name`.
+For example, `$s` refers to the value produced by the generator with `name = "s"`.
+The runner expands these before sending expressions to the adapter.
+
+### Minimal schema example (symbol property)
 
 ```toml
 # tests/properties/xcore_symbol_laws.toml
 version = "1.0"
 layer = "property"
-description = "xCore symbol manipulation mathematical properties"
+description = "xCore symbol manipulation properties"
 
 [[properties]]
 id = "dagger_involution"
 name = "MakeDaggerSymbol is an involution"
 
 [properties.mathematical_basis]
-statement = "For any symbol s, MakeDaggerSymbol(MakeDaggerSymbol(s)) == s"
+statement = "For any symbol s without dagger, MakeDaggerSymbol(MakeDaggerSymbol(s)) == s"
 
 [properties.forall]
 [[properties.forall.generators]]
 name = "s"
 type = "Symbol"
-strategy = "fresh_symbol"
+strategy = "fresh_symbol"   # generates a new symbol with no dagger character (guaranteed)
 
 [properties.law]
 lhs = "MakeDaggerSymbol[MakeDaggerSymbol[$s]]"
 rhs = "$s"
-equivalence_type = "identical"
+equivalence_type = "identical"  # uses === (symbol equality), NOT numeric subtraction
 
 [properties.verification]
 num_samples = 50
 random_seed = 42
 ```
+
+### Schema example with setup (tensor property)
+
+Tensor properties require manifold/metric context. Use `[[setup]]` blocks mirroring
+the Layer 1 format:
+
+```toml
+# tests/properties/riemann_symmetries.toml
+version = "1.0"
+layer = "property"
+description = "Riemann tensor symmetry invariants"
+
+[[setup]]
+action = "Evaluate"
+[setup.args]
+expression = "DefManifold[M4, 4, {a, b, c, d, e, f}]"
+
+[[setup]]
+action = "Evaluate"
+[setup.args]
+expression = "DefMetric[-1, metric[-a, -b], CD, {';', 'nabla'}]"
+
+[[properties]]
+id = "riemann_antisymmetric_first_pair"
+name = "Riemann is antisymmetric in first index pair"
+
+[properties.mathematical_basis]
+statement = "R_{abcd} = -R_{bacd}"
+reference = "Wald, General Relativity (1984), Eq. 3.2.14"
+
+[properties.forall]
+[[properties.forall.generators]]
+name = "g"
+type = "Metric"
+manifold = "M4"
+signature = "Lorentzian"
+
+[properties.law]
+lhs = "RiemannCD[-a, -b, -c, -d]"
+rhs = "-RiemannCD[-b, -a, -c, -d]"
+equivalence_type = "numerical_tolerance"
+tolerance = 1e-12
+
+[properties.verification]
+num_samples = 30
+random_seed = 42
+```
+
+### Equivalence types
+
+| `equivalence_type` | Mechanism | Use for |
+|---|---|---|
+| `"identical"` | Oracle `lhs === rhs` (exact match) | Symbol-valued properties (xCore) |
+| `"numerical_tolerance"` | `Max[Abs[Flatten[N[lhs - rhs]]]] < tolerance` | Tensor/numeric properties |
 
 **Directory layout:**
 ```
@@ -68,8 +130,7 @@ tests/
 │   └── riemann_symmetries.toml
 ```
 
-The `layer = "property"` tag distinguishes files; the runner will refuse to load
-Layer 1 files via `xact-test property` and vice versa.
+The runner validates `layer = "property"` on load and rejects Layer 1 files.
 
 ---
 
@@ -85,12 +146,16 @@ inputs, execute forall, check law). Mixing them under `--layer=2` would complica
 A new subcommand is clean, follows the existing CLI pattern, and makes usage explicit:
 
 ```
-xact-test property tests/properties/          # run all property tests
-xact-test property tests/properties/ --adapter=python  # test specific adapter
-xact-test property tests/properties/ --samples=200     # override sample count
-xact-test property tests/properties/ --seed=99         # reproducible run
+xact-test property tests/properties/                  # run all property tests
+xact-test property tests/properties/ --adapter python # test specific adapter
+xact-test property tests/properties/ --samples 200   # override sample count
+xact-test property tests/properties/ --seed 99       # reproducible run
 xact-test property tests/properties/ --filter tag:critical
 ```
+
+**CLI change note**: `--adapter` here accepts a single adapter name (same as `run`).
+Cross-adapter mode (running multiple adapters in one invocation) requires a separate
+`--compare` flag or running the command twice — see Q4.
 
 Rejected alternatives:
 - `--layer=2` flag on `run`: pollutes existing subcommand, complicates loader
@@ -113,92 +178,154 @@ The existing `sampling.py` already supports:
 - Confidence scoring across N realizations
 - Reproducible seeding
 
-The property runner will use `sample_numeric` from `sampling.py` with the generator
-types declared in `properties.forall.generators`. Hypothesis can be revisited later
-as an optional enhancement for the Python adapter only (to get shrinking on failures).
+The property runner will use `sample_numeric` from `sampling.py` for `numerical_tolerance`
+properties, and direct oracle `===` evaluation for `identical` properties.
 
-**New generator types to implement in `sampling.py`:**
-- `"fresh_symbol"` → random fresh symbol name (for xCore symbol properties)
-- `"symbol_list"` → list of N fresh symbols
-- `"Tensor"` → random component array (already exists via `TensorContext`)
-- `"Metric"` → random positive-definite metric (already exists)
+**Tensor sampling gap**: `sampling.py`'s tensor mode currently generates one random
+component array per call. For `num_samples = N` in tensor properties, the runner must
+call `build_tensor_context` N times with different RNG seeds (e.g., `seed + i` for
+sample `i`). This extension is needed in sxAct-a2i.
+
+Hypothesis can be revisited as an optional enhancement for the Python adapter only
+(to get shrinking on counterexamples), not as the primary cross-adapter backend.
+
+### New generator types to implement in `sampling.py`
+
+| Generator type | Output | Notes |
+|---|---|---|
+| `"fresh_symbol"` | A new symbol with no dagger char | Guaranteed no `$DaggerCharacter` in name |
+| `"symbol_list"` | List of N fresh symbols | N configurable |
+| `"Tensor"` | Random component array | Already exists via `TensorContext` |
+| `"Metric"` | Random positive-definite metric | Already exists |
 
 ---
 
-## Q4: Cross-Adapter Property Validation
+## Q4: Property Validation Modes
 
-**Decision: Same random inputs executed on all adapters; compare outputs**
+### Primary: Single-adapter self-validation
 
-The property runner generates a fixed set of N input realizations (from the `forall`
-generators), then for each realization:
-1. Execute `properties.law.lhs` on adapter A
-2. Execute `properties.law.rhs` on adapter A
+The core property test answers: *does this adapter satisfy this mathematical law internally?*
+
+For each sample realization:
+1. Expand generator values into the `law.lhs` and `law.rhs` expressions
+2. Execute both on the single adapter under test
 3. Compare with `equivalence_type`
 
-When running cross-adapter validation:
-1. Generate inputs once (shared RNG seed)
-2. Execute the same inputs on each enabled adapter
-3. All adapters must produce equivalent results
-
-This is cleaner than running adapters independently with separate random seeds (which
-would sample different input spaces). The shared seed means failures are reproducible
-and comparable across adapters.
+This is independent of any other adapter. Wolfram, Julia, and Python each self-validate
+against the same property TOML. A property that holds in Wolfram but fails in Python
+indicates a migration bug in Python.
 
 ```
-xact-test property tests/properties/ --adapter=wolfram,python
+xact-test property tests/properties/ --adapter wolfram
+xact-test property tests/properties/ --adapter python
 ```
+
+### Secondary: Cross-adapter comparison
+
+A separate check that two adapters agree on the *same random inputs*. Requires running
+the property runner twice with the same seed and diffing results — or a future
+`--compare` flag:
+
+```
+# Future: not part of initial implementation
+xact-test property tests/properties/ --compare wolfram,python --seed 42
+```
+
+This is cleaner than running adapters independently with separate seeds (which would
+sample different input spaces). Shared seed makes discrepancies exactly reproducible.
+
+Cross-adapter comparison is a secondary concern; build single-adapter self-validation
+first in sxAct-a2i.
 
 ---
 
-## Q5: Tractable Scalar Properties for xCore
+## Q5: Tractable Properties
 
-**xCore has no mathematical knowledge** (pure programming utilities). The meaningful
-properties are programming invariants, not tensor mathematics. Still, 10+ are tractable:
+### xCore scalar properties (framework smoke tests)
 
-| # | Property | Functions | Type |
+xCore is pure programming utilities — no mathematical knowledge. Properties are
+programming invariants, not tensor mathematics, and serve to validate the framework
+machinery.
+
+| # | Property | Functions | Equivalence type |
 |---|---|---|---|
-| 1 | `MakeDaggerSymbol` is involution | `make_dagger_symbol` | identity |
-| 2 | `HasDaggerCharacterQ(MakeDaggerSymbol(s))` always True | both | predicate |
-| 3 | `UnlinkSymbol(LinkSymbols([s]))` == `[s]` | both | roundtrip |
-| 4 | `UnlinkSymbol(LinkSymbols([a,b]))` == `[a,b]` | both | roundtrip |
-| 5 | `len(UnlinkSymbol(LinkSymbols(syms))) == len(syms)` | both | length-pres |
-| 6 | `DeleteDuplicates` is idempotent | `delete_duplicates` | idempotent |
-| 7 | `DuplicateFreeQ(DeleteDuplicates(lst))` always True | both | invariant |
-| 8 | `len(DeleteDuplicates(lst)) <= len(lst)` | both | monotone |
-| 9 | `JustOne([x]) == x` | `just_one` | identity |
-| 10 | `SymbolJoin(*syms)` returns a string | `symbol_join` | type |
-| 11 | `HasDaggerCharacterQ(plain_sym)` is False (no dagger) | predicate | predicate |
-| 12 | `FindSymbols(expr)` is subset of all symbols in expr | `find_symbols` | subset |
+| 1 | `MakeDaggerSymbol` is involution | `make_dagger_symbol` | identical |
+| 2 | `HasDaggerCharacterQ(MakeDaggerSymbol(s))` is always True | both | identical |
+| 3 | `HasDaggerCharacterQ(fresh_sym)` is always False | predicate | identical |
+| 4 | `UnlinkSymbol(LinkSymbols([s]))` == `[s]` | both | identical |
+| 5 | `UnlinkSymbol(LinkSymbols([a,b]))` == `[a,b]` | both | identical |
+| 6 | `len(UnlinkSymbol(LinkSymbols(syms))) == len(syms)` | both | identical |
+| 7 | `DeleteDuplicates` is idempotent | `delete_duplicates` | identical |
+| 8 | `DuplicateFreeQ(DeleteDuplicates(lst))` is always True | both | identical |
+| 9 | `len(DeleteDuplicates(lst)) <= len(lst)` | both | identical |
+| 10 | `JustOne([x]) == x` | `just_one` | identical |
+| 11 | `SymbolJoin(*syms)` returns a string | `symbol_join` | identical |
+| 12 | `FindSymbols(expr)` ⊆ atoms of expr | `find_symbols` | identical |
 
-**These are low mathematical value but good for framework validation.**
+All xCore properties use `equivalence_type = "identical"` (oracle `===`), not
+numeric subtraction. The `sample_numeric` tensor/scalar path is not used here.
 
-The high-value Layer 2 properties are in **xTensor/xPerm**:
-- Riemann tensor symmetries (R_{abcd} = -R_{bacd}, etc.)
-- Bianchi identity
-- Metric contraction idempotency
-- ToCanonical idempotency
-- Contraction with Kronecker delta
+### xTensor tensor invariants (research contribution)
 
-These require tensor generators and are the real research contribution. The xCore
-scalar properties serve as framework smoke tests.
+These require tensor generators and `[[setup]]` blocks with manifold/metric context.
+They are the mathematically significant Layer 2 contribution:
+
+| # | Property | Reference |
+|---|---|---|
+| 1 | Contraction with Kronecker delta: `T[a]*δ[-a,b] == T[b]` | Standard |
+| 2 | Metric symmetry: `g[a,b] == g[b,a]` | Standard |
+| 3 | `ToCanonical` idempotency: `ToCanonical(ToCanonical(e)) == ToCanonical(e)` | Standard |
+| 4 | Riemann antisymmetry in first pair: `R[a,b,c,d] == -R[b,a,c,d]` | Wald 3.2.14 |
+| 5 | Riemann antisymmetry in second pair: `R[a,b,c,d] == -R[a,b,d,c]` | Wald 3.2.15 |
+| 6 | Riemann pair-exchange symmetry: `R[a,b,c,d] == R[c,d,a,b]` | Wald 3.2.16 |
+| 7 | First Bianchi identity: `R[a,b,c,d] + R[a,c,d,b] + R[a,d,b,c] == 0` | Wald 3.2.12 |
+| 8 | Ricci symmetry: `Ric[a,b] == Ric[b,a]` | Standard |
+| 9 | Second Bianchi identity: `∇_e R[a,b,c,d] + ∇_c R[a,b,d,e] + ∇_d R[a,b,e,c] == 0` | Wald 3.2.12 |
+| 10 | Metric compatibility: `∇_c g[a,b] == 0` | Standard |
+
+All xTensor properties use `equivalence_type = "numerical_tolerance"`.
 
 ---
 
-## Updated Decision for sxAct-a2i
+## Failure Reporting and Counterexamples
 
-The Layer 2 property catalog should include:
-- 5+ xCore scalar properties (framework smoke tests)
-- 10+ xTensor tensor invariants (research contribution)
-- Split into separate TOML files by mathematical domain
+When a property fails (at least one sample falsifies the law), the runner must output:
+1. The failing sample number and seed offset
+2. The substituted input values (generator name → value)
+3. The evaluated LHS and RHS
+4. The discrepancy (for numeric: the max absolute difference; for identical: both repr strings)
 
-Recommended first properties for catalog (implement in sxAct-a2i):
-1. `MakeDaggerSymbol` involution
-2. `LinkSymbols`/`UnlinkSymbol` roundtrip
-3. `DeleteDuplicates` idempotency
-4. Contraction with Kronecker delta: `T[a] * Delta[-a, b] == T[b]`
-5. Metric symmetry: `g[a, b] == g[b, a]`
-6. Riemann antisymmetry in first pair: `R[a,b,c,d] == -R[b,a,c,d]`
-7. Riemann antisymmetry in second pair: `R[a,b,c,d] == -R[a,b,d,c]`
-8. Riemann pair-exchange symmetry: `R[a,b,c,d] == R[c,d,a,b]`
-9. First Bianchi identity: `R[a,b,c,d] + R[a,c,d,b] + R[a,d,b,c] == 0`
-10. `ToCanonical` idempotency
+Sketch of terminal output for a failing property:
+
+```
+FAIL  riemann_symmetries::riemann_antisymmetric_first_pair
+  Sample 7/30 falsified:
+    g (metric array):
+      [[0.83, 0.21], [0.21, 1.44]]
+    LHS: 0.00312...
+    RHS: 0.00000
+    delta: 3.12e-3  (tolerance: 1e-12)
+  Confidence: 0.77 (23/30 passed)
+```
+
+This is the primary debugging surface for Layer 2 failures. The runner must capture
+and surface the counterexample, not just report pass/fail.
+
+---
+
+## Updated Decisions for sxAct-a2i
+
+The Layer 2 property catalog should be implemented as:
+- **12 xCore scalar properties** (framework validation, `identical` equivalence type)
+- **10 xTensor tensor invariants** (research contribution, `numerical_tolerance`)
+- Split into separate TOML files: `xcore_symbol_laws.toml`, `tensor_algebra_laws.toml`,
+  `riemann_symmetries.toml`
+
+Implementation order:
+1. Implement `xact-test property` subcommand skeleton
+2. Implement `identical` equivalence type handler (oracle `===`)
+3. Add `fresh_symbol` and `symbol_list` generator types to `sampling.py`
+4. Write and validate xCore TOML properties (no tensor machinery needed)
+5. Implement `numerical_tolerance` equivalence type for tensors
+6. Add tensor N-sample loop to runner (call `build_tensor_context` N times)
+7. Write and validate xTensor TOML properties
