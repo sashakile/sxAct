@@ -74,16 +74,48 @@ class WolframAdapter(TestAdapter[_WolframContext]):
     # ------------------------------------------------------------------
 
     def initialize(self) -> _WolframContext:
-        """Create a fresh isolated context, raising AdapterError if the oracle is down."""
+        """Create a fresh isolated context, raising AdapterError if the oracle is down.
+
+        Performs a pre-test leak check.  If the kernel is dirty (non-empty
+        Manifolds or Tensors), triggers a hard kernel restart as a fallback.
+        Raises AdapterError if the oracle is unreachable or restart fails.
+        """
         if not self._oracle.health():
             raise AdapterError(
                 f"Wolfram oracle unavailable at {self._oracle.base_url}"
             )
+        is_clean, leaked = self._oracle.check_clean_state()
+        if not is_clean:
+            import warnings
+            warnings.warn(
+                f"Kernel dirty before test file (leaked: {leaked}); "
+                "triggering hard restart.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            if not self._oracle.restart():
+                raise AdapterError(
+                    "Kernel state dirty and restart failed; "
+                    f"leaked symbols: {leaked}"
+                )
         return _WolframContext(context_id=str(uuid.uuid4()))
 
     def teardown(self, ctx: _WolframContext) -> None:
-        """Mark context as dead.  Safe to call multiple times; does not raise."""
+        """Clean xAct state and mark context dead.
+
+        Calls the oracle /cleanup endpoint to remove Global symbols and reset
+        Manifolds/Tensors registries.  Safe to call multiple times; does not
+        raise on cleanup failure (logs a warning instead).
+        """
         ctx.alive = False
+        if not self._oracle.cleanup():
+            import warnings
+            warnings.warn(
+                "Oracle cleanup failed after test file; "
+                "kernel state may be dirty for next test.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     # ------------------------------------------------------------------
     # Execution
@@ -105,12 +137,11 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             )
 
         context_id = ctx.context_id if ctx.alive else None
-        eval_result = self._oracle.evaluate_with_xact(
+        result = self._oracle.evaluate_with_xact(
             wolfram_expr,
             timeout=self._timeout,
             context_id=context_id,
         )
-        result = _eval_result_to_result(eval_result)
 
         # Assert: treat non-True oracle result as test failure
         if action == "Assert" and result.status == "ok":
@@ -202,7 +233,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
                 timeout=self._timeout,
                 context_id=ctx.context_id,
             )
-            if eval_result.status == "ok" and eval_result.result == "True":
+            if eval_result.status == "ok" and eval_result.repr == "True":
                 return True
         if mode == EqualityMode.SEMANTIC:
             return False
@@ -227,8 +258,8 @@ class WolframAdapter(TestAdapter[_WolframContext]):
         if self._oracle.health():
             try:
                 ev = self._oracle.evaluate("$VersionNumber // ToString")
-                if ev.status == "ok" and ev.result:
-                    cas_version = ev.result.strip().strip('"')
+                if ev.status == "ok" and ev.repr:
+                    cas_version = ev.repr.strip().strip('"')
             except Exception:
                 pass
         return VersionInfo(
@@ -238,33 +269,3 @@ class WolframAdapter(TestAdapter[_WolframContext]):
         )
 
 
-# ---------------------------------------------------------------------------
-# Internal helper
-# ---------------------------------------------------------------------------
-
-def _eval_result_to_result(eval_result) -> Result:
-    """Convert OracleClient's EvalResult to the canonical Result type."""
-    if eval_result.status == "ok":
-        raw = eval_result.result or ""
-        return Result(
-            status="ok",
-            type="Expr",
-            repr=raw,
-            normalized=_normalize(raw) if raw else "",
-            diagnostics={"execution_time_ms": eval_result.timing_ms},
-        )
-    if eval_result.status == "timeout":
-        return Result(
-            status="timeout",
-            type="",
-            repr="",
-            normalized="",
-            error=eval_result.error or "timeout",
-        )
-    return Result(
-        status="error",
-        type="",
-        repr="",
-        normalized="",
-        error=eval_result.error or "unknown error",
-    )

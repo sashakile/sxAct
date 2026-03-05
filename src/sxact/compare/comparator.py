@@ -116,7 +116,7 @@ def _compare_tier2(
             diff=f"Oracle error: {result.error}",
         )
 
-    simplified = result.result.strip() if result.result else ""
+    simplified = result.repr.strip() if result.repr else ""
 
     if simplified == "0":
         return CompareResult(equal=True, tier=2, confidence=1.0)

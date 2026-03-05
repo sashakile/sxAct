@@ -33,35 +33,7 @@ def xact_evaluate(oracle: OracleClient, expr: str,
         context_id: Optional context ID for test isolation. When provided,
             symbols are created in a unique context to prevent pollution.
     """
-    from sxact.normalize import normalize
-
-    eval_result = oracle.evaluate_with_xact(expr, timeout=120, context_id=context_id)
-
-    if eval_result.status == "ok":
-        raw = eval_result.result or ""
-        return Result(
-            status="ok",
-            type="Expr",
-            repr=raw,
-            normalized=normalize(raw) if raw else "",
-            diagnostics={"execution_time_ms": eval_result.timing_ms},
-        )
-    elif eval_result.status == "timeout":
-        return Result(
-            status="timeout",
-            type="",
-            repr="",
-            normalized="",
-            error=eval_result.error,
-        )
-    else:
-        return Result(
-            status="error",
-            type="",
-            repr="",
-            normalized="",
-            error=eval_result.error,
-        )
+    return oracle.evaluate_with_xact(expr, timeout=120, context_id=context_id)
 
 
 @pytest.mark.oracle

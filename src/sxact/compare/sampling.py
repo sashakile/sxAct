@@ -217,11 +217,11 @@ def _evaluate_numeric_diff(
 
     result = oracle.evaluate(eval_expr)
 
-    if result.status != "ok" or not result.result:
+    if result.status != "ok" or not result.repr:
         return None
 
     try:
-        diff_value = float(result.result.strip())
+        diff_value = float(result.repr.strip())
         match = abs(diff_value) < tolerance
         return Sample(
             substitution=substitution,
@@ -273,11 +273,11 @@ def _evaluate_with_tensor_ctx(
 
     result = oracle.evaluate(eval_expr)
 
-    if result.status != "ok" or not result.result:
+    if result.status != "ok" or not result.repr:
         return None
 
     try:
-        max_diff = float(result.result.strip())
+        max_diff = float(result.repr.strip())
         match = max_diff < tolerance
         return Sample(
             substitution=substitution_repr,

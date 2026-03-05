@@ -18,25 +18,26 @@ class TestOracleEvaluate:
     def test_simple_arithmetic(self, oracle: OracleClient) -> None:
         result = oracle.evaluate("2+2")
         assert result.status == "ok"
-        assert result.result == "4"
+        assert result.repr == "4"
 
     def test_wolfram_function(self, oracle: OracleClient) -> None:
         result = oracle.evaluate("Expand[(x+1)^2]")
         assert result.status == "ok"
-        assert "x" in result.result  # type: ignore[operator]
+        assert "x" in result.repr
 
     def test_invalid_expression(self, oracle: OracleClient) -> None:
         result = oracle.evaluate("InvalidFunction[")
         assert (
             result.status == "error"
-            or "$Failed" in str(result.result)
-            or "Syntax" in str(result.result)
+            or "$Failed" in str(result.repr)
+            or "Syntax" in str(result.repr)
         )
 
     def test_timing_is_reported(self, oracle: OracleClient) -> None:
         result = oracle.evaluate("2+2")
-        assert result.timing_ms is not None
-        assert result.timing_ms >= 0
+        timing = result.diagnostics.get("execution_time_ms")
+        assert timing is not None
+        assert timing >= 0
 
 
 @pytest.mark.oracle
@@ -47,7 +48,7 @@ class TestOracleXAct:
     def test_xact_loads(self, oracle: OracleClient) -> None:
         result = oracle.evaluate_with_xact("$xTensorVersionNumber", timeout=300)
         assert result.status == "ok", f"xAct load failed: {result.error}"
-        assert result.result is not None
+        assert result.repr is not None
 
 
 class TestOracleClientOffline:
