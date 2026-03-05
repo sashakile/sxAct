@@ -243,8 +243,8 @@ class WolframAdapter(TestAdapter[_WolframContext]):
 
         lhs_result = Result(status="ok", type="Expr", repr=str(a), normalized=str(a))
         rhs_result = Result(status="ok", type="Expr", repr=str(b), normalized=str(b))
-        samples = sample_numeric(lhs_result, rhs_result, self._oracle)
-        return bool(samples) and all(s.match for s in samples)
+        sampling = sample_numeric(lhs_result, rhs_result, self._oracle)
+        return sampling.equal
 
     # ------------------------------------------------------------------
     # Introspection

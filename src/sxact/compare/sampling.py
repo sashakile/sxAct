@@ -188,18 +188,19 @@ def sample_numeric(
 # Internal helpers — scalars
 # ---------------------------------------------------------------------------
 
+_MATH_CONSTANTS = frozenset({"e", "i"})
+
+
 def _extract_variables(expr: str) -> set[str]:
     """Extract free scalar variable names from an expression.
 
     Looks for single lowercase letters not inside brackets.
-    Wolfram constants are uppercase (E = Euler's number, I = imaginary unit)
-    and are not matched by this pattern, so no explicit exclusion is needed.
-    Lowercase 'e' and 'i' are treated as normal variable names.
+    Excludes 'e' (Euler's number) and 'i' (imaginary unit).
     """
     bracket_content = re.sub(r"\[[^\]]*\]", "", expr)
     pattern = r"\b([a-z])\b"
     matches = re.findall(pattern, bracket_content)
-    return set(matches)
+    return set(matches) - _MATH_CONSTANTS
 
 
 def _evaluate_numeric_diff(
