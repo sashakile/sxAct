@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Optional
 
-from sxact.compare.sampling import sample_numeric
+from sxact.compare.sampling import SamplingResult, TensorContext, sample_numeric
 
 if TYPE_CHECKING:
     from sxact.oracle import OracleClient
@@ -47,14 +47,16 @@ def compare(
     rhs: "Result",
     oracle: Optional["OracleClient"],
     mode: EqualityMode = EqualityMode.SYMBOLIC,
+    tensor_ctx: Optional["TensorContext"] = None,
 ) -> CompareResult:
     """Compare two Results for equivalence using three-tier strategy.
 
     Args:
-        lhs: Left-hand side Result
-        rhs: Right-hand side Result
-        oracle: OracleClient for symbolic/numeric comparison (optional for tier 1)
-        mode: Maximum tier to use for comparison
+        lhs:        Left-hand side Result
+        rhs:        Right-hand side Result
+        oracle:     OracleClient for symbolic/numeric comparison (optional for tier 1)
+        mode:       Maximum tier to use for comparison
+        tensor_ctx: Optional tensor context for Tier 3 tensor sampling
 
     Returns:
         CompareResult indicating equality and which tier determined it
@@ -84,7 +86,7 @@ def compare(
     if tier2_result.equal or mode == EqualityMode.SYMBOLIC:
         return tier2_result
 
-    return _compare_tier3(lhs, rhs, oracle)
+    return _compare_tier3(lhs, rhs, oracle, tensor_ctx=tensor_ctx)
 
 
 def _compare_tier1(lhs: "Result", rhs: "Result") -> CompareResult:
@@ -127,27 +129,30 @@ def _compare_tier2(
 
 
 def _compare_tier3(
-    lhs: "Result", rhs: "Result", oracle: "OracleClient"
+    lhs: "Result",
+    rhs: "Result",
+    oracle: "OracleClient",
+    tensor_ctx: Optional["TensorContext"] = None,
 ) -> CompareResult:
     """Tier 3: Numeric sampling fallback."""
-    samples = sample_numeric(lhs, rhs, oracle)
+    result = sample_numeric(lhs, rhs, oracle, tensor_ctx=tensor_ctx)
 
-    if not samples:
+    if not result.samples:
         return CompareResult(
             equal=False,
             tier=3,
             diff="No numeric samples could be evaluated",
         )
 
-    matches = sum(1 for s in samples if s.match)
-    confidence = matches / len(samples)
+    n = len(result.samples)
+    matches = sum(1 for s in result.samples if s.match)
 
-    if confidence >= 0.9:
-        return CompareResult(equal=True, tier=3, confidence=confidence)
+    if result.equal:
+        return CompareResult(equal=True, tier=3, confidence=result.confidence)
 
     return CompareResult(
         equal=False,
         tier=3,
-        confidence=confidence,
-        diff=f"Numeric mismatch: {matches}/{len(samples)} samples matched",
+        confidence=result.confidence,
+        diff=f"Numeric mismatch: {matches}/{n} samples matched",
     )
