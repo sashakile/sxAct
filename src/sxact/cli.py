@@ -239,6 +239,75 @@ def _cmd_run(args: argparse.Namespace) -> int:
 # Subcommand: regen-oracle
 # ---------------------------------------------------------------------------
 
+def _interactive_review(new_snapshots, added, removed, changed, store):
+    """Prompt for each changed/added snapshot; return filtered FileSnapshot list or None on quit."""
+    import dataclasses
+
+    revert_keys: set[tuple[str, str]] = set()  # keep old snapshot
+    skip_keys: set[tuple[str, str]] = set()    # skip new addition
+    accept_all = False
+
+    for (meta_id, test_id), diff_lines in changed:
+        if accept_all:
+            continue
+        print(f"\n--- {meta_id}/{test_id} [CHANGED] ---")
+        for line in diff_lines:
+            print(line)
+        while True:
+            try:
+                ans = input("Accept change? [y]es/[n]o/[a]ll/[q]uit: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+            if ans in ("y", "yes"):
+                break
+            elif ans in ("n", "no"):
+                revert_keys.add((meta_id, test_id))
+                break
+            elif ans == "a":
+                accept_all = True
+                break
+            elif ans == "q":
+                return None
+
+    for meta_id, test_id in added:
+        if accept_all:
+            continue
+        print(f"\n+++ {meta_id}/{test_id} [NEW]")
+        while True:
+            try:
+                ans = input("Accept new snapshot? [y]es/[n]o/[a]ll/[q]uit: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return None
+            if ans in ("y", "yes"):
+                break
+            elif ans in ("n", "no"):
+                skip_keys.add((meta_id, test_id))
+                break
+            elif ans == "a":
+                accept_all = True
+                break
+            elif ans == "q":
+                return None
+
+    from sxact.snapshot.runner import FileSnapshot
+    result = []
+    for file_snap in new_snapshots:
+        accepted_tests = []
+        for snap in file_snap.tests:
+            key = (file_snap.meta_id, snap.test_id)
+            if key in skip_keys:
+                continue
+            elif key in revert_keys:
+                old = store.load(file_snap.meta_id, snap.test_id)
+                if old is not None:
+                    accepted_tests.append(old)
+            else:
+                accepted_tests.append(snap)
+        if accepted_tests:
+            result.append(dataclasses.replace(file_snap, tests=accepted_tests))
+    return result
+
+
 def _cmd_regen_oracle(args: argparse.Namespace) -> int:
     from sxact.adapter.wolfram import WolframAdapter
     from sxact.adapter.base import AdapterError
@@ -310,6 +379,7 @@ def _cmd_regen_oracle(args: argparse.Namespace) -> int:
     added = []
     removed = sorted(existing_keys - new_keys)
     changed = []  # list of (key, diff_lines)
+    unchanged = 0
 
     for file_snap in new_snapshots:
         for snap in file_snap.tests:
@@ -326,13 +396,24 @@ def _cmd_regen_oracle(args: argparse.Namespace) -> int:
                     lineterm="",
                 ))
                 changed.append((key, diff_lines))
+            else:
+                unchanged += 1
 
     total_changes = len(added) + len(removed) + len(changed)
+    summary_parts = []
+    if unchanged:
+        summary_parts.append(f"{unchanged} unchanged")
+    if changed:
+        summary_parts.append(f"{len(changed)} changed")
+    if added:
+        summary_parts.append(f"{len(added)} new")
+    if removed:
+        summary_parts.append(f"{len(removed)} deleted")
+    print(f"\n{', '.join(summary_parts) if summary_parts else 'No changes detected.'}")
+
     if total_changes == 0:
-        print("\nNo changes detected.")
         return 0
 
-    print(f"\n{total_changes} change(s):")
     for meta_id, test_id in added:
         print(f"  + {meta_id}/{test_id}  [NEW]")
     for meta_id, test_id in removed:
@@ -343,7 +424,26 @@ def _cmd_regen_oracle(args: argparse.Namespace) -> int:
             for line in diff_lines:
                 print(f"    {line}")
 
+    if args.dry_run:
+        print("\n(dry-run: no files written)")
+        return 1 if errors else 0
+
     print()
+    if args.interactive:
+        accepted_snapshots = _interactive_review(new_snapshots, added, removed, changed, store)
+        if accepted_snapshots is None:
+            print("Aborted.")
+            return 1
+        write_oracle_dir(
+            accepted_snapshots,
+            oracle_dir,
+            oracle_version=f"xAct {version.extra.get('xact_version', '1.2.0')}",
+            mathematica_version=version.cas_version,
+        )
+        total = sum(len(f.tests) for f in accepted_snapshots)
+        print(f"Wrote {total} snapshot(s) to {oracle_dir}/")
+        return 1 if errors else 0
+
     if not args.yes:
         try:
             answer = input("Overwrite oracle snapshots? [y/N] ").strip().lower()
@@ -721,6 +821,19 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Show full unified diff for changed snapshots",
+    )
+    regen.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        dest="dry_run",
+        help="Show diffs without writing any files",
+    )
+    regen.add_argument(
+        "--interactive", "-i",
+        action="store_true",
+        default=False,
+        help="Review each changed snapshot interactively (y/n/a/q)",
     )
     regen.add_argument(
         "--yes", "-y",
