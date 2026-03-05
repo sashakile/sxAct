@@ -149,7 +149,12 @@ def _snapshot_test(
     for op in tc.operations:
         expr, result = _run_op(adapter, ctx, op, bindings)
         test_commands.append(expr)
-        if op.store_as and result.repr:
+        if op.store_as:
+            if not result.repr:
+                raise ValueError(
+                    f"Operation {op.action!r} required binding ${op.store_as!r} "
+                    f"but returned no output (status={result.status!r})"
+                )
             bindings[op.store_as] = result.repr
         if result.status == "ok":
             raw_output = result.repr

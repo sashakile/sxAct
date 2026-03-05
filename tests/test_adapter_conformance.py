@@ -235,6 +235,61 @@ class TestEquals:
         assert isinstance(result, bool)
 
 
+class TestEqualsSemanticNumeric:
+    """equals() contract for SEMANTIC and NUMERIC tiers."""
+
+    def test_reflexive_semantic(self, adapter):
+        n = NormalizedExpr("T[-$1,-$2]")
+        result = adapter.equals(n, n, EqualityMode.SEMANTIC)
+        assert isinstance(result, bool)
+        assert result is True
+
+    def test_reflexive_numeric(self, adapter):
+        n = NormalizedExpr("x + y")
+        result = adapter.equals(n, n, EqualityMode.NUMERIC)
+        assert isinstance(result, bool)
+        assert result is True
+
+    def test_identical_strings_semantic(self, adapter):
+        n = NormalizedExpr("2 T[-$1,-$2]")
+        assert adapter.equals(n, n, EqualityMode.SEMANTIC) is True
+
+    def test_identical_strings_numeric(self, adapter):
+        n = NormalizedExpr("x")
+        assert adapter.equals(n, n, EqualityMode.NUMERIC) is True
+
+    def test_returns_bool_semantic(self, adapter):
+        a = NormalizedExpr("x")
+        b = NormalizedExpr("y")
+        result = adapter.equals(a, b, EqualityMode.SEMANTIC)
+        assert isinstance(result, bool)
+
+    def test_returns_bool_numeric(self, adapter):
+        a = NormalizedExpr("x")
+        b = NormalizedExpr("y")
+        result = adapter.equals(a, b, EqualityMode.NUMERIC)
+        assert isinstance(result, bool)
+
+    def test_distinct_strings_semantic_returns_false(self, adapter):
+        a = NormalizedExpr("T[-$1,-$2]")
+        b = NormalizedExpr("S[-$1,-$2]")
+        # DummyAdapter returns a == b; any conforming adapter must return bool
+        result = adapter.equals(a, b, EqualityMode.SEMANTIC)
+        assert isinstance(result, bool)
+
+    def test_semantic_subsumes_normalized(self, adapter):
+        """If equals returns True at NORMALIZED, SEMANTIC must also be True."""
+        n = NormalizedExpr("T[-$1]")
+        if adapter.equals(n, n, EqualityMode.NORMALIZED):
+            assert adapter.equals(n, n, EqualityMode.SEMANTIC) is True
+
+    def test_numeric_subsumes_semantic(self, adapter):
+        """If equals returns True at SEMANTIC, NUMERIC must also be True."""
+        n = NormalizedExpr("x + y")
+        if adapter.equals(n, n, EqualityMode.SEMANTIC):
+            assert adapter.equals(n, n, EqualityMode.NUMERIC) is True
+
+
 class TestGetProperties:
     """get_properties() contract."""
 

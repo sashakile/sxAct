@@ -7,8 +7,11 @@ The pipeline applies these transformations in order:
 4. Coefficient normalization
 """
 
+import logging
 import re
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_whitespace(expr: str) -> str:
@@ -107,3 +110,46 @@ def normalize(expr: str) -> str:
         result = transform(result)
 
     return result
+
+
+def ast_normalize(expr: str) -> str:
+    """Normalize *expr* using the AST-based pipeline.
+
+    Unlike :func:`normalize`, this function:
+
+    - Handles arbitrarily nested brackets without false negatives
+    - Sorts commutative operators (Plus, Times) *before* canonicalizing indices,
+      so that structurally equivalent expressions with different dummy index
+      names produce identical output (e.g. ``A[a]+B[b]`` and ``B[a]+A[b]``
+      both normalize to ``A[$1] + B[$2]``)
+    - Uses a strict serializer that matches the legacy output format for
+      simple expressions
+
+    This function is the preferred normalizer for Tier 1 comparison.
+    The legacy :func:`normalize` is retained for backwards compatibility.
+
+    Args:
+        expr: A Wolfram expression string (infix *or* FullForm notation).
+
+    Returns:
+        Canonical normalized string.
+    """
+    from sxact.normalize.ast_parser import parse
+    from sxact.normalize.passes import (
+        canonicalize_indices as ast_canonicalize_indices,
+        flatten_coefficients,
+        sort_commutative,
+    )
+    from sxact.normalize.serializer import serialize
+
+    try:
+        tree = parse(expr)
+        tree = sort_commutative(tree)
+        tree = ast_canonicalize_indices(tree)
+        tree = flatten_coefficients(tree)
+        return serialize(tree)
+    except Exception:
+        # Fall back to regex pipeline on parse failure (e.g. infix operators).
+        # Log so callers can diagnose when valid FullForm fails to parse.
+        logger.warning("ast_normalize: falling back to regex pipeline for %r", expr)
+        return normalize(expr)

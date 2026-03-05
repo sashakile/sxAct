@@ -192,13 +192,14 @@ def _extract_variables(expr: str) -> set[str]:
     """Extract free scalar variable names from an expression.
 
     Looks for single lowercase letters not inside brackets.
-    Excludes common function names (Sin, Cos, etc.) and index-like letters.
+    Wolfram constants are uppercase (E = Euler's number, I = imaginary unit)
+    and are not matched by this pattern, so no explicit exclusion is needed.
+    Lowercase 'e' and 'i' are treated as normal variable names.
     """
     bracket_content = re.sub(r"\[[^\]]*\]", "", expr)
     pattern = r"\b([a-z])\b"
     matches = re.findall(pattern, bracket_content)
-    excluded = {"e", "i"}
-    return {m for m in matches if m not in excluded}
+    return set(matches)
 
 
 def _evaluate_numeric_diff(
