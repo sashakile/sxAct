@@ -58,5 +58,35 @@ def evaluate_with_init():
         return jsonify({"status": status, "error": error, "timing_ms": elapsed_ms})
 
 
+@app.route("/cleanup", methods=["POST"])
+def cleanup():
+    """Clear Global context and reset xAct registries between test files."""
+    ok, result, error = km.cleanup()
+    if ok:
+        return jsonify({"status": "ok", "result": result})
+    else:
+        return jsonify({"status": "error", "error": error}), 500
+
+
+@app.route("/restart", methods=["POST"])
+def restart():
+    """Hard-restart the Wolfram kernel (last-resort isolation fallback)."""
+    try:
+        km.restart()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/check-state", methods=["GET"])
+def check_state():
+    """Return current xAct registry counts for leak detection."""
+    is_clean, leaked = km.check_clean_state()
+    return jsonify({
+        "clean": is_clean,
+        "leaked": leaked,
+    })
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8765)
+    app.run(host="0.0.0.0", port=8765, threaded=True)
