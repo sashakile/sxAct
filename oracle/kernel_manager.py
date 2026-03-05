@@ -58,6 +58,74 @@ class KernelManager:
         self.stop()
         self.start()
 
+    def cleanup(self) -> tuple[bool, str | None, str | None]:
+        """Clear Global context symbols and reset xAct registries.
+
+        Sends a cleanup script that removes all user-defined Global symbols
+        and resets xAct internal registry lists (Manifolds, Tensors).
+        Safe to call after each test file to restore a pristine kernel state.
+
+        Returns (ok: bool, result: str|None, error: str|None)
+        """
+        cleanup_wl = (
+            'Unprotect["Global`*"]; '
+            'ClearAll["Global`*"]; '
+            'Remove["Global`*"]; '
+            'Manifolds = {}; '
+            'Tensors = {}; '
+            'If[NameQ["DefaultMetric"], ClearAll[DefaultMetric]]; '
+            '"cleanup-ok"'
+        )
+        with self._lock:
+            self.ensure()
+            self._ensure_xact()
+
+            def _do_eval():
+                return self._session.evaluate(wlexpr(cleanup_wl))
+
+            fut = self._executor.submit(_do_eval)
+            try:
+                result = fut.result(timeout=30)
+                return True, str(result), None
+            except FuturesTimeout:
+                self.restart()
+                return False, None, "cleanup timed out (kernel restarted)"
+            except Exception as e:
+                return False, None, f"{type(e).__name__}: {e}"
+
+    def check_clean_state(self) -> tuple[bool, list[str]]:
+        """Check whether the kernel has no lingering manifold/tensor definitions.
+
+        Returns (is_clean: bool, leaked_symbols: list[str]).
+        ``is_clean`` is True when both Manifolds and Tensors registries are
+        empty.  ``leaked_symbols`` lists the registry contents on failure.
+        """
+        check_wl = (
+            'Module[{m = If[ListQ[Manifolds], Manifolds, {}], '
+            '         t = If[ListQ[Tensors], Tensors, {}]}, '
+            '  StringJoin["M:", ToString[Length[m]], ",T:", ToString[Length[t]], '
+            '    ",", StringRiffle[Join[ToString /@ m, ToString /@ t], ","]]]'
+        )
+        with self._lock:
+            self.ensure()
+            self._ensure_xact()
+
+            def _do_eval():
+                return self._session.evaluate(wlexpr(check_wl))
+
+            fut = self._executor.submit(_do_eval)
+            try:
+                result_str = str(fut.result(timeout=10)).strip().strip('"')
+                # Parse "M:0,T:0," or "M:2,T:3,sym1,sym2,..."
+                parts = result_str.split(",", 2)
+                m_count = int(parts[0].replace("M:", "")) if len(parts) > 0 else -1
+                t_count = int(parts[1].replace("T:", "")) if len(parts) > 1 else -1
+                leaked = parts[2].split(",") if len(parts) > 2 and parts[2] else []
+                leaked = [s for s in leaked if s]
+                return (m_count == 0 and t_count == 0), leaked
+            except (FuturesTimeout, Exception):
+                return False, ["check_clean_state evaluation failed"]
+
     def evaluate(
         self, expr: str, timeout_s: int, with_xact: bool = False,
         context_id: str | None = None
@@ -78,16 +146,19 @@ class KernelManager:
         with self._lock:
             self.ensure()
 
-            # Wrap expression in context isolation if context_id provided.
-            # We evaluate in xAct`xTensor` context so xAct functions properly
-            # recognize tensor definitions. ToExpression delays parsing until
-            # after Begin switches context, preventing Global` pollution.
+            # Wrap expression in a unique per-context_id Wolfram namespace.
+            # Block temporarily sets $Context to a unique "SxAct{id}`" context
+            # and prepends it to $ContextPath so xAct symbols remain accessible.
+            # ToExpression delays parsing until after $Context is switched,
+            # preventing Global` pollution (wolframclient parses early).
             if context_id:
-                # Escape the expression for embedding in a Mathematica string
+                safe_id = "".join(c for c in context_id if c.isalnum())
+                unique_ctx = f"SxAct{safe_id}`"
                 escaped_expr = expr.replace("\\", "\\\\").replace('"', '\\"')
                 wrapped_expr = (
-                    f'Begin["xAct`xTensor`"]; '
-                    f'With[{{result$$ = ToExpression["{escaped_expr}"]}}, End[]; result$$]'
+                    f'Block[{{$Context = "{unique_ctx}", '
+                    f'$ContextPath = Prepend[$ContextPath, "{unique_ctx}"]}}, '
+                    f'ToExpression["{escaped_expr}"]]'
                 )
             else:
                 wrapped_expr = expr
