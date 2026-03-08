@@ -118,6 +118,10 @@ const _traceless_tensors = Set{Symbol}()
 # e.g. EinsteinXXX → (:RicciScalarXXX, -1)  meaning tr(G) = -1 * R
 const _trace_scalars = Dict{Symbol,Tuple{Symbol,Int}}()
 
+# Einstein expansion rules: EinsteinXXX → (RicciXXX, metricXXX, RicciScalarXXX)
+# Allows ToCanonical to substitute G_{ab} = R_{ab} - (1/2) g_{ab} R
+const _einstein_expansion = Dict{Symbol,Tuple{Symbol,Symbol,Symbol}}()
+
 # ============================================================
 # State management
 # ============================================================
@@ -132,6 +136,7 @@ function reset_state!()
     empty!(VBundles)
     empty!(_traceless_tensors);
     empty!(_trace_scalars)
+    empty!(_einstein_expansion)
 end
 
 # ============================================================
@@ -470,6 +475,15 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
     if !haskey(_trace_scalars, einstein_name)
         _trace_scalars[einstein_name] = (ricci_scalar_name, coeff_int)
     end
+
+    # Register Einstein expansion rule: G_{ab} = R_{ab} - (1/2) g_{ab} R
+    # Used by ToCanonical to verify the Einstein definition identity
+    metric_obj = get(_metrics, covd, nothing)
+    if !isnothing(metric_obj) && !haskey(_einstein_expansion, einstein_name)
+        _einstein_expansion[einstein_name] = (
+            ricci_name, metric_obj.name, ricci_scalar_name
+        )
+    end
 end
 
 # ============================================================
@@ -482,7 +496,7 @@ struct FactorAST
 end
 
 struct TermAST
-    coeff::Int
+    coeff::Rational{Int}
     factors::Vector{FactorAST}
 end
 
@@ -553,13 +567,22 @@ end
 function _parse_term(chunk::AbstractString, outer_sign::Int)::TermAST
     s = strip(chunk)
 
-    # Extract leading coefficient
-    coeff = outer_sign
-    # Match leading integer (possibly with optional *)
-    m = match(r"^(-?\d+)\*?\s*", s)
-    if !isnothing(m)
-        coeff *= parse(Int, m.captures[1])
-        s = strip(s[(length(m.match) + 1):end])
+    # Extract leading coefficient (rational or integer)
+    coeff = outer_sign // 1
+    # Match leading rational (N/M) — must try before integer to avoid partial match
+    m_rat = match(r"^\((-?\d+)/(\d+)\)\*?\s*", s)
+    if !isnothing(m_rat)
+        num = parse(Int, m_rat.captures[1])
+        den = parse(Int, m_rat.captures[2])
+        coeff = coeff * (num // den)
+        s = strip(s[(length(m_rat.match) + 1):end])
+    else
+        # Match leading integer (possibly with optional *)
+        m_int = match(r"^(-?\d+)\*?\s*", s)
+        if !isnothing(m_int)
+            coeff = coeff * (parse(Int, m_int.captures[1]) // 1)
+            s = strip(s[(length(m_int.match) + 1):end])
+        end
     end
 
     # Parse monomial: one or more factor calls (Name[...])
@@ -628,6 +651,113 @@ end
 # ============================================================
 
 """
+Expand any EinsteinXXX factors using G_{ab} = R_{ab} - (1/2) g_{ab} R.
+"""
+function _expand_einstein_terms(terms::Vector{TermAST})::Vector{TermAST}
+    isempty(_einstein_expansion) && return terms
+    expanded = TermAST[]
+    for term in terms
+        # Find an Einstein factor in this term (if any)
+        ei_idx = findfirst(f -> haskey(_einstein_expansion, f.tensor_name), term.factors)
+        if isnothing(ei_idx)
+            push!(expanded, term)
+            continue
+        end
+        ef = term.factors[ei_idx]
+        other_factors = [term.factors[i] for i in eachindex(term.factors) if i != ei_idx]
+        ricci_name, metric_name, scalar_name = _einstein_expansion[ef.tensor_name]
+        # Ricci term: same coefficient, replace Einstein factor with Ricci
+        push!(
+            expanded,
+            TermAST(
+                term.coeff, [other_factors..., FactorAST(ricci_name, copy(ef.indices))]
+            ),
+        )
+        # -1/2 metric * RicciScalar term
+        push!(
+            expanded,
+            TermAST(
+                term.coeff * (-1 // 2),
+                [
+                    other_factors...,
+                    FactorAST(metric_name, copy(ef.indices)),
+                    FactorAST(scalar_name, String[]),
+                ],
+            ),
+        )
+    end
+    expanded
+end
+
+"""
+Apply first Bianchi identity R_{a[bcd]} = 0 to reduce canonical Riemann terms.
+
+For 4 distinct abstract indices p < q < r < s, the canonical Bianchi identity is:
+X₁ - X₂ + X₃ = 0  where:
+X₁ = R[p,q,r,s]  (second index = q, smallest remaining)
+X₂ = R[p,r,q,s]  (second index = r, middle remaining)
+X₃ = R[p,s,q,r]  (second index = s, largest remaining)
+
+Replaces X₃ with X₂ - X₁ when all three are present.
+"""
+function _bianchi_reduce!(
+    coeff_map::Dict{Vector{Tuple{Symbol,Vector{String}}},Rational{Int}},
+    key_order::Vector{Vector{Tuple{Symbol,Vector{String}}}},
+)
+    # Find all single-factor Riemann canonical terms and group by sector
+    # sector = (tensor_name, first_bare_index, Set{second/third/fourth bare indices})
+    sectors = Dict{
+        Tuple{Symbol,String,Set{String}},Dict{String,Vector{Tuple{Symbol,Vector{String}}}}
+    }()
+
+    for key in key_order
+        get(coeff_map, key, 0 // 1) == 0 && continue
+        length(key) != 1 && continue
+        tensor_name, indices = key[1]
+        t = get(_tensors, tensor_name, nothing)
+        isnothing(t) && continue
+        t.symmetry.type != :RiemannSymmetric && continue
+        length(indices) != 4 && continue
+
+        bare = [_bare(idx) for idx in indices]
+        p = bare[1]  # first index (lex-min after canonical form)
+        rem = Set(bare[2:4])
+        sector = (tensor_name, p, rem)
+
+        if !haskey(sectors, sector)
+            sectors[sector] = Dict{String,Vector{Tuple{Symbol,Vector{String}}}}()
+        end
+        # Second bare index identifies X₁/X₂/X₃
+        sectors[sector][bare[2]] = key
+    end
+
+    # For each sector with all three Bianchi representatives, reduce X₃ = X₂ - X₁
+    for (sector, idx_to_key) in sectors
+        length(idx_to_key) < 3 && continue
+        _, p, rem = sector
+        sorted_rem = sort(collect(rem))  # q < r < s
+        length(sorted_rem) != 3 && continue
+        q, r, s = sorted_rem[1], sorted_rem[2], sorted_rem[3]
+
+        haskey(idx_to_key, q) || continue
+        haskey(idx_to_key, r) || continue
+        haskey(idx_to_key, s) || continue
+
+        key1 = idx_to_key[q]  # X₁
+        key2 = idx_to_key[r]  # X₂
+        key3 = idx_to_key[s]  # X₃
+
+        c3 = get(coeff_map, key3, 0 // 1)
+        iszero(c3) && continue
+
+        # X₃ = X₂ - X₁  →  c₃*X₃ adds -c₃ to X₁ and +c₃ to X₂
+        coeff_map[key1] = get(coeff_map, key1, 0 // 1) - c3
+        coeff_map[key2] = get(coeff_map, key2, 0 // 1) + c3
+        coeff_map[key3] = 0 // 1
+    end
+end
+
+"""
     ToCanonical(expression::String) → String
 
 Canonicalize a tensor expression. Returns "0" if all terms cancel.
@@ -639,6 +769,9 @@ function ToCanonical(expression::AbstractString)::String
     terms = _parse_expression(s)
     isempty(terms) && return "0"
 
+    # Expand Einstein tensors: EinsteinXXX[a,b] → RicciXXX[a,b] - (1/2) gXXX[a,b] RicciScalarXXX[]
+    terms = _expand_einstein_terms(terms)
+
     # Canonicalize each term
     canon_terms = TermAST[]
     for term in terms
@@ -649,17 +782,20 @@ function ToCanonical(expression::AbstractString)::String
     isempty(canon_terms) && return "0"
 
     # Collect like terms: key = tuple of (name, frozen_indices)
-    coeff_map = Dict{Vector{Tuple{Symbol,Vector{String}}},Int}()
+    coeff_map = Dict{Vector{Tuple{Symbol,Vector{String}}},Rational{Int}}()
     key_order = Vector{Tuple{Symbol,Vector{String}}}[]
 
     for term in canon_terms
         key = [(f.tensor_name, copy(f.indices)) for f in term.factors]
         if !haskey(coeff_map, key)
-            coeff_map[key] = 0
+            coeff_map[key] = 0 // 1
             push!(key_order, key)
         end
         coeff_map[key] += term.coeff
     end
+
+    # Apply Bianchi identity reduction: R_{a[bcd]} = 0
+    _bianchi_reduce!(coeff_map, key_order)
 
     # Drop zero-coefficient terms
     keys_nonzero = filter(k -> coeff_map[k] != 0, key_order)
@@ -697,7 +833,7 @@ function _canonicalize_term(term::TermAST)::Union{TermAST,Nothing}
             return nothing  # term is zero
         end
 
-        running_sign *= factor_sign
+        running_sign *= (factor_sign // 1)
         push!(new_factors, FactorAST(f.tensor_name, canon_indices))
     end
 
@@ -709,9 +845,9 @@ Serialize the canonical map to a Wolfram-style string.
 """
 function _serialize(
     keys::Vector{Vector{Tuple{Symbol,Vector{String}}}},
-    coeff_map::Dict{Vector{Tuple{Symbol,Vector{String}}},Int},
+    coeff_map::Dict{Vector{Tuple{Symbol,Vector{String}}},Rational{Int}},
 )::String
-    parts = Tuple{Int,String}[]
+    parts = Tuple{Rational{Int},String}[]
 
     for key in keys
         c = coeff_map[key]
@@ -726,13 +862,22 @@ function _serialize(
     result = IOBuffer()
     first = true
     for (c, mono) in parts
+        abs_c = abs(c)
+        sign_c = c > 0 ? 1 : -1
+        abs_str = if denominator(abs_c) == 1
+            string(numerator(abs_c))
+        else
+            "($(numerator(abs_c))/$(denominator(abs_c)))"
+        end
         if first
             if c == 1
                 print(result, mono)
             elseif c == -1
                 print(result, "-", mono)
+            elseif sign_c > 0
+                print(result, abs_str, " ", mono)
             else
-                print(result, c, " ", mono)
+                print(result, "-", abs_str, " ", mono)
             end
             first = false
         else
@@ -740,10 +885,10 @@ function _serialize(
                 print(result, " + ", mono)
             elseif c == -1
                 print(result, " - ", mono)
-            elseif c > 0
-                print(result, " + ", c, " ", mono)
+            elseif sign_c > 0
+                print(result, " + ", abs_str, " ", mono)
             else
-                print(result, " - ", abs(c), " ", mono)
+                print(result, " - ", abs_str, " ", mono)
             end
         end
     end
