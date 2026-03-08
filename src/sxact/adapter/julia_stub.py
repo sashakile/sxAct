@@ -654,6 +654,88 @@ def _rewrite_postfix(expr: str) -> str:
     return expr
 
 
+_SCHREIER_ORBIT_RE = re.compile(
+    r"SchreierOrbit\[([^,\[]+),\s*GenSet\[([^\]]+)\],\s*([^\]]+)\]"
+)
+_SCHREIER_ORBITS_RE = re.compile(r"SchreierOrbits\[GenSet\[([^\]]+)\],\s*([^\]]+)\]")
+
+
+def _preprocess_apply_op(expr: str) -> str:
+    """Transform f @@ {a, b, c} → f(a, b, c) (WL Apply with list).
+
+    `f @@ {a, b, c}` in Wolfram is equivalent to `f[a, b, c]`.
+    We convert to `f(a, b, c)` so that Julia sees a normal function call.
+    The inner WL list `{a, b, c}` is replaced with `(a, b, c)` (the content
+    without outer braces), and `_wl_to_jl` continues to translate any
+    remaining WL syntax inside.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(expr)
+    while i < n:
+        if i + 1 < n and expr[i : i + 2] == "@@":
+            j = i + 2
+            while j < n and expr[j] == " ":
+                j += 1
+            if j < n and expr[j] == "{":
+                # Find matching closing }
+                depth = 1
+                k = j + 1
+                while k < n and depth > 0:
+                    if expr[k] in "{[":
+                        depth += 1
+                    elif expr[k] in "}]":
+                        depth -= 1
+                    k += 1
+                # Strip trailing whitespace before @@ so f @@ {args} → f(args)
+                while result and result[-1] == " ":
+                    result.pop()
+                # Replace @@ {inner} with (inner)
+                inner = expr[j + 1 : k - 1]
+                result.append("(")
+                result.append(inner)
+                result.append(")")
+                i = k
+                continue
+            # @@ not followed by {: pass through
+            result.append("@")
+            result.append("@")
+            i += 2
+            continue
+        result.append(expr[i])
+        i += 1
+    return "".join(result)
+
+
+def _preprocess_schreier_orbit(expr: str) -> str:
+    """Transform SchreierOrbit/SchreierOrbits calls to inject generator names.
+
+    SchreierOrbit[pt, GenSet[g1,...], n]  →  SchreierOrbit(pt, [g1,...], n, ["g1",...])
+    SchreierOrbits[GenSet[g1,...], n]     →  SchreierOrbits([g1,...], n, ["g1",...])
+    """
+
+    def replace_single(m: "re.Match[str]") -> str:
+        pt = m.group(1).strip()
+        gens = m.group(2).strip()
+        n = m.group(3).strip()
+        gen_names = [g.strip() for g in gens.split(",")]
+        names_arr = "[" + ", ".join(f'"{name}"' for name in gen_names) + "]"
+        gens_arr = "[" + ", ".join(gen_names) + "]"
+        return f"SchreierOrbit({pt}, {gens_arr}, {n}, {names_arr})"
+
+    def replace_multi(m: "re.Match[str]") -> str:
+        gens = m.group(1).strip()
+        n = m.group(2).strip()
+        gen_names = [g.strip() for g in gens.split(",")]
+        names_arr = "[" + ", ".join(f'"{name}"' for name in gen_names) + "]"
+        gens_arr = "[" + ", ".join(gen_names) + "]"
+        return f"SchreierOrbits({gens_arr}, {n}, {names_arr})"
+
+    expr = _SCHREIER_ORBITS_RE.sub(replace_multi, expr)
+    expr = _SCHREIER_ORBIT_RE.sub(replace_single, expr)
+    return expr
+
+
 def _wl_to_jl(expr: str) -> str:
     """Translate basic Wolfram xCore notation to Julia syntax.
 
@@ -665,11 +747,22 @@ def _wl_to_jl(expr: str) -> str:
     - expr // f → f(expr)         (Wolfram postfix application)
     - $Name   → Name              (dollar-prefix strip)
     - SubsetQ[A, B] → issubset(B, A)  (note: args reversed in Julia)
+    - \\[Equal] → ==              (Wolfram Unicode Equal operator)
+    - SchreierOrbit[pt, GenSet[g1,...], n] → SchreierOrbit(pt, [...], n, ["g1",...])
 
     Abstract Wolfram symbols used as atoms (e.g. ``a``, ``b``) are left
     as-is; they will cause Julia ``UndefVarError`` for tests that rely on
     Wolfram's symbolic algebra — those tests correctly fail in Julia.
     """
+    # Pre-process Apply @@ operator: f @@ {a,b,c} → f(a,b,c)
+    expr = _preprocess_apply_op(expr)
+
+    # Pre-process SchreierOrbit to inject generator names before main translation
+    expr = _preprocess_schreier_orbit(expr)
+
+    # Handle Wolfram Unicode operator escapes
+    expr = expr.replace("\\[Equal]", "==")
+
     # Handle // postfix operator: rewrite "expr // f" → "f(expr)"
     # Apply before other translations to restructure correctly.
     # This is a simple left-to-right rewrite (handles one level of nesting).

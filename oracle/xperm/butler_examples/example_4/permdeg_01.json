@@ -2,10 +2,10 @@
   "test_id": "permdeg_01",
   "oracle_version": "julia-axiom",
   "mathematica_version": "N/A",
-  "timestamp": "2026-03-07T02:49:53.058938+00:00",
+  "timestamp": "2026-03-08T15:28:38.185091+00:00",
   "commands": "[julia-adapter]",
-  "raw_output": "",
-  "normalized_output": "",
+  "raw_output": "True",
+  "normalized_output": "True",
   "properties": {},
-  "hash": "sha256:e3b0c44298fc"
+  "hash": "sha256:3cbc87c7681f"
 }

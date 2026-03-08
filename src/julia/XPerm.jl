@@ -260,11 +260,66 @@ function _sift(
             return cur, i
         end
         GS_i = level_GS[i]
-        sv = schreier_vector(b, GS_i, n)
+        # Use full generator degree for sign-bit base points (b > n).
+        sv_n = if b <= n
+            n
+        elseif !isempty(GS_i)
+            length(GS_i[1])
+        else
+            max(n, b)
+        end
+        sv = schreier_vector(b, GS_i, sv_n)
         if !(img in sv.orbit)
             return cur, i  # residual at level i
         end
         # Compute the coset rep u such that u(b) = img, then strip it
+        u = trace_schreier(sv, img, GS_i)
+        cur = compose(inverse_perm(u), cur)
+    end
+    cur, length(base) + 1
+end
+
+"""
+    _sift_with_cache(p, base, level_GS, sv_cache, n) → (residual, depth)
+
+Like `_sift` but uses a shared `sv_cache::Vector{Any}` of SchreierVectors
+(entries are `nothing` when invalidated). Recomputes and stores missing entries.
+This avoids redundant BFS inside the tight Schreier-Sims loop.
+"""
+function _sift_with_cache(
+    p::Vector{Int},
+    base::Vector{Int},
+    level_GS::Vector{Vector{Vector{Int}}},
+    sv_cache::Vector{Any},
+    n::Int,
+)
+    cur = copy(p)
+    for (i, b) in enumerate(base)
+        img = cur[b]
+        if i > length(level_GS)
+            return cur, i
+        end
+        GS_i = level_GS[i]
+        sv_n = if b <= n
+            n
+        elseif !isempty(GS_i)
+            length(GS_i[1])
+        else
+            max(n, b)
+        end
+        sv = if i <= length(sv_cache) && sv_cache[i] !== nothing
+            sv_cache[i]::SchreierVector
+        else
+            sv_new = schreier_vector(b, GS_i, sv_n)
+            while i > length(sv_cache)
+                push!(sv_cache, nothing)
+            end
+            sv_cache[i] = sv_new
+            sv_new
+        end
+        if !(img in sv.orbit)
+            return cur, i
+        end
         u = trace_schreier(sv, img, GS_i)
         cur = compose(inverse_perm(u), cur)
     end
@@ -290,11 +345,48 @@ function schreier_sims(
     signed = (deg == n + 2)
 
     base = copy(initbase)
-    # level_GS[i] = generators of stabiliser of base[1], ..., base[i-1]
-    # level_GS[1] = all generators
-    level_GS = Vector{Vector{Vector{Int}}}()
+    level_GS = Vector{Vector{Vector{Int}}}()  # generators per level
+    level_seen = Vector{Set{Vector{Int}}}()      # dedup sets per level
+    sv_cache = Vector{Any}()                   # cached SchreierVector (or nothing)
 
-    # Initialise: determine base from generators if initbase is empty
+    # Add generator g to level k with deduplication.
+    # Invalidates the cached SV for level k if g is new.
+    # Returns true iff g was not already present.
+    function add_gen!(k::Int, g::Vector{Int})::Bool
+        while k > length(level_GS)
+            push!(level_GS, Vector{Vector{Int}}())
+            push!(level_seen, Set{Vector{Int}}())
+            push!(sv_cache, nothing)
+        end
+        g in level_seen[k] && return false
+        push!(level_seen[k], g)
+        push!(level_GS[k], g)
+        sv_cache[k] = nothing  # SV is now stale for this level
+        true
+    end
+
+    # Return (possibly cached) SchreierVector for level k.
+    # Uses the full generator degree `deg` when the base point exceeds n,
+    # so that sign-bit base points (> n) are handled correctly.
+    function get_sv(k::Int)::SchreierVector
+        # Ensure level_GS and sv_cache have an entry at position k.
+        while k > length(level_GS)
+            push!(level_GS, Vector{Vector{Int}}())
+            push!(level_seen, Set{Vector{Int}}())
+            push!(sv_cache, nothing)
+        end
+        while k > length(sv_cache)
+            push!(sv_cache, nothing)
+        end
+        if sv_cache[k] === nothing
+            b = base[k]
+            sv_n = b <= n ? n : deg  # full degree for sign-bit base points
+            sv_cache[k] = schreier_vector(b, level_GS[k], sv_n)
+        end
+        sv_cache[k]::SchreierVector
+    end
+
+    # Determine initial base from generators if caller passed empty base.
     if isempty(base)
         for g in generators
             moved = findfirst(i -> g[i] != i, 1:n)
@@ -306,61 +398,61 @@ function schreier_sims(
         isempty(base) && return StrongGenSet(Int[], copy(generators), n, signed)
     end
 
-    push!(level_GS, copy(generators))
+    # Seed level 1 with all initial generators (deduplicated).
+    push!(level_GS, Vector{Vector{Int}}())
+    push!(level_seen, Set{Vector{Int}}())
+    push!(sv_cache, nothing)
+    for g in generators
+        add_gen!(1, g)
+    end
 
-    # For each level, compute Schreier generators and sift new ones
     i = 1
     while i <= length(base)
-        if i > length(level_GS)
-            push!(level_GS, Vector{Vector{Int}}())
-        end
-        GS_i = level_GS[i]
-        b = base[i]
-        sv = schreier_vector(b, GS_i, n)
+        sv = get_sv(i)
+        GS_i = copy(level_GS[i])  # snapshot to prevent iterator invalidation
 
         found_new = false
+        min_dirty = i + 1  # lowest level that received a new generator this pass
+
         for γ in sv.orbit
             u_γ = trace_schreier(sv, γ, GS_i)
             for g in GS_i
                 img_γ = g[γ]
                 img_γ > n && continue
+                !(img_γ in sv.orbit) && continue
                 u_img = trace_schreier(sv, img_γ, GS_i)
-                # Schreier generator: s = u_γ^{-1} · g · u_{g(γ)}^{-1}
-                # Actually: s = u_{g(γ)}^{-1} · g · u_γ^{-1}
-                # Standard formula: s = trace(g(γ))^{-1} · g · trace(γ)
+                # Standard Schreier generator: u_{g(γ)}^{-1} · g · u_γ
                 s = compose(inverse_perm(u_img), compose(g, u_γ))
                 is_identity(s) && continue
 
-                # Sift s through existing levels
-                residual, depth = _sift(s, base, level_GS, n)
+                # Sift using shared SV cache to avoid redundant BFS.
+                residual, depth = _sift_with_cache(s, base, level_GS, sv_cache, n)
                 if !is_identity(residual)
                     found_new = true
-                    if depth > length(level_GS)
-                        push!(level_GS, [residual])
-                    else
-                        push!(level_GS[depth], residual)
-                    end
                     if depth > length(base)
-                        # Extend base with a new (non-duplicate) moved point
                         moved = findfirst(j -> residual[j] != j && !(j in base), 1:n)
                         !isnothing(moved) && push!(base, moved)
                     end
-                    # Add residual as generator at all levels ≤ depth
-                    for k in 1:(depth - 1)
-                        push!(level_GS[k], residual)
+                    # Add residual at its level and all levels below it.
+                    for k in 1:depth
+                        if add_gen!(k, residual)
+                            min_dirty = min(min_dirty, k)
+                        end
                     end
                 end
             end
         end
 
         if found_new
-            i = 1  # restart from top to ensure completeness
+            # Only restart from the lowest level that was modified,
+            # avoiding redundant reprocessing of unaffected levels.
+            i = min_dirty
         else
             i += 1
         end
     end
 
-    # Collect all generators (flat)
+    # Collect flat generator list (already deduplicated by level_seen).
     all_gens = Vector{Vector{Int}}()
     for gs in level_GS
         append!(all_gens, gs)
@@ -379,8 +471,12 @@ function perm_member_q(p::Vector{Int}, sgs::StrongGenSet)::Bool
     if isempty(sgs.base)
         return is_identity(p)
     end
+    # For signed-perm groups generators have degree n+2; pad p to match so
+    # that compose() doesn't get a degree mismatch inside _sift.
+    gdeg = isempty(sgs.GS) ? sgs.n : length(sgs.GS[1])
+    padded = length(p) < gdeg ? vcat(p, collect((length(p) + 1):gdeg)) : p
     level_GS = _build_level_GS(sgs)
-    residual, _ = _sift(p, sgs.base, level_GS, sgs.n)
+    residual, _ = _sift(padded, sgs.base, level_GS, sgs.n)
     is_identity(residual)
 end
 
@@ -391,10 +487,13 @@ Compute |G| as product of orbit sizes at each base level.
 """
 function order_of_group(sgs::StrongGenSet)::Int
     isempty(sgs.base) && return 1
+    gdeg = isempty(sgs.GS) ? sgs.n : length(sgs.GS[1])
     level_GS = _build_level_GS(sgs)
     prod = 1
     for (i, b) in enumerate(sgs.base)
-        sv = schreier_vector(b, level_GS[i], sgs.n)
+        # Use full generator degree for sign-bit base points (b > sgs.n).
+        sv_n = b <= sgs.n ? sgs.n : gdeg
+        sv = schreier_vector(b, level_GS[i], sv_n)
         prod *= length(sv.orbit)
     end
     prod
@@ -855,8 +954,9 @@ Test whether `perm` is an element of the group described by `sgs`.
 An empty permutation `Int[]` is also treated as identity.
 """
 function PermMemberQ(perm, sgs::StrongGenSet)
+    gdeg = isempty(sgs.GS) ? sgs.n : length(sgs.GS[1])
     if perm isa _IDType || isempty(perm)
-        p = sgs.n == 0 ? Int[] : identity_perm(sgs.n)
+        p = gdeg == 0 ? Int[] : identity_perm(gdeg)
     else
         p = Vector{Int}(perm)
     end
@@ -894,6 +994,7 @@ function _orbit_bfs(root::Int, GS::Vector{Vector{Int}}, n::Int)
         cur = queue[head];
         head += 1
         for g in GS
+            cur > length(g) && continue  # generator acts as identity beyond its length
             img = g[cur]
             img > n && continue
             if !in_orbit[img]
@@ -941,7 +1042,16 @@ Compose permutations left-to-right: `Permute(a, b)` means apply `a` first,
 then `b`, i.e. `compose(b, a)` in right-to-left convention.
 """
 function Permute(a::AbstractVector{<:Integer}, b::AbstractVector{<:Integer})
-    compose(Vector{Int}(b), Vector{Int}(a))
+    pa, pb = Vector{Int}(a), Vector{Int}(b)
+    n = max(length(pa), length(pb))
+    # Pad shorter permutation with identity (fixed points)
+    if length(pa) < n
+        append!(pa, (length(pa) + 1):n)
+    end
+    if length(pb) < n
+        append!(pb, (length(pb) + 1):n)
+    end
+    compose(pb, pa)
 end
 function Permute(perms::AbstractVector{<:Integer}...)
     length(perms) == 0 && return Int[]
@@ -981,7 +1091,203 @@ end
     PermDeg(sgs) → Int
 
 Return the physical degree (number of non-sign points) of the group.
+For a GenSet (Vector{Vector{Int}}), returns the maximum permutation length.
 """
 PermDeg(sgs::StrongGenSet) = sgs.n
+PermDeg(gs::Vector{Vector{Int}}) = isempty(gs) ? 0 : maximum(length(g) for g in gs)
+
+# ---------------------------------------------------------------------------
+# Stabilizer
+# ---------------------------------------------------------------------------
+
+"""
+    Stabilizer(pts, GS) → GenSet
+
+Return the subset of generators in `GS` that fix every point in `pts`.
+"""
+function Stabilizer(pts::AbstractVector{<:Integer}, GS::Vector{Vector{Int}})
+    filter(g -> all(p <= length(g) ? g[p] == p : true for p in pts), GS)
+end
+export Stabilizer
+
+# ---------------------------------------------------------------------------
+# SchreierOrbit
+# ---------------------------------------------------------------------------
+
+"""
+    SchreierResult
+
+Result of SchreierOrbit: orbit, label vector (generator name or 0), parent vector.
+Displays as WL-style `Schreier[{orbit}, {labels}, {parents}]`.
+"""
+struct SchreierResult
+    orbit::Vector{Int}
+    label_vec::Vector{Any}   # 0 (Int) or String generator name
+    parent_vec::Vector{Int}
+end
+
+function Base.show(io::IO, sr::SchreierResult)
+    orbit_s = join(sr.orbit, ", ")
+    label_s = join(map(x -> x === 0 ? "0" : "\"$(x)\"", sr.label_vec), ", ")
+    parent_s = join(sr.parent_vec, ", ")
+    print(io, "Schreier[{$(orbit_s)}, {$(label_s)}, {$(parent_s)}]")
+end
+
+"""
+    Schreier(args...) → SchreierResult or MultiSchreierResult
+
+WL-style constructor for SchreierResult (used in assertion comparisons).
+
+  - 3-arg form: Schreier(orbit, labels, parents)
+  - 4+-arg form: Schreier(orbit1, orbit2, ..., labels, parents)
+"""
+function Schreier(orbit, label_vec, parent_vec)
+    SchreierResult(Vector{Int}(orbit), Vector{Any}(label_vec), Vector{Int}(parent_vec))
+end
+
+# Multi-orbit form: last two args are labels and parents, rest are orbits
+function Schreier(args...)
+    length(args) >= 3 || error("Schreier: need at least 3 arguments")
+    orbits = [Vector{Int}(args[i]) for i in 1:(length(args) - 2)]
+    label_vec = Vector{Any}(args[end - 1])
+    parent_vec = Vector{Int}(args[end])
+    MultiSchreierResult(orbits, label_vec, parent_vec)
+end
+
+function Base.:(==)(a::SchreierResult, b::SchreierResult)
+    a.orbit == b.orbit && a.label_vec == b.label_vec && a.parent_vec == b.parent_vec
+end
+
+export Schreier
+
+# ---------------------------------------------------------------------------
+# MultiSchreierResult (for SchreierOrbits)
+# ---------------------------------------------------------------------------
+
+struct MultiSchreierResult
+    orbits::Vector{Vector{Int}}
+    label_vec::Vector{Any}
+    parent_vec::Vector{Int}
+end
+
+function Base.show(io::IO, mr::MultiSchreierResult)
+    parts = ["{" * join(o, ", ") * "}" for o in mr.orbits]
+    label_s = join(map(x -> x === 0 ? "0" : "\"$(x)\"", mr.label_vec), ", ")
+    parent_s = join(mr.parent_vec, ", ")
+    print(io, "Schreier[$(join(parts, ", ")), {$(label_s)}, {$(parent_s)}]")
+end
+
+function Base.:(==)(a::MultiSchreierResult, b::MultiSchreierResult)
+    a.orbits == b.orbits && a.label_vec == b.label_vec && a.parent_vec == b.parent_vec
+end
+
+export MultiSchreierResult
+
+"""
+    SchreierOrbits(GS, n, names) → MultiSchreierResult
+
+Compute all orbits under generators `GS` (named by `names`) in [1..n].
+Returns all orbits and combined label/parent vectors.
+"""
+function SchreierOrbits(GS::Vector{Vector{Int}}, n::Int, names::Vector{String})
+    label_vec = Vector{Any}(fill(0, n))
+    parent_vec = zeros(Int, n)
+    visited = falses(n)
+    orbits = Vector{Vector{Int}}()
+
+    for start in 1:n
+        visited[start] && continue
+        # BFS from start
+        visited[start] = true
+        orbit = [start]
+        head = 1
+        while head <= length(orbit)
+            cur = orbit[head];
+            head += 1
+            for (gi, g) in enumerate(GS)
+                cur > length(g) && continue
+                img = g[cur]
+                (img < 1 || img > n) && continue
+                if !visited[img]
+                    visited[img] = true
+                    push!(orbit, img)
+                    label_vec[img] = names[gi]
+                    parent_vec[img] = cur
+                end
+            end
+        end
+        push!(orbits, orbit)
+    end
+    MultiSchreierResult(orbits, label_vec, parent_vec)
+end
+
+export SchreierOrbits
+
+"""
+    SchreierOrbit(root, GS, n, names) → SchreierResult
+
+BFS from `root` under generators `GS` (each named by `names[i]`) in [1..n].
+Returns a SchreierResult with orbit, label vector, and parent vector.
+"""
+function SchreierOrbit(root::Int, GS::Vector{Vector{Int}}, n::Int, names::Vector{String})
+    label_vec = Vector{Any}(fill(0, n))
+    parent_vec = zeros(Int, n)
+    in_orbit = falses(n)
+    1 <= root <= n && (in_orbit[root] = true)
+    orbit = [root]
+    head = 1
+    while head <= length(orbit)
+        cur = orbit[head];
+        head += 1
+        for (gi, g) in enumerate(GS)
+            cur > length(g) && continue
+            img = g[cur]
+            (img < 1 || img > n) && continue
+            if !in_orbit[img]
+                in_orbit[img] = true
+                push!(orbit, img)
+                label_vec[img] = names[gi]
+                parent_vec[img] = cur
+            end
+        end
+    end
+    SchreierResult(orbit, label_vec, parent_vec)
+end
+
+export SchreierResult, SchreierOrbit
+
+# ---------------------------------------------------------------------------
+# Dimino group enumeration
+# ---------------------------------------------------------------------------
+
+"""
+    Dimino(GS) → Vector{Vector{Int}}
+
+Enumerate all elements of the group generated by `GS` via BFS (right multiplication).
+Returns elements in BFS order: identity first. Supports `Length[Dimino[...]]` tests.
+"""
+function Dimino(GS::Vector{Vector{Int}})
+    isempty(GS) && return [Int[]]
+    n = maximum(length(g) for g in GS)
+    padded = [length(g) < n ? vcat(g, collect((length(g) + 1):n)) : copy(g) for g in GS]
+    identity_p = collect(1:n)
+    seen = Set{Vector{Int}}([identity_p])
+    queue = [identity_p]
+    head = 1
+    while head <= length(queue)
+        h = queue[head];
+        head += 1
+        for g in padded
+            new_e = compose(g, h)
+            if !(new_e in seen)
+                push!(seen, new_e)
+                push!(queue, new_e)
+            end
+        end
+    end
+    queue
+end
+
+export Dimino
 
 end  # module XPerm

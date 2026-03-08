@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bd create:*)",
+      "Bash(bd show:*)",
+      "Bash(bd update:*)",
+      "Bash(bd dep:*)",
+      "Bash(julia:*)",
+      "Bash(grep:*)",
+      "Bash(uv run:*)",
+      "Bash(JULIA_PROJECT=src/julia uv run:*)",
+      "WebSearch",
+      "WebFetch(domain:xact.es)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:www.xact.es)",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "Bash(gh issue:*)"
+    ]
+  }
+}

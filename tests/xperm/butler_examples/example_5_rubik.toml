@@ -8,7 +8,7 @@ description     = "xPerm butler examples: Example 5. Rubik"
 tags            = ["xperm", "butler", "layer:1"]
 layer           = 1
 oracle_is_axiom = true
-skip            = true  # Rubik StrongGenSet (order 43e12) is intractable for naive Schreier-Sims
+skip            = "slow"  # Rubik StrongGenSet (order 43e12) is intractable for naive Schreier-Sims
 
 [[setup]]
 action   = "Evaluate"

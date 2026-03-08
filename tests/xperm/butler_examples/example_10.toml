@@ -8,7 +8,7 @@ description     = "xPerm butler examples: Example 10"
 tags            = ["xperm", "butler", "layer:1"]
 layer           = 1
 oracle_is_axiom = true
-skip            = true  # 31-point group with 8 generators is too slow for naive Schreier-Sims
+skip            = "slow"  # 31-point group with 8 generators is too slow for naive Schreier-Sims
 
 [[setup]]
 action   = "Evaluate"
