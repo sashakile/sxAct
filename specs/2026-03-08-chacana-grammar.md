@@ -1,0 +1,121 @@
+# Chacana PEG Grammar Specification v0.2.4
+
+This document defines the formal **Parsing Expression Grammar (PEG)** for the Chacana micro-syntax. This grammar is used by Chacana Processors to transform expression strings into the canonical JSON AST.
+
+## 1. Lexical Tokens
+
+| Token | Rule / Pattern | Examples |
+| :--- | :--- | :--- |
+| **Identifier** | `[a-zA-Zα-ωΑ-ΩḀ-῿_][a-zA-Z0-9α-ωΑ-ΩḀ-῿_]*` | `R`, `Ric`, `g_background`, `Ḃ` |
+| **Integer** | `[0-9]+` | `0`, `1`, `2`, `12` |
+| **Float** | `[0-9]+\.[0-9]+` | `0.5`, `3.14` |
+| **Whitespace** | `[ \t\n\r]+` | (Ignored between tokens) |
+
+## 2. Grammar Rules (PEG)
+
+```peg
+# Top-level Entry Point
+Expression      <- _ Sum _
+
+# Algebra (Summation and Subtraction)
+# Handles unary minus by allowing an optional sign on the first term
+Sum             <- Sign? Product ( (AddOp / SubOp) Product )*
+
+# Products
+# Note: Wedge product (^) has higher precedence than standard multiplication (*)
+Product         <- Wedge ( MulOp Wedge )*
+Wedge           <- Factor ( WedgeOp Factor )*
+
+# Factors
+Factor          <- ExteriorOp
+                 / Commutator
+                 / Perturbation
+                 / Parenthesized
+                 / Scalar
+
+# Parenthesized Expressions
+Parenthesized   <- OpenParen Sum CloseParen
+
+# Exterior Algebra Operators (Prefix)
+# Recursive depth is bounded by using 'Factor' as the operand
+ExteriorOp      <- HodgeDual / ExteriorDeriv
+
+HodgeDual       <- "*" OpenParen Factor CloseParen
+ExteriorDeriv   <- "d" OpenParen Factor CloseParen
+
+# Commutators
+Commutator      <- "[" Expression "," Expression "]"
+
+# Perturbation Theory (High Precedence)
+# Attempts to match the '@' order annotation on a Tensor
+Perturbation    <- TensorExpr ( "@" Integer )?
+
+# Tensor Expressions (Core)
+# Consumes the identifier and an optional index block
+TensorExpr      <- Identifier ( "{" IndexList "}" )?
+
+# Index List Handling (Mandatory whitespace between indices)
+IndexList       <- (Index ( __ Index )*)?
+
+# Index Rules (Disambiguated Prefixes)
+# Standard: ^a, _b; Covariant Deriv: ;c, ;_c; Raised Deriv: ;^c
+Index           <- Prefix Label
+
+Prefix          <- ( DerivOp VarianceOp? ) / VarianceOp
+
+Label           <- Identifier
+
+# Scalars (Ordered Choice: Rational/Float must come BEFORE Integer)
+Scalar          <- Rational / Float / Integer / NamedConstant
+NamedConstant   <- Identifier  # Validated against context Γ by Processor
+
+# Basic Operators
+Sign            <- "+" / "-"
+AddOp           <- "+"
+SubOp           <- "-"
+MulOp           <- "*"
+WedgeOp         <- "^"
+OpenParen       <- "("
+CloseParen      <- ")"
+VarianceOp      <- "^" / "_"
+DerivOp         <- ";" / ","
+
+# Utilities
+_               <- [ \t\n\r]*      # Optional Whitespace
+__              <- [ \t\n\r]+      # Mandatory Whitespace
+Rational        <- Integer _ "/" _ Integer
+```
+
+## 3. Operator Precedence (Highest to Lowest)
+
+1.  **Index Attachment**: `T{...}` (Atomic)
+2.  **Perturbation Order**: `@n`
+3.  **Exterior Operators**: `*(...)`, `d(...)`
+4.  **Wedge Product**: `^`
+5.  **Multiplication**: `*`
+6.  **Unary Sign**: `+`, `-` (Binds the entire Product, e.g., `-A * B` is `-(A * B)`)
+7.  **Addition / Subtraction**: `+`, `-`
+
+## 4. Parsing Examples
+
+| Expression String | Parsed Logic | Notes |
+| :--- | :--- | :--- |
+| `R{^a _b _c _d}` | Tensor `R` with 4 indices. | Standard Abstract Index |
+| `h{_a _b}@1` | 1st-order perturbation of `h`. | Perturbation |
+| `A{_a} ^ B{_b}` | `Wedge(A, B)` | Exterior Product |
+| `*(F){^a ^b}` | `HodgeDual(F)` | Exterior Operator |
+| `T{^a _b ;c ;d}` | `Deriv(Deriv(T, c), d)` | Left-to-right derivatives |
+| `sigma{^a _B _Ċ}` | Tensor with Spinor indices. | Unicode/Spinor support |
+| `[nabla{_a}, nabla{_b}] V{^c}` | `Commutator(nabla_a, nabla_b) V^c` | Commutator syntax |
+| `-(A + B)` | `Negate(Sum(A, B))` | Unary Minus |
+| `-A * B + C` | `(Negate(A * B)) + C` | Mixed Precedence |
+| `1 / 2 * T{_a _b}` | `Multiply(Rational(1, 2), T)` | Rational with Whitespace |
+
+## 5. Implementation Notes for Processors
+
+*   **Rank-0 Tensors vs. Named Constants**: An identifier like `pi` or `phi` may match either `NamedConstant` or `TensorExpr`. Processors SHOULD treat rank-0 tensors and named constants as semantically equivalent during the reduction pass.
+*   **Rational Reduction**: Processors MUST reduce all `Rational` coefficients to their simplest form (e.g., `2/4` → `1/2`) before canonicalization.
+*   **Left-to-Right Derivatives**: The grammar ensures that `T{;a ;b}` is interpreted as $\nabla_b (\nabla_a T)$.
+*   **Wedge Normalization**: Processors MUST apply the $1/(p!q!)$ normalization factor when expanding the wedge product into an antisymmetrized tensor product.
+*   **Whitespace**: Whitespace is mandatory between indices inside `{}` to prevent ambiguity (e.g., `T{^a_b}` is illegal; `T{^a _b}` is required).
+*   **Static Type Checking**: Once the PEG parser generates the AST, the **Chacana Static Checker** MUST be invoked to validate the context Γ against the expression's indices.
