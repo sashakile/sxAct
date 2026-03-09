@@ -247,6 +247,7 @@ class TestAdapter(abc.ABC, Generic[ContextT]):
                 "ToCanonical",
                 "Simplify",
                 "Contract",
+                "CommuteCovDs",
                 "Assert",
             }
         )

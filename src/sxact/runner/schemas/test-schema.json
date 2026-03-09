@@ -91,6 +91,7 @@
         "ToCanonical",
         "Simplify",
         "Contract",
+        "CommuteCovDs",
         "Assert"
       ]
     },
@@ -104,6 +105,7 @@
         { "$ref": "#/$defs/args/ToCanonical" },
         { "$ref": "#/$defs/args/Simplify" },
         { "$ref": "#/$defs/args/Contract" },
+        { "$ref": "#/$defs/args/CommuteCovDs" },
         { "$ref": "#/$defs/args/Assert" }
       ]
     },
@@ -377,6 +379,29 @@
           "expression": {
             "description": "Expression with repeated indices to contract",
             "type": "string"
+          }
+        }
+      },
+      "CommuteCovDs": {
+        "description": "Arguments for CommuteCovDs action. Applies commutation identity: ∇_a ∇_b T = ∇_b ∇_a T + Riemann correction terms.",
+        "type": "object",
+        "required": ["expression", "covd", "indices"],
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression of the form 'covd[-a][covd[-b][tensor[slots]]]'",
+            "type": "string"
+          },
+          "covd": {
+            "description": "Name of the covariant derivative operator, e.g. 'CVD'",
+            "type": "string"
+          },
+          "indices": {
+            "description": "Exactly two derivative index strings to commute, e.g. ['-cva', '-cvb']",
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 2,
+            "maxItems": 2
           }
         }
       },

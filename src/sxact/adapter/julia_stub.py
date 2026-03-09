@@ -113,7 +113,14 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
 
     # Actions handled by XTensor
     _XTENSOR_ACTIONS = frozenset(
-        {"DefManifold", "DefMetric", "DefTensor", "ToCanonical", "Contract"}
+        {
+            "DefManifold",
+            "DefMetric",
+            "DefTensor",
+            "ToCanonical",
+            "Contract",
+            "CommuteCovDs",
+        }
     )
 
     # Tier 2 deferred actions
@@ -260,6 +267,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 return self._to_canonical(args)
             if action == "Contract":
                 return self._contract(args)
+            if action == "CommuteCovDs":
+                return self._commute_covds(args)
         except Exception as exc:
             return Result(
                 status="error", type="", repr="", normalized="", error=str(exc)
@@ -328,6 +337,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         metric_str = _jl_escape(metric_raw)
         covd = str(args["covd"])
         self._jl.seval(f'XTensor.def_metric!({signdet}, "{metric_str}", :{covd})')
+        # Bind the covd name in Main as a Symbol (for CovDQ assertions)
+        self._jl.seval(f"Main.eval(:(global {covd} = :{covd}))")
         # Bind the metric tensor name in Main as a Symbol (for SignDetOfMetric assertions)
         m_name_match = _re.match(r"^(\w+)", metric_raw)
         metric_name = m_name_match.group(1) if m_name_match else None
@@ -362,6 +373,25 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     def _contract(self, args: dict[str, Any]) -> Result:
         expr = _jl_escape(str(args["expression"]))
         result = self._jl.seval(f'XTensor.Contract("{expr}")')
+        raw = str(result)
+        return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
+
+    def _commute_covds(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        covd = str(args["covd"])
+        indices = list(args["indices"])
+        if len(indices) != 2:
+            return Result(
+                status="error",
+                type="",
+                repr="",
+                normalized="",
+                error=f"CommuteCovDs: expected 2 indices, got {len(indices)}",
+            )
+        idx1, idx2 = _jl_escape(indices[0]), _jl_escape(indices[1])
+        result = self._jl.seval(
+            f'XTensor.CommuteCovDs("{expr}", :{covd}, "{idx1}", "{idx2}")'
+        )
         raw = str(result)
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 

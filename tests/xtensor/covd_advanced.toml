@@ -1,0 +1,291 @@
+# tests/xtensor/covd_advanced.toml
+# Layer 1 regression tests for advanced covariant derivative operations.
+#
+# Tests CovDQ predicate and the CommuteCovDs commutation identity:
+#   ∇_a ∇_b T = ∇_b ∇_a T + [Riemann curvature correction terms]
+#
+# For a covariant slot -c:   correction is - RiemannCD[-c, e, -a, -b] T[..., -e, ...]
+# For a contravariant slot c: correction is + RiemannCD[c, -e, -a, -b] T[..., e, ...]
+#
+# Reference: Wald (1984) Appendix C.2 (commutation of covariant derivatives),
+#            xTensor documentation §3.4 (CommuteCovDs).
+#
+# Validates schema: src/sxact/runner/schemas/test-schema.json
+
+[meta]
+id              = "xtensor/covd_advanced"
+description     = "CovDQ predicate and CommuteCovDs commutation identity (layer 1)"
+tags            = ["xtensor", "covd", "commute", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold with metric and covariant derivative CVD.
+# Six indices: cva–cvf.  CommuteCovDs dummy picks from cva..cvf.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "CVm"
+[setup.args]
+name      = "CVm"
+dimension = 4
+indices   = ["cva", "cvb", "cvc", "cvd", "cve", "cvf", "cvg", "cvh", "cvi", "cvj"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "CVg"
+[setup.args]
+signdet = -1
+metric  = "CVg[-cva,-cvb]"
+covd    = "CVD"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CVv"
+[setup.args]
+name     = "CVv"
+indices  = ["-cva"]
+manifold = "CVm"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CVu"
+[setup.args]
+name     = "CVu"
+indices  = ["cva"]
+manifold = "CVm"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CVt"
+[setup.args]
+name     = "CVt"
+indices  = ["cva", "-cvb"]
+manifold = "CVm"
+
+# ---------------------------------------------------------------------------
+# Tests: CovDQ predicate
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "covd_q_registered"
+description = "CovDQ[CVD] returns True for a registered covariant derivative"
+
+# CVD is the covariant derivative auto-created by DefMetric.
+# CovDQ should recognise it as a registered CovD.
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "CovDQ[CVD] === True"
+message   = "CVD should be a registered covariant derivative"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "covd_q_not_registered"
+description = "CovDQ returns False for an unregistered symbol name"
+
+# CVg is the metric tensor (a TensorQ), not a CovD — CovDQ should return False.
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "CovDQ[CVg] === False"
+message   = "CVg is a metric tensor, not a covariant derivative"
+
+# ---------------------------------------------------------------------------
+# Tests: CommuteCovDs on a covariant vector (1-form)
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "commute_covds_1form"
+description = "CommuteCovDs on 1-form: ∇_a ∇_b ω_c = ∇_b ∇_a ω_c - R[-c,e,-a,-b] ω[-e]"
+
+# CommuteCovDs swaps the order of the two derivatives and adds a Riemann term.
+# For a covariant slot -cvc:
+#   ∇_cva ∇_cvb ω_cvc = ∇_cvb ∇_cva ω_cvc - RiemannCVD[-cvc, cvd, -cva, -cvb] ω_cvd
+# where cvd is the first fresh dummy index from the manifold (cva,cvb,cvc used → cvd).
+#
+# Verification: result - (∇_cvb ∇_cva ω_cvc) + Riemann*ω = 0  (terms cancel identically).
+
+[[tests.operations]]
+action   = "CommuteCovDs"
+store_as = "commuted_1form"
+[tests.operations.args]
+expression = "CVD[-cva][CVD[-cvb][CVv[-cvc]]]"
+covd       = "CVD"
+indices    = ["-cva", "-cvb"]
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "check_1form"
+[tests.operations.args]
+expression = "$commuted_1form - CVD[-cvb][CVD[-cva][CVv[-cvc]]] + RiemannCVD[-cvc,cvd,-cva,-cvb] CVv[-cvd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$check_1form == 0"
+message   = "CommuteCovDs 1-form: output equals ∇_b ∇_a ω_c - R[-c,e,-a,-b] ω[-e]"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "commute_covds_1form_alt_indices"
+description = "CommuteCovDs on 1-form with different free indices: -cvb, -cvc derivative pair"
+
+# Same identity, different choice of derivative index pair.
+# Expression: CVD[-cvb][CVD[-cvc][CVv[-cva]]]
+# Free indices used: cva, cvb, cvc → dummy: cvd
+
+[[tests.operations]]
+action   = "CommuteCovDs"
+store_as = "commuted_alt"
+[tests.operations.args]
+expression = "CVD[-cvb][CVD[-cvc][CVv[-cva]]]"
+covd       = "CVD"
+indices    = ["-cvb", "-cvc"]
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "check_alt"
+[tests.operations.args]
+expression = "$commuted_alt - CVD[-cvc][CVD[-cvb][CVv[-cva]]] + RiemannCVD[-cva,cvd,-cvb,-cvc] CVv[-cvd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$check_alt == 0"
+message   = "CommuteCovDs alt-index 1-form: algebraic identity holds"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+# Tests: CommuteCovDs on a contravariant vector
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "commute_covds_vector"
+description = "CommuteCovDs on contravariant vector: ∇_a ∇_b V^c = ∇_b ∇_a V^c + R[c,-e,-a,-b] V[e]"
+
+# For a contravariant slot cvc:
+#   ∇_cva ∇_cvb V^cvc = ∇_cvb ∇_cva V^cvc + RiemannCVD[cvc, -cvd, -cva, -cvb] V^cvd
+# dummy index cvd is the first fresh index.
+
+[[tests.operations]]
+action   = "CommuteCovDs"
+store_as = "commuted_vec"
+[tests.operations.args]
+expression = "CVD[-cva][CVD[-cvb][CVu[cvc]]]"
+covd       = "CVD"
+indices    = ["-cva", "-cvb"]
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "check_vec"
+[tests.operations.args]
+expression = "$commuted_vec - CVD[-cvb][CVD[-cva][CVu[cvc]]] - RiemannCVD[cvc,-cvd,-cva,-cvb] CVu[cvd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$check_vec == 0"
+message   = "CommuteCovDs contravariant vector: output equals ∇_b ∇_a V^c + R[c,-e,-a,-b] V^e"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+# Tests: CommuteCovDs on a rank-(1,1) mixed tensor
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "commute_covds_mixed_tensor"
+description = "CommuteCovDs on rank-(1,1) tensor: two Riemann correction terms"
+
+# For T^a_{b} with derivative pair (CVD[-cvc], CVD[-cvd]):
+# ∇_cvc ∇_cvd T^cva_{cvb}
+#   = ∇_cvd ∇_cvc T^cva_{cvb}
+#     + R[cva, -cve, -cvc, -cvd] T^cve_{cvb}    (upper slot cva → dummy cve)
+#     - R[-cvb, cvf, -cvc, -cvd] T^cva_{-cvf}   (lower slot cvb → dummy cvf)
+# Dummies: cva,cvb,cvc,cvd used → cve, cvf fresh.
+
+[[tests.operations]]
+action   = "CommuteCovDs"
+store_as = "commuted_mixed"
+[tests.operations.args]
+expression = "CVD[-cvc][CVD[-cvd][CVt[cva,-cvb]]]"
+covd       = "CVD"
+indices    = ["-cvc", "-cvd"]
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "check_mixed"
+[tests.operations.args]
+expression = "$commuted_mixed - CVD[-cvd][CVD[-cvc][CVt[cva,-cvb]]] - RiemannCVD[cva,-cve,-cvc,-cvd] CVt[cve,-cvb] + RiemannCVD[-cvb,cvf,-cvc,-cvd] CVt[cva,-cvf]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$check_mixed == 0"
+message   = "CommuteCovDs mixed tensor: two Riemann correction terms cancel"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1
+
+# ---------------------------------------------------------------------------
+# Tests: CommuteCovDs on a symmetric 2-covariant tensor
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "commute_covds_sym2"
+description = "CommuteCovDs on symmetric rank-(0,2) tensor: two correction terms"
+
+# For a symmetric tensor T[-cva,-cvb] (Ricci-like) with derivative pair (-cvc,-cvd):
+# ∇_cvc ∇_cvd T_{ab}
+#   = ∇_cvd ∇_cvc T_{ab}
+#     - R[-cva, cve, -cvc, -cvd] T[-cve, -cvb]   (slot 1: -cva → cve)
+#     - R[-cvb, cvf, -cvc, -cvd] T[-cva, -cvf]   (slot 2: -cvb → cvf)
+# Dummies: cva,cvb,cvc,cvd used → cve,cvf fresh.
+
+[[tests.operations]]
+action   = "DefTensor"
+store_as = "CVs"
+[tests.operations.args]
+name     = "CVs"
+indices  = ["-cva", "-cvb"]
+manifold = "CVm"
+symmetry = "Symmetric[{-cva,-cvb}]"
+
+[[tests.operations]]
+action   = "CommuteCovDs"
+store_as = "commuted_sym2"
+[tests.operations.args]
+expression = "CVD[-cvc][CVD[-cvd][CVs[-cva,-cvb]]]"
+covd       = "CVD"
+indices    = ["-cvc", "-cvd"]
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "check_sym2"
+[tests.operations.args]
+expression = "$commuted_sym2 - CVD[-cvd][CVD[-cvc][CVs[-cva,-cvb]]] + RiemannCVD[-cva,cve,-cvc,-cvd] CVs[-cve,-cvb] + RiemannCVD[-cvb,cvf,-cvc,-cvd] CVs[-cva,-cvf]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$check_sym2 == 0"
+message   = "CommuteCovDs sym-2 tensor: two Riemann correction terms cancel"
+
+[tests.expected]
+is_zero         = true
+comparison_tier = 1

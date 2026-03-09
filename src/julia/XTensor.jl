@@ -35,12 +35,12 @@ export get_manifold, get_tensor, get_vbundle, get_metric
 export list_manifolds, list_tensors, list_vbundles
 
 # Query predicates (Wolfram-named, used by _wl_to_jl translator)
-export ManifoldQ, TensorQ, VBundleQ, MetricQ
+export ManifoldQ, TensorQ, VBundleQ, MetricQ, CovDQ
 export Dimension, IndicesOfVBundle, SlotsOfTensor
 export MemberQ
 
 # Canonicalization and contraction
-export ToCanonical, Contract
+export ToCanonical, Contract, CommuteCovDs
 
 # Contract support
 export SignDetOfMetric
@@ -168,6 +168,8 @@ VBundleQ(s::Symbol) = haskey(_vbundles, s)
 VBundleQ(s::AbstractString) = VBundleQ(Symbol(s))
 MetricQ(s::Symbol) = haskey(_metrics, s)
 MetricQ(s::AbstractString) = MetricQ(Symbol(s))
+CovDQ(s::Symbol) = haskey(_metrics, s)
+CovDQ(s::AbstractString) = CovDQ(Symbol(s))
 
 function Dimension(s::Symbol)
     m = get(_manifolds, s, nothing)
@@ -892,6 +894,165 @@ function _preprocess_covd_reductions(s::AbstractString)::AbstractString
     s = _reduce_metric_compatibility(s)
     s = _reduce_second_bianchi(s)
     s
+end
+
+# ============================================================
+# CommuteCovDs
+# ============================================================
+
+"""
+    CommuteCovDs(expr, covd_name, idx1, idx2) → String
+
+Apply the commutation identity for two covariant derivatives:
+∇_{idx1} ∇_{idx2} T = ∇_{idx2} ∇_{idx1} T + curvature correction terms
+
+where correction terms are given by the Riemann curvature:
+
+  - For each covariant slot -aᵢ: correction `- RiemannCD[-aᵢ, e, idx1, idx2] T[..., -e, ...]`
+  - For each contravariant slot aᵢ: correction `+ RiemannCD[aᵢ, -e, idx1, idx2] T[..., e, ...]`
+
+Here `e` is a fresh dummy index (contravariant/covariant in Riemann, covariant/contravariant in T).
+
+Args:
+expr      : String expression containing `covd[idx1][covd[idx2][tensor[slots]]]`
+covd_name : Symbol — e.g. :CVD
+idx1      : String — first derivative index, e.g. "-cva"
+idx2      : String — second derivative index, e.g. "-cvb"
+
+Returns a String expression suitable for ToCanonical.
+"""
+function CommuteCovDs(
+    expr::AbstractString, covd_name::Symbol, idx1::AbstractString, idx2::AbstractString
+)::String
+    covd_str = string(covd_name)
+
+    # Escape special regex chars in idx1, idx2 (e.g. the leading '-')
+    re_esc(s) = replace(s, r"([-\[\].\^$*+?{}|()])" => s"\\\1")
+
+    # Pattern: covd[idx1][covd[idx2][TENSOR_NAME[SLOTS]]]
+    pat = Regex(
+        covd_str *
+        raw"\[" *
+        re_esc(idx1) *
+        raw"\]\[" *
+        covd_str *
+        raw"\[" *
+        re_esc(idx2) *
+        raw"\]\[" *
+        raw"(\w+)\[(.*?)\]" *
+        raw"\]\]",
+    )
+    m = match(pat, expr)
+    if isnothing(m)
+        error("CommuteCovDs: pattern not found in expression: $expr")
+    end
+
+    tensor_name = m[1]
+    slots_str = m[2]   # e.g. "-cvc" or "-cvc,-cvd,cve"
+
+    # Parse slot strings
+    slots = strip.(split(slots_str, ","))
+
+    # Lookup tensor to find its manifold
+    tensor_sym = Symbol(tensor_name)
+    haskey(_tensors, tensor_sym) ||
+        error("CommuteCovDs: tensor $tensor_name not registered")
+    manifold_sym = _tensors[tensor_sym].manifold
+    haskey(_manifolds, manifold_sym) ||
+        error("CommuteCovDs: manifold $manifold_sym not found")
+    manifold_indices = _manifolds[manifold_sym].index_labels
+
+    # Riemann tensor name for this CovD
+    riemann_name = "Riemann" * covd_str
+
+    # Collect all index names already used in the expression
+    used_idx = Set{String}(m2.match for m2 in eachmatch(r"\b([a-z][a-z0-9]*)\b", expr))
+    push!(used_idx, lstrip(idx1, '-'), lstrip(idx2, '-'))
+    for s in slots
+        push!(used_idx, lstrip(s, '-'))
+    end
+
+    # Pick fresh dummy indices from the manifold's index list
+    dummies = String[]
+    for idx_sym in manifold_indices
+        name = string(idx_sym)
+        if name ∉ used_idx
+            push!(dummies, name)
+            push!(used_idx, name)
+            length(dummies) >= length(slots) && break
+        end
+    end
+    length(dummies) < length(slots) &&
+        error("CommuteCovDs: not enough fresh indices in manifold $manifold_sym")
+
+    # Build commuted double-derivative: covd[idx2][covd[idx1][tensor[slots]]]
+    commuted = string(
+        covd_str,
+        "[",
+        idx2,
+        "][",
+        covd_str,
+        "[",
+        idx1,
+        "][",
+        tensor_name,
+        "[",
+        join(slots, ","),
+        "]]]",
+    )
+
+    # Build correction terms (one per slot of the inner tensor)
+    parts = [commuted]
+    for (i, slot) in enumerate(slots)
+        covariant = startswith(slot, "-")
+        index_name = lstrip(slot, '-')
+        dummy = dummies[i]
+
+        new_slots = copy(slots)
+        if covariant
+            # Covariant slot -aᵢ:  correction = - Riemann[-aᵢ, e, idx1, idx2] T[..., -e, ...]
+            # dummy 'e' is contravariant in Riemann (slot 2), covariant in T (-e)
+            new_slots[i] = "-" * dummy
+            riemann_args = "-" * index_name * "," * dummy * "," * idx1 * "," * idx2
+            correction =
+                "- " *
+                riemann_name *
+                "[" *
+                riemann_args *
+                "] " *
+                tensor_name *
+                "[" *
+                join(new_slots, ",") *
+                "]"
+        else
+            # Contravariant slot aᵢ: correction = + Riemann[aᵢ, -e, idx1, idx2] T[..., e, ...]
+            # dummy 'e' is covariant in Riemann (-e slot 2), contravariant in T (e)
+            new_slots[i] = dummy
+            riemann_args = index_name * ",-" * dummy * "," * idx1 * "," * idx2
+            correction =
+                "+ " *
+                riemann_name *
+                "[" *
+                riemann_args *
+                "] " *
+                tensor_name *
+                "[" *
+                join(new_slots, ",") *
+                "]"
+        end
+        push!(parts, correction)
+    end
+
+    join(parts, " ")
+end
+
+# Convenience: accept index list as a Vector of strings
+function CommuteCovDs(
+    expr::AbstractString, covd_name::Symbol, indices::Vector{<:AbstractString}
+)::String
+    length(indices) == 2 ||
+        error("CommuteCovDs: expected exactly 2 indices, got $(length(indices))")
+    CommuteCovDs(expr, covd_name, indices[1], indices[2])
 end
 
 """
