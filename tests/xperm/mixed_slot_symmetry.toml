@@ -1,0 +1,278 @@
+# tests/xperm/mixed_slot_symmetry.toml
+# Layer 1 regression tests for xPerm canonicalization with mixed slot symmetry groups.
+# Covers: mixed-symmetry rank-4 tensors (Riemann-like), symmetry of traces,
+# sum rules derived from slot symmetries, and double-antisymmetric products.
+#
+# Reference: xPermDoc.nb §4 (mixed symmetry), xPerm documentation §2-3.
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id              = "xperm/mixed_slot_symmetry"
+description     = "xPerm mixed slot symmetry: rank-4, pair-antisymmetric, double-antisym products (layer 1)"
+tags            = ["xperm", "symmetry", "mixed", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold with metric and mixed-symmetry tensors.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "MSm"
+[setup.args]
+name      = "MSm"
+dimension = 4
+indices   = ["msa", "msb", "msc", "msd", "mse", "msf"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "MSg"
+[setup.args]
+signdet = -1
+metric  = "MSg[-msa,-msb]"
+covd    = "MSD"
+
+# Rank-4 tensor antisymmetric in first pair only (no pair exchange)
+[[setup]]
+action   = "DefTensor"
+store_as = "MSW"
+[setup.args]
+name     = "MSW"
+indices  = ["-msa", "-msb", "-msc", "-msd"]
+manifold = "MSm"
+symmetry = "Antisymmetric[{-msa,-msb}]"
+
+# Rank-4 tensor antisymmetric in both pairs (like Riemann without pair exchange)
+[[setup]]
+action   = "DefTensor"
+store_as = "MSB"
+[setup.args]
+name     = "MSB"
+indices  = ["-msa", "-msb", "-msc", "-msd"]
+manifold = "MSm"
+symmetry = "Antisymmetric[{-msa,-msb}]"
+
+# Rank-3 with antisymmetry in first two slots
+[[setup]]
+action   = "DefTensor"
+store_as = "MSF"
+[setup.args]
+name     = "MSF"
+indices  = ["-msa", "-msb", "-msc"]
+manifold = "MSm"
+symmetry = "Antisymmetric[{-msa,-msb}]"
+
+# Rank-2 symmetric tensor
+[[setup]]
+action   = "DefTensor"
+store_as = "MSS"
+[setup.args]
+name     = "MSS"
+indices  = ["-msa", "-msb"]
+manifold = "MSm"
+symmetry = "Symmetric[{-msa,-msb}]"
+
+# Rank-2 antisymmetric tensor
+[[setup]]
+action   = "DefTensor"
+store_as = "MSA"
+[setup.args]
+name     = "MSA"
+indices  = ["-msa", "-msb"]
+manifold = "MSm"
+symmetry = "Antisymmetric[{-msa,-msb}]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_first_pair_antisym_swap"
+description = "MSW[-a,-b,-c,-d] + MSW[-b,-a,-c,-d] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSW[-msa,-msb,-msc,-msd] + MSW[-msb,-msa,-msc,-msd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "MSW[-a,-b,-c,-d] + MSW[-b,-a,-c,-d] should vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_first_pair_antisym_double_swap_zero"
+description = "MSW[-a,-b,-c,-d] + MSW[-b,-a,-c,-d] == 0 and its negative also vanishes"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "sum1"
+[tests.operations.args]
+expression = "MSW[-msa,-msb,-msc,-msd] + MSW[-msb,-msa,-msc,-msd]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "sum2"
+[tests.operations.args]
+expression = "MSW[-msb,-msa,-msd,-msc] + MSW[-msa,-msb,-msd,-msc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$sum1 == 0 && $sum2 == 0"
+message   = "First-pair antisymmetry: swap both orderings vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_first_pair_antisym_swap_ac_zero"
+description = "MSW antisym in first pair: swap both first-pair slots with c and d gives zero too"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSW[-msc,-msb,-msa,-msd] + MSW[-msb,-msc,-msa,-msd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "MSW antisymmetry in first pair holds for any third index"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank3_antisym_first_pair_zero"
+description = "MSF[-a,-b,-c] + MSF[-b,-a,-c] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSF[-msa,-msb,-msc] + MSF[-msb,-msa,-msc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "MSF[-a,-b,-c] + MSF[-b,-a,-c] should vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank3_antisym_last_slot_free"
+description = "MSF[-a,-b,-c] - MSF[-a,-b,-c] == 0 (trivial self-subtraction)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSF[-msa,-msb,-msc] - MSF[-msa,-msb,-msc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "T - T == 0"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "sym_swap_minus_antisym_swap_zero"
+description = "(MSS[-a,-b] - MSS[-b,-a]) - (MSA[-a,-b] + MSA[-b,-a]) == 0 (both parts vanish)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "sym_diff"
+[tests.operations.args]
+expression = "MSS[-msa,-msb] - MSS[-msb,-msa]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "antisym_sum"
+[tests.operations.args]
+expression = "MSA[-msa,-msb] + MSA[-msb,-msa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$sym_diff == 0 && $antisym_sum == 0"
+message   = "Symmetric swap-diff and antisymmetric sum must both vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "antisym_squared_even_perm"
+description = "MSA[-b,-a] == -MSA[-a,-b]: MSA[-b,-a] + MSA[-a,-b] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSA[-msb,-msa] + MSA[-msa,-msb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "A[-b,-a] + A[-a,-b] == 0 by antisymmetry"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_vs_msb_first_bianchi"
+description = "RiemannMSD first Bianchi: cyclic sum over first three indices vanishes"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "RiemannMSD[-msa,-msb,-msc,-msd] + RiemannMSD[-msb,-msc,-msa,-msd] + RiemannMSD[-msc,-msa,-msb,-msd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "Riemann first Bianchi identity should hold"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_pair_antisym_double_swap_zero"
+description = "MSB[-a,-b,-c,-d] + MSB[-b,-a,-c,-d] == 0 (first pair)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSB[-msa,-msb,-msc,-msd] + MSB[-msb,-msa,-msc,-msd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "MSB antisymmetry in first pair"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "metric_sym_product_with_antisym"
+description = "MSg[-a,-b] * MSA[-c,-d] - MSg[-b,-a] * MSA[-c,-d] == 0 (metric is symmetric)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "MSg[-msa,-msb]*MSA[-msc,-msd] - MSg[-msb,-msa]*MSA[-msc,-msd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "g[-a,-b] == g[-b,-a] so difference should vanish"

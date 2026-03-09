@@ -1,0 +1,287 @@
+# tests/xtensor/compound_canonicalization.toml
+# Layer 1 regression tests for ToCanonical on compound tensor expressions.
+# Covers: chained application, linear combinations with coefficients,
+# mixed symmetric+antisymmetric sums, and Riemann first Bianchi identity.
+#
+# Reference: xTensorDoc.nb §3 (canonical forms), xPerm §4 (canonicalization).
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id              = "xtensor/compound_canonicalization"
+description     = "ToCanonical: compound expressions — chained, linear, mixed symmetry (layer 1)"
+tags            = ["xtensor", "canonicalization", "compound", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold with metric and symmetric/antisymmetric tensors.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "CCm"
+[setup.args]
+name      = "CCm"
+dimension = 4
+indices   = ["cca", "ccb", "ccc", "ccd", "cce", "ccf"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "CCg"
+[setup.args]
+signdet = -1
+metric  = "CCg[-cca,-ccb]"
+covd    = "CCD"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CCS"
+[setup.args]
+name     = "CCS"
+indices  = ["-cca", "-ccb"]
+manifold = "CCm"
+symmetry = "Symmetric[{-cca,-ccb}]"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CCA"
+[setup.args]
+name     = "CCA"
+indices  = ["-cca", "-ccb"]
+manifold = "CCm"
+symmetry = "Antisymmetric[{-cca,-ccb}]"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CCV"
+[setup.args]
+name     = "CCV"
+indices  = ["cca"]
+manifold = "CCm"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "CCT"
+[setup.args]
+name     = "CCT"
+indices  = ["-cca", "-ccb", "-ccc"]
+manifold = "CCm"
+symmetry = "Antisymmetric[{-cca,-ccb}]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "tocanonical_twice_idempotent_sym"
+description = "ToCanonical applied twice to a symmetric expression gives same result"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "once"
+[tests.operations.args]
+expression = "CCS[-cca,-ccb] - CCS[-ccb,-cca]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "twice"
+[tests.operations.args]
+expression = "$once"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$once == $twice"
+message   = "ToCanonical should be idempotent on symmetric expression"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "linear_combo_sym_antisym_swap_vanishes"
+description = "(CCS[-a,-b] - CCS[-b,-a]) + (CCA[-a,-b] + CCA[-b,-a]) == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "(CCS[-cca,-ccb] - CCS[-ccb,-cca]) + (CCA[-cca,-ccb] + CCA[-ccb,-cca])"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "Symmetric swap-diff and antisymmetric sum both vanish independently"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "scalar_coeff_antisym"
+description = "Scalar coefficient times antisymmetric: 3*CCA[-a,-b] + 3*CCA[-b,-a] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "3*CCA[-cca,-ccb] + 3*CCA[-ccb,-cca]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "3*A[-a,-b] + 3*A[-b,-a] should vanish by antisymmetry"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "mixed_sym_difference_zero"
+description = "CCS[-a,-b] - CCS[-b,-a] vanishes; CCA[-a,-b] + CCA[-b,-a] vanishes independently"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "sym_part"
+[tests.operations.args]
+expression = "CCS[-cca,-ccb] - CCS[-ccb,-cca]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "antisym_part"
+[tests.operations.args]
+expression = "CCA[-cca,-ccb] + CCA[-ccb,-cca]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$sym_part == 0 && $antisym_part == 0"
+message   = "Both symmetric swap-diff and antisymmetric sum must vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank3_antisym_first_pair_swap"
+description = "CCT[-a,-b,-c] + CCT[-b,-a,-c] == 0 (antisymmetry in first pair)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "CCT[-cca,-ccb,-ccc] + CCT[-ccb,-cca,-ccc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "CCT[-a,-b,-c] + CCT[-b,-a,-c] should vanish by antisymmetry"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank3_antisym_third_free_nonzero"
+description = "CCT[-a,-b,-c] - CCT[-a,-b,-c] is 0 (trivially); CCT[-a,-b,-c] itself is nonzero"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "diff"
+[tests.operations.args]
+expression = "CCT[-cca,-ccb,-ccc] - CCT[-cca,-ccb,-ccc]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$diff == 0"
+message   = "T - T == 0 trivially"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_first_bianchi"
+description = "First Bianchi identity: R[-a,-b,-c,-d] + R[-b,-c,-a,-d] + R[-c,-a,-b,-d] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "RiemannCCD[-cca,-ccb,-ccc,-ccd] + RiemannCCD[-ccb,-ccc,-cca,-ccd] + RiemannCCD[-ccc,-cca,-ccb,-ccd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "First Bianchi identity should hold for Riemann tensor"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_tocanonical_idempotent"
+description = "ToCanonical applied twice to a Riemann expression is idempotent"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "once"
+[tests.operations.args]
+expression = "RiemannCCD[-cca,-ccb,-ccc,-ccd] - RiemannCCD[-ccb,-cca,-ccc,-ccd]"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "twice"
+[tests.operations.args]
+expression = "$once"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$once == $twice"
+message   = "ToCanonical should be idempotent on Riemann expression"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_pair_exchange_compound"
+description = "R[-a,-b,-c,-d] - R[-c,-d,-a,-b] == 0 (pair exchange symmetry)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "RiemannCCD[-cca,-ccb,-ccc,-ccd] - RiemannCCD[-ccc,-ccd,-cca,-ccb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "Riemann pair exchange: R[-a,-b,-c,-d] == R[-c,-d,-a,-b]"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "riemann_self_subtraction_zero"
+description = "R[-a,-b,-c,-d] - R[-a,-b,-c,-d] == 0 (self-subtraction)"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "RiemannCCD[-cca,-ccb,-ccc,-ccd] - RiemannCCD[-cca,-ccb,-ccc,-ccd]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "R - R should vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "antisym_odd_perm_sign"
+description = "CCA[-b,-a] == -CCA[-a,-b] after ToCanonical"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "CCA[-ccb,-cca] + CCA[-cca,-ccb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "A[-b,-a] + A[-a,-b] == 0 by antisymmetry"

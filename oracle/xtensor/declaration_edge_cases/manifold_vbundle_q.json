@@ -1,0 +1,11 @@
+{
+  "test_id": "manifold_vbundle_q",
+  "oracle_version": "julia-axiom",
+  "mathematica_version": "N/A",
+  "timestamp": "2026-03-09T18:36:37.749794+00:00",
+  "commands": "[julia-adapter]",
+  "raw_output": "True",
+  "normalized_output": "True",
+  "properties": {},
+  "hash": "sha256:7a834da09e03"
+}

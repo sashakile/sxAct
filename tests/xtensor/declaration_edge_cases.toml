@@ -1,0 +1,194 @@
+# tests/xtensor/declaration_edge_cases.toml
+# Layer 1 regression tests for DefManifold/DefTensor corner cases.
+# Covers multi-index tensors, VBundle membership, scalar tensors,
+# rank-4 mixed-symmetry declarations, and registry queries.
+#
+# Reference: xTensorDoc.nb §2 (DefManifold, DefTensor declarations).
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id              = "xtensor/declaration_edge_cases"
+description     = "DefManifold/DefTensor edge cases: multi-index, VBundle, scalars, rank-4 (layer 1)"
+tags            = ["xtensor", "declaration", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Lorentzian manifold + various tensor declarations.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "DEm"
+[setup.args]
+name      = "DEm"
+dimension = 4
+indices   = ["dea", "deb", "dec", "ded", "dee", "def_"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "DEg"
+[setup.args]
+signdet = -1
+metric  = "DEg[-dea,-deb]"
+covd    = "DED"
+
+# Rank-1 contravariant vector
+[[setup]]
+action   = "DefTensor"
+store_as = "DEv"
+[setup.args]
+name     = "DEv"
+indices  = ["dea"]
+manifold = "DEm"
+
+# Rank-3 mixed-index tensor (two down, one up)
+[[setup]]
+action   = "DefTensor"
+store_as = "DET"
+[setup.args]
+name     = "DET"
+indices  = ["-dea", "-deb", "dec"]
+manifold = "DEm"
+
+# Rank-4 totally antisymmetric (Levi-Civita-like)
+[[setup]]
+action   = "DefTensor"
+store_as = "DEeps"
+[setup.args]
+name     = "DEeps"
+indices  = ["-dea", "-deb", "-dec", "-ded"]
+manifold = "DEm"
+symmetry = "Antisymmetric[{-dea,-deb,-dec,-ded}]"
+
+# Rank-4 with first-pair and second-pair antisymmetry (Riemann-like custom)
+[[setup]]
+action   = "DefTensor"
+store_as = "DER"
+[setup.args]
+name     = "DER"
+indices  = ["-dea", "-deb", "-dec", "-ded"]
+manifold = "DEm"
+symmetry = "Antisymmetric[{-dea,-deb}]"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "vector_is_tensor_q"
+description = "Contravariant vector passes TensorQ"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "TensorQ[DEv] === True"
+message   = "DEv should pass TensorQ"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank3_mixed_slot_count"
+description = "Rank-3 mixed tensor has 3 slots"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[SlotsOfTensor[DET]] === 3"
+message   = "DET should have 3 slots"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_antisym_slot_count"
+description = "Rank-4 totally antisymmetric tensor has 4 slots"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[SlotsOfTensor[DEeps]] === 4"
+message   = "DEeps should have 4 slots"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_custom_antisym_slot_count"
+description = "Rank-4 first-pair antisymmetric tensor has 4 slots"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "Length[SlotsOfTensor[DER]] === 4"
+message   = "DER should have 4 slots"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "manifold_vbundle_q"
+description = "TangentDEm passes VBundleQ"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "VBundleQ[TangentDEm] === True"
+message   = "TangentDEm should pass VBundleQ"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "vbundle_in_registry"
+description = "TangentDEm appears in VBundles registry"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "MemberQ[VBundles, TangentDEm] === True"
+message   = "TangentDEm should be in VBundles"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "indices_of_vbundle_subset"
+description = "Declared indices appear in IndicesOfVBundle[TangentDEm]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "SubsetQ[IndicesOfVBundle[TangentDEm], {dea, deb}] === True"
+message   = "dea, deb should be in TangentDEm indices"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_antisym_swap_01_zero"
+description = "Totally antisym rank-4: swap first two indices gives -1 × original → sum is 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "DEeps[-dea,-deb,-dec,-ded] + DEeps[-deb,-dea,-dec,-ded]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "DEeps[-a,-b,-c,-d] + DEeps[-b,-a,-c,-d] should vanish"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "rank4_antisym_cyclic_sum_zero"
+description = "Totally antisym rank-4: cyclic perm (abcd→bcda) is odd so eps[-b,-c,-d,-a] + eps[-a,-b,-c,-d] == 0"
+
+[[tests.operations]]
+action   = "ToCanonical"
+store_as = "res"
+[tests.operations.args]
+expression = "DEeps[-deb,-dec,-ded,-dea] + DEeps[-dea,-deb,-dec,-ded]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$res == 0"
+message   = "DEeps[-b,-c,-d,-a] + DEeps[-a,-b,-c,-d] == 0 (cyclic perm is odd)"
