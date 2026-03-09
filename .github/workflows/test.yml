@@ -120,16 +120,19 @@ jobs:
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Check benchmark regressions
-        # Use reduced iterations (warmup=1, measure=5) to keep CI fast.
-        # Thresholds: >50% slower vs baseline triggers fail (spec §5.5).
-        # To update the baseline after intentional perf changes:
-        #   uv run xact-test benchmark <dir> --adapter julia --record
-        #   git add benchmarks/baseline.json && git commit
+        # Uses a CI-specific baseline (benchmarks/ci_baseline.json) recorded on
+        # GitHub Actions hardware (ubuntu-latest, Julia 1.10).  The dev baseline
+        # (benchmarks/baseline.json) is kept for local use only; comparing against
+        # it from CI produces false positives because CI runners are ~2-3x slower.
+        #
+        # To update the CI baseline after intentional perf changes, trigger the
+        # "Record CI benchmark baseline" workflow manually from the Actions tab.
+        # If ci_baseline.json is absent the check warns but does not fail.
         run: |
           for dir in tests/xcore tests/xperm tests/xtensor; do
             uv run xact-test benchmark "$dir" \
               --adapter julia \
-              --baseline benchmarks/baseline.json \
+              --baseline benchmarks/ci_baseline.json \
               --n-warmup 1 \
               --n-measure 5 \
               --check

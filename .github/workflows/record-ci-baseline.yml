@@ -1,0 +1,65 @@
+name: Record CI benchmark baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: "Commit message suffix (appended after 'ci(benchmarks): record CI baseline')"
+        required: false
+        default: ""
+
+jobs:
+  record:
+    name: Record baseline on CI hardware
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Cache Julia packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.julia/packages
+            ~/.julia/compiled
+          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.10-
+      - name: Instantiate Julia project
+        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+      - name: Record CI baseline
+        # Use more iterations here than the regression check so the baseline
+        # is stable (warmup=3, measure=10 mirrors the local recording defaults).
+        run: |
+          for dir in tests/xcore tests/xperm tests/xtensor; do
+            uv run xact-test benchmark "$dir" \
+              --adapter julia \
+              --baseline benchmarks/ci_baseline.json \
+              --n-warmup 3 \
+              --n-measure 10 \
+              --record
+          done
+      - name: Commit updated CI baseline
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/ci_baseline.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            MSG="ci(benchmarks): record CI baseline on ubuntu-latest / Julia 1.10"
+            if [ -n "${{ github.event.inputs.commit_message }}" ]; then
+              MSG="$MSG — ${{ github.event.inputs.commit_message }}"
+            fi
+            git commit -m "$MSG"
+            git push
+          fi
