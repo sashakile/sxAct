@@ -93,3 +93,44 @@ jobs:
         run: uv run xact-test run tests/xperm --adapter julia --oracle-mode snapshot --oracle-dir oracle
       - name: Run TOML regression tests (xtensor)
         run: uv run xact-test run tests/xtensor --adapter julia --oracle-mode snapshot --oracle-dir oracle
+
+  benchmark-regression:
+    name: Benchmark regression check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Cache Julia packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.julia/packages
+            ~/.julia/compiled
+          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.10-
+      - name: Instantiate Julia project
+        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+      - name: Check benchmark regressions
+        # Use reduced iterations (warmup=1, measure=5) to keep CI fast.
+        # Thresholds: >50% slower vs baseline triggers fail (spec §5.5).
+        # To update the baseline after intentional perf changes:
+        #   uv run xact-test benchmark <dir> --adapter julia --record
+        #   git add benchmarks/baseline.json && git commit
+        run: |
+          for dir in tests/xcore tests/xperm tests/xtensor; do
+            uv run xact-test benchmark "$dir" \
+              --adapter julia \
+              --baseline benchmarks/baseline.json \
+              --n-warmup 1 \
+              --n-measure 5 \
+              --check
+          done

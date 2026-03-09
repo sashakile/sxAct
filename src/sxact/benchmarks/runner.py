@@ -102,10 +102,22 @@ def collect_machine_info() -> MachineInfo:
 N_WARMUP_DEFAULT = 10
 N_MEASURE_DEFAULT = 30
 
-# Regression thresholds (ratio vs Wolfram baseline)
-THRESHOLD_WARNING = 5.0  # warn
-THRESHOLD_FAIL = 10.0  # CI gate
-THRESHOLD_CRITICAL = 50.0  # blocker
+# Regression thresholds: same-adapter, current run vs stored baseline (spec §5.5)
+# >20% slower → warning, >50% slower → fail (CI gate), >100% slower → critical
+THRESHOLD_REGRESSION_WARNING = 1.2
+THRESHOLD_REGRESSION_FAIL = 1.5
+THRESHOLD_REGRESSION_CRITICAL = 2.0
+
+# Cross-adapter thresholds: Julia/Python run vs Wolfram baseline (spec §5.5)
+# Julia vs Wolfram: >5x warning, >10x fail; Python vs Wolfram: >10x warning, >50x critical
+THRESHOLD_CROSS_WARNING = 5.0
+THRESHOLD_CROSS_FAIL = 10.0
+THRESHOLD_CROSS_CRITICAL = 50.0
+
+# Legacy aliases kept for external callers
+THRESHOLD_WARNING = THRESHOLD_CROSS_WARNING
+THRESHOLD_FAIL = THRESHOLD_CROSS_FAIL
+THRESHOLD_CRITICAL = THRESHOLD_CROSS_CRITICAL
 
 
 # ---------------------------------------------------------------------------
@@ -331,20 +343,22 @@ def check_regression(
 
 
 def _regression_level(ratio: float) -> str:
-    if ratio >= THRESHOLD_CRITICAL:
+    """Same-adapter regression: current run vs stored baseline (spec §5.5)."""
+    if ratio >= THRESHOLD_REGRESSION_CRITICAL:
         return "critical"
-    if ratio >= THRESHOLD_FAIL:
+    if ratio >= THRESHOLD_REGRESSION_FAIL:
         return "fail"
-    if ratio >= THRESHOLD_WARNING:
+    if ratio >= THRESHOLD_REGRESSION_WARNING:
         return "warning"
     return "ok"
 
 
 def _cross_adapter_level(ratio: float) -> str:
-    if ratio >= THRESHOLD_CRITICAL:
+    """Cross-adapter slowdown: Julia/Python vs Wolfram baseline (spec §5.5)."""
+    if ratio >= THRESHOLD_CROSS_CRITICAL:
         return "critical"
-    if ratio >= THRESHOLD_FAIL:
+    if ratio >= THRESHOLD_CROSS_FAIL:
         return "fail"
-    if ratio >= THRESHOLD_WARNING:
+    if ratio >= THRESHOLD_CROSS_WARNING:
         return "warning"
     return "ok"
