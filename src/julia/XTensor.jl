@@ -801,6 +801,99 @@ function _bianchi_reduce!(
     end
 end
 
+# ============================================================
+# CovD reduction preprocessing
+# ============================================================
+
+"""
+Apply metric compatibility: CovD[-x][g[-a,-b]] → 0 for any registered metric.
+"""
+function _reduce_metric_compatibility(s::AbstractString)::AbstractString
+    for (covd_sym, metric_obj) in _metrics
+        covd = string(covd_sym)
+        mname = string(metric_obj.name)
+        pat = Regex(covd * raw"\[-\w+\]\[" * mname * raw"\[-\w+,-\w+\]\]")
+        s = replace(s, pat => "0")
+    end
+    s
+end
+
+"""
+Apply second Bianchi identity: detect cyclic sum
+∇_e R_{abcd} + ∇_c R_{abde} + ∇_d R_{abec} = 0 and replace all three terms with 0.
+"""
+function _reduce_second_bianchi(s::AbstractString)::AbstractString
+    isempty(_metrics) && return s
+
+    # Find all CovD[-x][Riemann[-a,-b,-c,-d]] patterns
+    pat = r"(\w+)\[(-\w+)\]\[(\w+)\[(-\w+),(-\w+),(-\w+),(-\w+)\]\]"
+    matches = collect(eachmatch(pat, s))
+    isempty(matches) && return s
+
+    # Group by (cd_name, riem_name, r1, r2)
+    groups = Dict{NTuple{4,String},Vector{Tuple{String,String,String,String}}}()
+    for m in matches
+        cd_name, cd_idx, riem_name = m[1], m[2], m[3]
+        r1, r2, r3, r4 = m[4], m[5], m[6], m[7]
+        # Only process registered CovD / matching Riemann pairs
+        cd_sym = Symbol(cd_name)
+        haskey(_metrics, cd_sym) || continue
+        Symbol(riem_name) == Symbol("Riemann" * cd_name) || continue
+        key = (cd_name, riem_name, r1, r2)
+        v = get!(groups, key, Tuple{String,String,String,String}[])
+        push!(v, (m.match, cd_idx, r3, r4))
+    end
+
+    to_remove = String[]
+    for (_, terms) in groups
+        length(terms) < 3 && continue
+        n = length(terms)
+        used = falses(n)
+        for i in 1:n
+            used[i] && continue
+            (full_i, ei, ci, di) = terms[i]
+            # Cyclic: (cd=ei,r3=ci,r4=di) → (cd=ci,r3=di,r4=ei) → (cd=di,r3=ei,r4=ci)
+            j_idx = findfirst(
+                jj ->
+                    !used[jj] &&
+                    jj != i &&
+                    terms[jj][2] == ci &&
+                    terms[jj][3] == di &&
+                    terms[jj][4] == ei,
+                1:n,
+            )
+            isnothing(j_idx) && continue
+            k_idx = findfirst(
+                kk ->
+                    !used[kk] &&
+                    kk != i &&
+                    kk != j_idx &&
+                    terms[kk][2] == di &&
+                    terms[kk][3] == ei &&
+                    terms[kk][4] == ci,
+                1:n,
+            )
+            isnothing(k_idx) && continue
+            push!(to_remove, full_i, terms[j_idx][1], terms[k_idx][1])
+            used[i] = used[j_idx] = used[k_idx] = true
+        end
+    end
+
+    for full_pat in to_remove
+        s = replace(s, full_pat => "0"; count=1)
+    end
+    s
+end
+
+"""
+Apply CovD reductions before canonical parsing.
+"""
+function _preprocess_covd_reductions(s::AbstractString)::AbstractString
+    s = _reduce_metric_compatibility(s)
+    s = _reduce_second_bianchi(s)
+    s
+end
+
 """
     ToCanonical(expression::String) → String
 
@@ -809,6 +902,9 @@ Canonicalize a tensor expression. Returns "0" if all terms cancel.
 function ToCanonical(expression::AbstractString)::String
     s = strip(expression)
     (s == "0" || isempty(s)) && return "0"
+
+    # Preprocess covariant derivative applications
+    s = _preprocess_covd_reductions(s)
 
     terms = _parse_expression(s)
     isempty(terms) && return "0"
