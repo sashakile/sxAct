@@ -67,6 +67,7 @@ class MockOracleClient:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "oracle: tests requiring Docker oracle server")
+    config.addinivalue_line("markers", "julia: tests requiring the Julia runtime")
 
 
 @pytest.fixture(scope="session")

@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal as _Literal
 
 from sxact.adapter.base import (
     AdapterError,
@@ -64,16 +64,43 @@ def _jl_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
+_Symmetry = _Literal["Symmetric", "Antisymmetric"]
+
+
+def _parse_symmetry(sym_str: str) -> "_Symmetry | None":
+    """Extract symmetry type from xAct symmetry string.
+
+    Returns 'Symmetric', 'Antisymmetric', or None.
+    """
+    if not sym_str:
+        return None
+    if sym_str.startswith("Symmetric"):
+        return "Symmetric"
+    if sym_str.startswith("Antisymmetric"):
+        return "Antisymmetric"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Context
 # ---------------------------------------------------------------------------
 
 
 class _JuliaContext:
-    """Opaque per-file context for JuliaAdapter."""
+    """Opaque per-file context for JuliaAdapter.
+
+    Tracks manifold/metric/tensor definitions made during this context so that
+    a TensorContext can be built for Tier 3 numeric comparison.
+    """
 
     def __init__(self) -> None:
         self.alive: bool = True
+        # Populated by _def_manifold / _def_metric / _def_tensor
+        from sxact.compare.tensor_objects import Manifold, Metric, TensorField
+
+        self._manifolds: list[Manifold] = []
+        self._metrics: list[Metric] = []
+        self._tensors: list[TensorField] = []
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +202,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         _get_xtensor(self._jl)
 
         if action in self._XTENSOR_ACTIONS:
-            return self._execute_xtensor(action, args)
+            return self._execute_xtensor(ctx, action, args)
 
         if action == "Evaluate":
             expr = args.get("expression", "")
@@ -207,7 +234,9 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             error=f"unhandled action: {action!r}",
         )
 
-    def _execute_xtensor(self, action: str, args: dict[str, Any]) -> Result:
+    def _execute_xtensor(
+        self, ctx: _JuliaContext, action: str, args: dict[str, Any]
+    ) -> Result:
         """Dispatch xTensor actions to Julia XTensor module."""
         try:
             _get_xtensor(self._jl)
@@ -222,11 +251,11 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
 
         try:
             if action == "DefManifold":
-                return self._def_manifold(args)
+                return self._def_manifold(ctx, args)
             if action == "DefTensor":
-                return self._def_tensor(args)
+                return self._def_tensor(ctx, args)
             if action == "DefMetric":
-                return self._def_metric(args)
+                return self._def_metric(ctx, args)
             if action == "ToCanonical":
                 return self._to_canonical(args)
             if action == "Contract":
@@ -243,7 +272,9 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             error=f"unhandled xTensor action: {action!r}",
         )
 
-    def _def_manifold(self, args: dict[str, Any]) -> Result:
+    def _def_manifold(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
+        from sxact.compare.tensor_objects import Manifold
+
         name = str(args["name"])
         dim = int(args["dimension"])
         indices = list(args["indices"])
@@ -255,9 +286,12 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         self._jl.seval(f"Main.eval(:(global Tangent{name} = :Tangent{name}))")
         for idx in indices:
             self._jl.seval(f"Main.eval(:(global {idx} = :{idx}))")
+        ctx._manifolds.append(Manifold(name=name, dimension=dim))
         return Result(status="ok", type="Handle", repr=name, normalized=name)
 
-    def _def_tensor(self, args: dict[str, Any]) -> Result:
+    def _def_tensor(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
+        from sxact.compare.tensor_objects import TensorField
+
         name = str(args["name"])
         indices = args["indices"]
         manifold = str(args["manifold"])
@@ -267,10 +301,27 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         self._jl.seval(f"XTensor.def_tensor!(:{name}, {idx_jl}, :{manifold}{sym_arg})")
         # Bind tensor name in Main as a Symbol for TensorQ(Bts) etc.
         self._jl.seval(f"Main.eval(:(global {name} = :{name}))")
+        # Record for TensorContext (Tier 3 numeric comparison)
+        manifold_obj = next(
+            (m for m in reversed(ctx._manifolds) if m.name == manifold),
+            ctx._manifolds[-1] if ctx._manifolds else None,
+        )
+        if manifold_obj is not None:
+            symmetry = _parse_symmetry(sym_str)
+            ctx._tensors.append(
+                TensorField(
+                    name=name,
+                    rank=len(indices),
+                    manifold=manifold_obj,
+                    symmetry=symmetry,
+                )
+            )
         return Result(status="ok", type="Handle", repr=name, normalized=name)
 
-    def _def_metric(self, args: dict[str, Any]) -> Result:
+    def _def_metric(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
         import re as _re
+
+        from sxact.compare.tensor_objects import Metric
 
         signdet = int(args["signdet"])
         metric_raw = str(args["metric"])
@@ -279,8 +330,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         self._jl.seval(f'XTensor.def_metric!({signdet}, "{metric_str}", :{covd})')
         # Bind the metric tensor name in Main as a Symbol (for SignDetOfMetric assertions)
         m_name_match = _re.match(r"^(\w+)", metric_raw)
-        if m_name_match:
-            metric_name = m_name_match.group(1)
+        metric_name = m_name_match.group(1) if m_name_match else None
+        if metric_name:
             self._jl.seval(f"Main.eval(:(global {metric_name} = :{metric_name}))")
         # Bind auto-created curvature tensor names in Main as Symbols
         for prefix in ("Riemann", "Ricci", "RicciScalar", "Einstein", "Weyl"):
@@ -289,6 +340,15 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 f"if XTensor.TensorQ(:{auto_name})\n"
                 f"    Main.eval(:(global {auto_name} = :{auto_name}))\n"
                 f"end"
+            )
+        # Record metric for TensorContext (use last manifold as the associated manifold)
+        if metric_name and ctx._manifolds:
+            # signdet == 1 → Euclidean (0 negative eigenvalues); -1 → Lorentzian (1 neg)
+            signature = 1 if signdet == -1 else 0
+            ctx._metrics.append(
+                Metric(
+                    name=metric_name, manifold=ctx._manifolds[-1], signature=signature
+                )
             )
         repr_str = metric_raw
         return Result(status="ok", type="Handle", repr=repr_str, normalized=repr_str)
@@ -428,6 +488,26 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             cas_version=self._julia_version,
             adapter_version="0.1.0",
         )
+
+    def get_tensor_context(self, ctx: _JuliaContext, rng: "Any | None" = None) -> "Any":
+        """Build a TensorContext from the manifold/tensor state in *ctx*.
+
+        Returns a :class:`~sxact.compare.sampling.TensorContext` populated with
+        random component arrays for all tensors and metrics defined in this context.
+        Pass the result to :func:`~sxact.compare.sampling.sample_numeric` for
+        Tier 3 numeric comparison.
+
+        Args:
+            ctx: The active context (must have been used with ``DefManifold`` /
+                 ``DefMetric`` / ``DefTensor`` calls).
+            rng: Optional NumPy random generator for reproducibility.
+
+        Returns:
+            A ``TensorContext`` ready for substitution.
+        """
+        from sxact.compare.sampling import build_tensor_context
+
+        return build_tensor_context(ctx._manifolds, ctx._metrics, ctx._tensors, rng=rng)
 
 
 # ---------------------------------------------------------------------------
