@@ -1,56 +1,19 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+## Repository Focus & Scope
 
-## Quick Reference
+This repository (sxAct) is the Implementation Layer for the Julia ports of xAct and their Python wrapper.
 
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
-```
+- IN-SCOPE:
+    - Julia implementation of XCore, XPerm, XTensor, xCoba, xPert, xTras, etc.
+    - Python wrapper (sxact-py) development.
+    - Local OracleClient, Normalize, and Compare tools.
+- OUT-OF-SCOPE (External Repositories):
+    - Elegua Orchestrator: Logic for the multi-tier task runner and cross-repo coordination occurs in the elegua repository.
+    - Chacana DSL: Grammar, PEG parsing, and language specifications occur in the chacana repository.
 
-## Testing
+Crucial: Do NOT initiate implementation changes for the Elegua or Chacana core packages within this repository. Treat them as upstream dependencies or external specifications.
 
-```bash
-uv run pytest tests/                    # Run fast tests (skips oracle tests if server unavailable)
-uv run pytest tests/ -m oracle          # Run oracle tests only (requires Docker oracle)
-uv run pytest tests/ -m "not slow"      # Exclude slow tests (default recommendation)
-uv run pytest tests/ -m slow            # Run slow tests only (xAct loading ~3+ min)
-```
-
-**Note:** Tests marked `@pytest.mark.slow` (e.g., xAct initialization) take 3+ minutes. Exclude them during normal development with `-m "not slow"`.
-
-## Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-
-
-<!-- BEGIN BEADS INTEGRATION -->
 ## Issue Tracking with bd (beads)
 
 **IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
@@ -125,13 +88,13 @@ bd automatically syncs via Dolt:
 
 ### Important Rules
 
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
+- Use bd for ALL task tracking
+- Always use --json flag for programmatic use
+- Link discovered work with discovered-from dependencies
+- Check bd ready before asking "what should I work on?"
+- Do NOT create markdown TODO lists
+- Do NOT use external issue trackers
+- Do NOT duplicate tracking systems
 
 For more details, see README.md and docs/QUICKSTART.md.
 

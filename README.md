@@ -1,118 +1,44 @@
-# sxAct — xAct Migration Experiments
+# sxAct — xAct Migration & Implementation
 
-Experiments in migrating [xAct](http://xact.es/) (a Wolfram Language tensor algebra library) to open-source ecosystems (Julia, Python).
+This repository is dedicated to the Julia implementation of the [xAct](http://xact.es/) suite and its Python wrapper. It provides the core tensor algebra engines and validation tooling to ensure mathematical parity with the Wolfram Language "Gold Standard."
 
-The core workflow: run xAct computations via a Dockerized Wolfram Engine, capture results, and build a Python testing layer that can validate equivalent open-source implementations.
+## Project Scope
+
+- Primary Goal: Migrate xAct's functionality (xCore, xPerm, xTensor, etc.) to Julia for high-performance, open-source tensor calculus.
+- Python Access: Provide an idiomatic Python wrapper (sxact-py) around the Julia core.
+- Validation: Use a Dockerized Wolfram Engine (the "Oracle") to prove implementation correctness.
+
+### The Ecosystem Split
+
+To maintain modularity and focus, this project is part of a three-pillar ecosystem:
+
+1.  sxAct (This Repo): The Julia/Python implementations of xAct.
+2.  [Elegua](https://github.com/sashakile/elegua) (External): The Orchestrator and multi-tier test harness.
+3.  [Chacana](https://github.com/sashakile/chacana) (External): The language-agnostic Tensor DSL and specification.
+
+---
 
 ## Quick Start
 
-**Prerequisites:** Docker, Python ≥ 3.10, [uv](https://docs.astral.sh/uv/)
+Prerequisites: Docker, Python >= 3.10, [uv](https://docs.astral.sh/uv/)
 
 ```bash
 # Install Python dependencies
 uv sync
 
-# Start the Wolfram/xAct oracle server
+# Start the Wolfram/xAct oracle server (for validation)
 docker compose up -d
 
-# Run tests (unit tests only, no oracle required)
-uv run pytest tests/ -m "not oracle and not slow"
-
-# Run full integration tests (requires oracle)
-uv run pytest tests/integration/
+# Run tests
+uv run pytest tests/
 ```
 
 See [SETUP.md](SETUP.md) for first-time setup (Wolfram Engine activation, Docker configuration).
 
 ## Architecture
 
-```
-sxAct/
-├── src/sxact/
-│   ├── oracle/          # HTTP client for the Wolfram/xAct Docker service
-│   │   ├── client.py    # OracleClient: sends expressions, gets results
-│   │   └── result.py    # OracleResult: typed wrapper for xAct responses
-│   ├── normalize/       # Expression normalization pipeline
-│   │   └── pipeline.py  # Canonicalize xAct output for comparison
-│   └── compare/         # Comparison and sampling utilities
-│       ├── comparator.py  # Assert equivalence between implementations
-│       └── sampling.py    # Generate test expressions
-├── tests/
-│   ├── oracle/          # Unit tests for oracle client/result
-│   ├── normalize/       # Unit tests for normalization pipeline
-│   ├── compare/         # Unit tests for comparator and sampling
-│   └── integration/     # End-to-end tests against live oracle
-├── notebooks/           # Wolfram/Python example scripts
-├── resources/xAct/      # xAct 1.2.0 library (Wolfram packages)
-├── docker-compose.yml   # Wolfram Engine + oracle server
-└── pyproject.toml       # Python package config (uv)
-```
+The implementation follows a layered approach:
 
-## Key Components
-
-### Oracle (`src/sxact/oracle/`)
-
-Thin HTTP client to a Dockerized Wolfram Engine running xAct. Sends tensor expressions as strings, returns structured results.
-
-```python
-from sxact.oracle import OracleClient
-
-client = OracleClient()
-result = client.evaluate("CD[-a][v[b]]")
-print(result.output)  # xAct-normalized string
-```
-
-### Normalize (`src/sxact/normalize/`)
-
-Pipeline that canonicalizes xAct output (index renaming, sorting, sign normalization) to enable reliable comparison across implementations.
-
-### Compare (`src/sxact/compare/`)
-
-Comparator that asserts two tensor expressions are equivalent after normalization, plus sampling utilities for generating diverse test cases.
-
-## Running Tests
-
-```bash
-# Fast unit tests (no Docker needed)
-uv run pytest tests/oracle tests/normalize tests/compare
-
-# Integration tests (oracle Docker must be running)
-uv run pytest tests/integration/ -m oracle
-
-# All tests
-uv run pytest
-```
-
-Test markers:
-- `oracle` — requires the Docker oracle server
-- `slow` — xAct loads in ~3 min, these tests take time
-
-## xAct Packages Available
-
-Located in `resources/xAct/` (v1.2.0):
-
-| Package | Purpose |
-|---------|---------|
-| xCore | Core infrastructure |
-| xTensor | Tensor algebra (main package) |
-| xCoba | Coordinate-based calculations |
-| xPert | Perturbation theory |
-| xPerm | Permutation handling |
-| Spinors | Spinor calculus |
-| Invar | Curvature invariants |
-| Harmonics | Harmonic analysis |
-| xTras | Additional utilities |
-
-## Project Goals
-
-1. **Document xAct capabilities** — build a reference test suite of tensor algebra operations
-2. **Validate open-source implementations** — use the oracle to verify Julia/Python ports
-3. **Identify migration paths** — evaluate SymPy, Cadabra, Symbolics.jl, etc.
-4. **Build prototypes** — implement xAct-equivalent functionality in open-source languages
-
-## Resources
-
-- [xAct Homepage](http://xact.es/) — official documentation
-- [Wolfram Engine](https://www.wolfram.com/engine/) — free for non-production use
-- [Wolfram Client for Python](https://reference.wolfram.com/language/WolframClientForPython/)
-- [MathLink.jl](https://github.com/JuliaInterop/MathLink.jl) — Julia ↔ Wolfram bridge
+1.  The [oracle](api/oracle.md) module communicates with a running Wolfram Engine.
+2.  The [normalize](api/normalize.md) module canonicalizes xAct expressions.
+3.  The [compare](api/compare.md) module asserts equivalence between implementations.
