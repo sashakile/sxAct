@@ -51,6 +51,7 @@ class PropertySpec:
     num_samples: int
     random_seed: int
     tolerance: float = 1e-10
+    skip_adapters: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -143,6 +144,7 @@ def load_property_file(path: Path) -> PropertyFile:
                 num_samples=verification.get("num_samples", 10),
                 random_seed=verification.get("random_seed", 0),
                 tolerance=verification.get("tolerance", 1e-10),
+                skip_adapters=p.get("skip_adapters", []),
             )
         )
 
@@ -240,6 +242,7 @@ def run_property_file(
     prop_file: PropertyFile,
     adapter: Any,
     tag_filter: str | None = None,
+    adapter_name: str = "",
 ) -> PropertyFileResult:
     """Run all properties in a PropertyFile against the given adapter."""
     file_result = PropertyFileResult(
@@ -272,6 +275,18 @@ def run_property_file(
 
         for spec in prop_file.properties:
             if tag_filter and tag_filter not in spec.tags:
+                continue
+            if adapter_name and adapter_name in spec.skip_adapters:
+                file_result.results.append(
+                    PropertyResult(
+                        property_id=spec.id,
+                        name=spec.name,
+                        status="skip",
+                        num_samples=0,
+                        num_passed=0,
+                        message=f"skipped for adapter {adapter_name!r}",
+                    )
+                )
                 continue
             result = _run_property(spec, adapter, ctx)
             file_result.results.append(result)

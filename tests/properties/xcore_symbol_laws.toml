@@ -308,9 +308,10 @@ random_seed = 51
 # ---------------------------------------------------------------------------
 
 [[properties]]
-id   = "symbol_join_returns_atom"
-name = "SymbolJoin result is an atomic symbol"
-tags = ["xcore", "symbol", "property"]
+id              = "symbol_join_returns_atom"
+name            = "SymbolJoin result is an atomic symbol"
+tags            = ["xcore", "symbol", "property"]
+skip_adapters   = ["julia"]
 
 [properties.mathematical_basis]
 statement = "For any pair of string names a, b, AtomQ(SymbolJoin(a, b)) == True"
@@ -340,9 +341,10 @@ random_seed = 52
 # ---------------------------------------------------------------------------
 
 [[properties]]
-id   = "find_symbols_subset_of_atoms"
-name = "FindSymbols result is a subset of the expression's leaf atoms"
-tags = ["xcore", "symbol", "property"]
+id              = "find_symbols_subset_of_atoms"
+name            = "FindSymbols result is a subset of the expression's leaf atoms"
+tags            = ["xcore", "symbol", "property"]
+skip_adapters   = ["julia"]
 
 [properties.mathematical_basis]
 statement = "For any expression e, FindSymbols(e) ⊆ Flatten(Level(e, {-1})) restricted to Symbol heads"

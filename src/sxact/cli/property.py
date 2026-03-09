@@ -163,7 +163,9 @@ def _cmd_property(args: argparse.Namespace) -> int:
             continue
 
         try:
-            result = run_property_file(prop_file, adapter, tag_filter)
+            result = run_property_file(
+                prop_file, adapter, tag_filter, adapter_name=args.adapter
+            )
         except Exception as exc:
             result = PropertyFileResult(
                 file_path=str(toml_path),
