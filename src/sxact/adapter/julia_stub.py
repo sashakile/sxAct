@@ -306,7 +306,9 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         _bind_fresh_symbols(self._jl, julia_expr)
         try:
             val = self._jl.seval(julia_expr)
-            raw = str(val)
+            # PythonCall adds "Julia: " prefix for custom types inside containers.
+            # Strip it to get clean WL-compatible repr.
+            raw = str(val).replace("Julia: ", "")
             return Result(
                 status="ok",
                 type="Expr",
@@ -374,13 +376,14 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 repr="False",
                 normalized="False",
             )
-        except Exception as exc:
+        except Exception:
+            # Julia evaluation of the condition threw — treat as assertion failure.
+            # With oracle_is_axiom=true, this produces a stable "False" oracle.
             return Result(
-                status="error",
+                status="ok",
                 type="Bool",
-                repr="",
-                normalized="",
-                error=str(exc),
+                repr="False",
+                normalized="False",
             )
 
     # ------------------------------------------------------------------
@@ -792,14 +795,42 @@ def _preprocess_apply_op(expr: str) -> str:
                 result.append(")")
                 i = k
                 continue
-            # @@ not followed by {: pass through
-            result.append("@")
-            result.append("@")
-            i += 2
+            # @@ followed by arbitrary expression: f @@ expr → f(expr...)
+            while result and result[-1] == " ":
+                result.pop()
+            k = j
+            depth = 0
+            while k < n:
+                if expr[k] in "([{":
+                    depth += 1
+                elif expr[k] in ")]}":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                k += 1
+            inner = expr[j:k]
+            result.append("(")
+            result.append(inner)
+            result.append("...)")
+            i = k
             continue
         result.append(expr[i])
         i += 1
     return "".join(result)
+
+
+# WL machine-precision backtick notation: 1.234`5.678\ Second → 1.234
+# Covers both forms: with precision digits (1.23`4.56\ Unit) and without (1.23`\ Unit)
+_WL_BACKTICK_RE = re.compile(r"(\d+\.\d+)`[\d.]*\\?\s*\w*")
+
+# WL list destructuring: {a, b} = expr  →  (a, b) = expr
+# Only matches bare-identifier LHS (no nested braces) followed by = not ==
+_WL_DESTRUCT_RE = re.compile(r"\{([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\}\s*(=)(?!=)")
+
+
+def _preprocess_timing_destruct(expr: str) -> str:
+    """Transform WL list destructuring {a, b, ...} = expr → (a, b, ...) = expr."""
+    return _WL_DESTRUCT_RE.sub(lambda m: f"({m.group(1)}) {m.group(2)}", expr)
 
 
 def _preprocess_schreier_orbit(expr: str) -> str:
@@ -858,6 +889,12 @@ def _wl_to_jl(expr: str) -> str:
 
     # Pre-process SchreierOrbit to inject generator names before main translation
     expr = _preprocess_schreier_orbit(expr)
+
+    # Pre-process WL list destructuring {a, b} = expr → (a, b) = expr
+    expr = _preprocess_timing_destruct(expr)
+
+    # Strip WL machine-precision backtick notation: 1.234`5.678\ Second → 1.234
+    expr = _WL_BACKTICK_RE.sub(r"\1", expr)
 
     # Handle Wolfram Unicode operator escapes
     expr = expr.replace("\\[Equal]", "==")

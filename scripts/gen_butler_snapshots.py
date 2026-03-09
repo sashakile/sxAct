@@ -43,10 +43,16 @@ def _sub_bindings(args: dict, bindings: dict) -> dict:
     return {k: sub_val(v) for k, v in args.items()}
 
 
-def _sha_prefix(text: str) -> str:
+def _sha_prefix(normalized_output: str, properties: dict = None) -> str:
     import hashlib
 
-    h = hashlib.sha256(text.encode()).hexdigest()
+    if properties is None:
+        properties = {}
+    canonical = json.dumps(
+        {"normalized_output": normalized_output, "properties": properties},
+        sort_keys=True,
+    )
+    h = hashlib.sha256(canonical.encode()).hexdigest()
     return f"sha256:{h[:12]}"
 
 
@@ -110,6 +116,7 @@ def process_single_file(toml_path: Path, dry_run: bool) -> dict:
                 continue
 
             raw = last_repr or ""
+            props: dict = {}
             snap = {
                 "test_id": tc.id,
                 "oracle_version": ORACLE_VERSION,
@@ -118,8 +125,8 @@ def process_single_file(toml_path: Path, dry_run: bool) -> dict:
                 "commands": "[julia-adapter]",
                 "raw_output": raw,
                 "normalized_output": raw,
-                "properties": {},
-                "hash": _sha_prefix(raw),
+                "properties": props,
+                "hash": _sha_prefix(raw, props),
             }
             snapshots.append({"id": tc.id, "raw": raw, "snap": snap})
 

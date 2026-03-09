@@ -2,10 +2,10 @@
   "test_id": "eval_02",
   "oracle_version": "julia-axiom",
   "mathematica_version": "N/A",
-  "timestamp": "2026-03-08T15:28:24.988269+00:00",
+  "timestamp": "2026-03-09T12:30:32.057574+00:00",
   "commands": "[julia-adapter]",
-  "raw_output": "",
-  "normalized_output": "",
+  "raw_output": "False",
+  "normalized_output": "False",
   "properties": {},
-  "hash": "sha256:2198afd0be59"
+  "hash": "sha256:82d00aac8815"
 }

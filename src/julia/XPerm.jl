@@ -1159,10 +1159,21 @@ TranslatePerm(::_IDType, ::Any) = Int[]
 
 WL-style Schreier-Sims wrapper.
 """
-function SchreierSims(
-    base::AbstractVector{<:Integer}, genset::Vector{Vector{Int}}, n::Integer
-)
-    schreier_sims(Vector{Int}(base), genset, Int(n))
+function SchreierSims(base::AbstractVector, genset::Vector{Vector{Int}}, n::Integer)
+    b = isempty(base) ? Int[] : Vector{Int}(Int[x for x in base])
+    ni = Int(n)
+    # Pad generators to uniform degree ni (identity extension)
+    padded = Vector{Vector{Int}}()
+    for g in genset
+        if length(g) < ni
+            p = copy(g);
+            append!(p, (length(g) + 1):ni);
+            push!(padded, p)
+        else
+            push!(padded, g)
+        end
+    end
+    schreier_sims(b, isempty(padded) ? genset : padded, ni)
 end
 function SchreierSims(genset::Vector{Vector{Int}})
     isempty(genset) && return StrongGenSet(Int[], Vector{Int}[], 0, false)
@@ -1488,5 +1499,220 @@ function Dimino(
 end
 
 export Dimino
+
+# ---------------------------------------------------------------------------
+# WL-compatible show for StrongGenSet
+# Outputs StrongGenSet[{base...}, GenSet[gen1, gen2, ...]] using Cycles notation.
+# This ensures $result substitution round-trips correctly through _wl_to_jl.
+# ---------------------------------------------------------------------------
+
+function _to_cycles(p::Vector{Int})::Vector{Vector{Int}}
+    n = length(p)
+    visited = falses(n)
+    cycles = Vector{Vector{Int}}()
+    for i in 1:n
+        visited[i] && continue
+        p[i] == i && (visited[i]=true; continue)
+        cycle = Int[]
+        j = i
+        while !visited[j]
+            visited[j] = true
+            push!(cycle, j)
+            j = p[j]
+        end
+        push!(cycles, cycle)
+    end
+    cycles
+end
+
+function _perm_to_wl_cycles_str(p::Vector{Int})::String
+    cycs = _to_cycles(p)
+    isempty(cycs) && return "Cycles[]"
+    parts = join(["{" * join(c, ", ") * "}" for c in cycs], ", ")
+    "Cycles[$parts]"
+end
+
+function _get_main_named_perms()::Dict{Vector{Int},String}
+    lookup = Dict{Vector{Int},String}()
+    all_nms = try
+        filter(
+            nm -> begin
+                s = String(nm)
+                !isempty(s) && isascii(s[1]) && isletter(s[1]) && length(s) <= 8
+            end,
+            names(Main; all=true),
+        )
+    catch
+        Symbol[]
+    end
+    for nm in all_nms
+        try
+            val = Main.eval(nm)
+            val isa Vector{Int} || continue
+            isempty(val) && continue
+            n = length(val)
+            while n > 0 && val[n] == n
+                n -= 1
+            end
+            key = n == 0 ? Int[] : val[1:n]
+            haskey(lookup, key) || (lookup[key] = String(nm))
+        catch
+        end
+    end
+    lookup
+end
+
+function _perm_to_wl_str(p::Vector{Int}, names::Dict{Vector{Int},String})::String
+    n = length(p)
+    while n > 0 && p[n] == n
+        n -= 1
+    end
+    trimmed = n == 0 ? Int[] : p[1:n]
+    haskey(names, trimmed) && return "\"$(names[trimmed])\""
+    _perm_to_wl_cycles_str(trimmed)
+end
+
+function Base.show(io::IO, sgs::StrongGenSet)
+    names = _get_main_named_perms()
+    base_s = "{" * join(sgs.base, ", ") * "}"
+    # For signed SGS, strip the sign-bit suffix from each generator for display
+    gens_strs = [_perm_to_wl_str(g, names) for g in sgs.GS]
+    print(io, "StrongGenSet[$base_s, GenSet[$(join(gens_strs, ", "))]]")
+end
+
+# ---------------------------------------------------------------------------
+# Timing / AbsoluteTiming  (WL compatibility wrappers)
+# Returns a 2-tuple (elapsed, result) matching WL's {time, result} structure.
+# ---------------------------------------------------------------------------
+
+Timing(f) = (0.0, f)
+AbsoluteTiming(f) = (0.0, f)
+const Second = 1.0
+export Timing, AbsoluteTiming, Second
+
+# ---------------------------------------------------------------------------
+# PermWord
+# ---------------------------------------------------------------------------
+
+"""
+    PermWordResult
+
+Result of PermWord: a list of permutation-vector coset representatives.
+Stores actual Vector{Int} values (suitable for splatting into Permute).
+show() outputs WL-compatible {elem, ...} notation, substituting names from
+Julia's Main scope for any generator that matches a named variable.
+"""
+struct PermWordResult
+    word::Vector{Vector{Int}}
+end
+
+function Base.show(io::IO, pw::PermWordResult)
+    names = _get_main_named_perms()
+    parts = [_perm_to_wl_str(e, names) for e in pw.word]
+    print(io, "{$(join(parts, ", "))}")
+end
+
+# Make PermWordResult iterable so that `Permute(pw...)` splats the word elements.
+function Base.iterate(pw::PermWordResult, state=1)
+    state > length(pw.word) ? nothing : (pw.word[state], state + 1)
+end
+Base.length(pw::PermWordResult) = length(pw.word)
+
+export PermWordResult
+
+"""
+    PermWord(perm, sgs) → PermWordResult
+
+Decompose `perm` as a product of coset representatives from the stabilizer chain.
+Returns the word `[residual, u_k, ..., u_1]` (residual first, then coset reps
+in reverse sift order) such that:
+
+    perm = u_1 ∘ u_2 ∘ ... ∘ u_k ∘ residual
+
+Named generators (variables in Julia's Main scope) are returned as strings.
+"""
+function PermWord(perm::Vector{Int}, sgs::StrongGenSet)::PermWordResult
+    n = sgs.n
+    gdeg = isempty(sgs.GS) ? n : length(sgs.GS[1])
+    padded = if length(perm) < gdeg
+        vcat(Vector{Int}(perm), collect((length(perm) + 1):gdeg))
+    else
+        Vector{Int}(perm)
+    end
+
+    level_GS = _build_level_GS(sgs)
+    cur = copy(padded)
+    coset_reps = Vector{Vector{Int}}()
+
+    for (i, b) in enumerate(sgs.base)
+        i > length(level_GS) && break
+        GS_i = level_GS[i]
+        isempty(GS_i) && break
+        img = cur[b]
+        sv_n = b <= n ? n : gdeg
+        sv = schreier_vector(b, GS_i, sv_n)
+        !(img in sv.orbit) && break  # perm not in group at this level
+        u = trace_schreier(sv, img, GS_i)
+        push!(coset_reps, u)
+        cur = compose(inverse_perm(u), cur)
+    end
+
+    # residual trimmed to physical degree
+    residual = cur[1:min(n, length(cur))]
+    nr = length(residual)
+    while nr > 0 && residual[nr] == nr
+        nr -= 1
+    end
+    res_trimmed = nr == 0 ? Int[] : residual[1:nr]
+
+    word = Vector{Vector{Int}}([res_trimmed])
+    for i in length(coset_reps):-1:1
+        u = coset_reps[i]
+        nu = length(u)
+        while nu > 0 && u[nu] == nu
+            nu -= 1
+        end
+        u_tr = nu == 0 ? Int[] : u[1:nu]
+        push!(word, u_tr)
+    end
+
+    PermWordResult(word)
+end
+
+export PermWord
+
+# ---------------------------------------------------------------------------
+# DeleteRedundantGenerators
+# ---------------------------------------------------------------------------
+
+"""
+    DeleteRedundantGenerators(sgs) → StrongGenSet
+
+Remove generators from `sgs` that are redundant (expressible as products of
+the remaining generators).  Iterates through the flat generator list, removing
+each generator whose removal does not change the group order.
+"""
+function DeleteRedundantGenerators(sgs::StrongGenSet)::StrongGenSet
+    isempty(sgs.GS) && return sgs
+    target_order = order_of_group(sgs)
+    gens = copy(sgs.GS)
+    i = 1
+    while i <= length(gens)
+        candidate = vcat(gens[1:(i - 1)], gens[(i + 1):end])
+        if isempty(candidate)
+            i += 1
+            continue
+        end
+        new_sgs = schreier_sims(copy(sgs.base), candidate, sgs.n)
+        if order_of_group(new_sgs) == target_order
+            deleteat!(gens, i)
+        else
+            i += 1
+        end
+    end
+    schreier_sims(copy(sgs.base), gens, sgs.n)
+end
+
+export DeleteRedundantGenerators
 
 end  # module XPerm

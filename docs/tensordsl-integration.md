@@ -62,7 +62,7 @@ Within this repository, the existing `sxact` framework becomes a **user** of the
 ```text
 /var/home/sasha/para/areas/dev/gh/sk/sxAct/
 ├── docs/tensordsl-integration.md
-├── TensorDSL_Specification_v0.1.0.md
+├── specs/TENSOR_DSL_SPEC_V0.1.0.md
 ├── packages/
 │   ├── tensordsl-py/           # Standalone Python Parser
 │   │   ├── pyproject.toml

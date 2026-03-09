@@ -14,7 +14,9 @@
       "WebFetch(domain:arxiv.org)",
       "WebFetch(domain:www.xact.es)",
       "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(python3:*)",
+      "Bash(xargs cat:*)"
     ]
   }
 }
