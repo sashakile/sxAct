@@ -42,3 +42,7 @@ The implementation follows a layered approach:
 1.  The [oracle](api/oracle.md) module communicates with a running Wolfram Engine.
 2.  The [normalize](api/normalize.md) module canonicalizes xAct expressions.
 3.  The [compare](api/compare.md) module asserts equivalence between implementations.
+
+## License
+
+`sxAct` is released under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for the full text.
