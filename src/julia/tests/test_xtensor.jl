@@ -538,6 +538,48 @@ using .XTensor
         @test !check_perturbation_order(:PoPert1, PerturbationOrder(:PoPert2))
     end
 
+    @testset "perturb — multinomial Leibniz (order > 1)" begin
+        reset_state!()
+        def_manifold!(:Lbm, 4, [:la, :lb, :lc, :ld])
+        def_tensor!(:Lg, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        def_tensor!(:LPg1, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        def_tensor!(:LPg2, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        def_perturbation!(:LPg1, :Lg, 1)
+        def_perturbation!(:LPg2, :Lg, 2)
+
+        def_tensor!(:LPsi, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        def_tensor!(:LPPsi1, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        def_perturbation!(:LPPsi1, :LPsi, 1)
+
+        # ── Order-1 product (backward compatibility) ──────────────────────
+        @test perturb("Lg LPsi", 1) == "LPg1 LPsi + Lg LPPsi1"
+
+        # ── Order-2 two-factor product: δ²(A·B) = δ²A·B + 2·δA·δB + A·δ²B
+        # Only Lg has a 2nd-order perturbation; LPsi does not → skip last term
+        r2 = perturb("Lg LPsi", 2)
+        @test r2 == "LPg2 LPsi + 2 LPg1 LPPsi1"
+
+        # ── Order-2 single tensor still works ─────────────────────────────
+        @test perturb("Lg", 2) == "LPg2"
+
+        # ── Order-2 sum + product ─────────────────────────────────────────
+        rsum = perturb("Lg + LPsi", 2)
+        @test rsum == "LPg2 + 0"
+        # LPsi has no order-2 perturbation → "0"
+
+        # ── With numeric coefficient ──────────────────────────────────────
+        rc = perturb("3 Lg LPsi", 2)
+        @test rc == "3 LPg2 LPsi + 6 LPg1 LPPsi1"
+
+        # ── Factor with no perturbation is treated as constant ────────────
+        def_tensor!(:LConst, ["-la", "-lb"], :Lbm; symmetry_str="Symmetric[{-la,-lb}]")
+        @test perturb("Lg LConst", 1) == "LPg1 LConst"
+        @test perturb("LConst LConst", 1) == "0"
+
+        # ── Three factors, order 1 ────────────────────────────────────────
+        @test perturb("Lg LPsi LConst", 1) == "LPg1 LPsi LConst + Lg LPPsi1 LConst"
+    end
+
     @testset "IBP and VarD" begin
         reset_state!()
         def_manifold!(:IBm, 4, [:ia, :ib, :ic, :id, :ie])

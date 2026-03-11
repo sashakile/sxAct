@@ -1,0 +1,11 @@
+{
+  "test_id": "perturb_single_product_order2",
+  "oracle_version": "julia-axiom",
+  "mathematica_version": "N/A",
+  "timestamp": "2026-03-11T01:24:54.823118+00:00",
+  "commands": "[julia-adapter]",
+  "raw_output": "Pertg2",
+  "normalized_output": "Pertg2",
+  "properties": {},
+  "hash": "sha256:4a94163be8fe"
+}

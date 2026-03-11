@@ -53,6 +53,7 @@ export check_metric_consistency, check_perturbation_order
 
 # xPert perturbation order queries
 export PerturbationOrder, PerturbationAtOrder
+export perturb
 
 # IBP and VarD
 export IBP, TotalDerivativeQ, VarD
@@ -1884,9 +1885,10 @@ the given order.
     Index decorations (e.g. `Cng[-a,-b]`) are stripped before lookup.
   - Sum  `A + B`        — `perturb(A,n) + perturb(B,n)`.
   - Difference `A - B`  — `perturb(A,n) - perturb(B,n)`.
-  - Product `A B` or `A * B` — first-order Leibniz:
-    `perturb(A,1) B + A perturb(B,1)`
-    For order > 1, throws "not yet implemented".
+  - Product `A B` or `A * B` — general Leibniz (multinomial) rule:
+    ``δⁿ(A₁⋯Aₖ) = Σ C(n;i₁,…,iₖ) δⁱ¹(A₁)⋯δⁱᵏ(Aₖ)``
+    where the sum runs over all non-negative integer compositions
+    ``i₁+⋯+iₖ = n`` and ``C`` is the multinomial coefficient.
   - Numeric coefficient `c A` — coefficient passes through unchanged.
   - Factor with no registered perturbation — treated as background (variation = 0).
 """
@@ -1942,30 +1944,92 @@ function perturb(expr::AbstractString, order::Int)::String
             result = p.order == order ? String(tname) : "0"
             return coeff == "" ? result : "$coeff $result"
         end
-        # Look up registered perturbation by background + order (throws if none)
-        perturbed_name = perturb(tname, order)
-        return coeff == "" ? perturbed_name : "$coeff $perturbed_name"
-    end
-
-    # Multiple tensor factors — first-order Leibniz rule only
-    order != 1 &&
-        error("perturb: order > 1 Leibniz expansion of products not yet implemented")
-
-    terms = String[]
-    for i in eachindex(tensor_factors)
-        # Only catch the specific "no perturbation registered" error; let
-        # genuine programming errors propagate.
+        # Look up registered perturbation by background + order; return "0" if none
         try
-            pi = perturb(tensor_factors[i], 1)
-            others = [j == i ? pi : tensor_factors[j] for j in eachindex(tensor_factors)]
-            term = join(others, " ")
-            push!(terms, coeff == "" ? term : "$coeff $term")
+            perturbed_name = perturb(tname, order)
+            return coeff == "" ? perturbed_name : "$coeff $perturbed_name"
         catch e
             e isa ErrorException || rethrow(e)
-            # Factor has no registered perturbation — its variation is 0; skip term
+            return "0"
+        end
+    end
+
+    # Multiple tensor factors — general multinomial Leibniz rule
+    k = length(tensor_factors)
+    comps = _compositions(order, k)
+
+    # Parse numeric coefficient once (already validated as parseable above)
+    coeff_num = if coeff == ""
+        1
+    else
+        c = tryparse(Int, coeff)
+        c !== nothing ? c : parse(Float64, coeff)
+    end
+
+    terms = String[]
+    for comp in comps
+        mc = _multinomial(order, comp)
+        valid = true
+        perturbed_factors = String[]
+        for (idx, ord) in enumerate(comp)
+            if ord == 0
+                push!(perturbed_factors, tensor_factors[idx])
+            else
+                try
+                    pi = perturb(tensor_factors[idx], ord)
+                    if pi == "0"
+                        valid = false
+                        break
+                    end
+                    push!(perturbed_factors, pi)
+                catch e
+                    e isa ErrorException || rethrow(e)
+                    valid = false
+                    break
+                end
+            end
+        end
+        valid || continue
+
+        total = coeff_num * mc
+        term_expr = join(perturbed_factors, " ")
+        if total == 1
+            push!(terms, term_expr)
+        elseif total == floor(total)
+            push!(terms, "$(Int(total)) $term_expr")
+        else
+            push!(terms, "$total $term_expr")
         end
     end
     isempty(terms) ? "0" : join(terms, " + ")
+end
+
+"""
+Generate all compositions of `n` into `k` non-negative integer parts.
+
+Returns compositions in descending order of the first element, so that
+for order=1 the term with the first factor perturbed comes first (matching
+the natural Leibniz convention).
+"""
+function _compositions(n::Int, k::Int)::Vector{Vector{Int}}
+    result = Vector{Vector{Int}}()
+    if k == 1
+        push!(result, [n])
+        return result
+    end
+    for first in n:-1:0
+        for rest in _compositions(n - first, k - 1)
+            push!(result, vcat([first], rest))
+        end
+    end
+    return result
+end
+
+"""
+Multinomial coefficient: ``n! / (k₁! k₂! ⋯ kₘ!)``.
+"""
+function _multinomial(n::Int, parts::Vector{Int})::Int
+    return factorial(n) ÷ prod(factorial(ki) for ki in parts)
 end
 
 """

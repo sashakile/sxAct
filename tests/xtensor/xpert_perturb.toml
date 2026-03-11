@@ -155,3 +155,47 @@ action = "Perturb"
 [tests.operations.args]
 expr  = "Cng Psi"
 order = 1
+
+# ---------------------------------------------------------------------------
+
+# Test 6: Multinomial Leibniz — product of two tensors at order 2
+# δ²(Cng·Psi) = δ²Cng·Psi + 2·δCng·δPsi + Cng·δ²Psi
+# Psi has no order-2 perturbation, so last term drops
+[[tests]]
+id          = "perturb_product_order2"
+description = "perturb(Cng Psi, 2) applies multinomial Leibniz at order 2"
+
+[[tests.operations]]
+action = "Perturb"
+[tests.operations.args]
+expr  = "Cng Psi"
+order = 2
+
+# ---------------------------------------------------------------------------
+
+# Test 7: Multinomial Leibniz — single tensor at order 2 (baseline)
+[[tests]]
+id          = "perturb_single_product_order2"
+description = "perturb(Cng, 2) still returns Pertg2 (single-tensor path)"
+
+[[tests.operations]]
+action = "Perturb"
+[tests.operations.args]
+expr  = "Cng"
+order = 2
+
+[tests.expected]
+expr = "Pertg2"
+
+# ---------------------------------------------------------------------------
+
+# Test 8: Multinomial Leibniz with numeric coefficient
+[[tests]]
+id          = "perturb_product_order2_coeff"
+description = "perturb(3 Cng Psi, 2) multiplies multinomial coefficients by numeric prefix"
+
+[[tests.operations]]
+action = "Perturb"
+[tests.operations.args]
+expr  = "3 Cng Psi"
+order = 2
