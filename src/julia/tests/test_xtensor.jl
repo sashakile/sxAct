@@ -610,4 +610,100 @@ using .XTensor
 
         reset_state!()
     end
+
+    # ============================================================
+    # ValidateSymbolInSession
+    # ============================================================
+
+    @testset "ValidateSymbolInSession" begin
+        reset_state!()
+        # Fresh symbol passes
+        @test_nowarn ValidateSymbolInSession(:FreshSymbolXYZ)
+
+        # Manifold collision
+        def_manifold!(:VSM4, 4, [:vsa, :vsb, :vsc, :vsd])
+        err = @test_throws ErrorException ValidateSymbolInSession(:VSM4)
+        @test occursin("manifold", err.value.msg)
+
+        # VBundle collision (auto-created by def_manifold!)
+        err = @test_throws ErrorException ValidateSymbolInSession(:TangentVSM4)
+        @test occursin("vector bundle", err.value.msg)
+
+        # Tensor collision
+        def_tensor!(:VST, ["-vsa", "-vsb"], :VSM4; symmetry_str="Symmetric[{-vsa,-vsb}]")
+        err = @test_throws ErrorException ValidateSymbolInSession(:VST)
+        @test occursin("tensor", err.value.msg)
+
+        # Metric / CovD collision
+        def_metric!(1, "VSg[-vsa,-vsb]", :VScd)
+        err = @test_throws ErrorException ValidateSymbolInSession(:VScd)
+        @test occursin("covariant derivative", err.value.msg) ||
+            occursin("metric", err.value.msg)
+
+        # Perturbation collision
+        def_tensor!(:VSpert, ["-vsa", "-vsb"], :VSM4; symmetry_str="Symmetric[{-vsa,-vsb}]")
+        def_perturbation!(:VSpert, :VSg, 1)
+        err = @test_throws ErrorException ValidateSymbolInSession(:VSpert)
+        @test occursin("perturbation", err.value.msg) || occursin("tensor", err.value.msg)
+
+        reset_state!()
+    end
+
+    @testset "def_manifold! rejects duplicate via ValidateSymbolInSession" begin
+        reset_state!()
+        def_manifold!(:DupM, 3, [:da, :db, :dc])
+        @test_throws ErrorException def_manifold!(:DupM, 3, [:da, :db, :dc])
+        reset_state!()
+    end
+
+    @testset "def_tensor! rejects name already used as manifold" begin
+        reset_state!()
+        def_manifold!(:CrossM, 2, [:ca, :cb])
+        # Trying to define a tensor with the same name as the manifold
+        @test_throws ErrorException def_tensor!(:CrossM, ["-ca", "-cb"], :CrossM)
+        reset_state!()
+    end
+
+    # ============================================================
+    # Symbol hooks integration
+    # ============================================================
+
+    @testset "set_symbol_hooks! wires validation" begin
+        reset_state!()
+        validated = String[]
+        registered = Tuple{String,String}[]
+
+        set_symbol_hooks!(
+            name -> push!(validated, string(name)),
+            (name, pkg) -> push!(registered, (string(name), pkg)),
+        )
+
+        def_manifold!(:HkM, 2, [:ha, :hb])
+        @test "HkM" in validated
+        @test ("HkM", "XTensor") in registered
+        @test ("TangentHkM", "XTensor") in registered
+
+        def_tensor!(:HkT, ["-ha", "-hb"], :HkM)
+        @test "HkT" in validated
+        @test ("HkT", "XTensor") in registered
+
+        # Restore no-op hooks
+        set_symbol_hooks!((_) -> nothing, (_, _) -> nothing)
+        reset_state!()
+    end
+
+    @testset "set_symbol_hooks! validation error blocks definition" begin
+        reset_state!()
+        # Hook that rejects a specific name
+        set_symbol_hooks!(
+            name -> string(name) == "Blocked" && error("blocked by hook"), (_, _) -> nothing
+        )
+
+        @test_throws ErrorException def_manifold!(:Blocked, 2, [:ba, :bb])
+        @test !ManifoldQ(:Blocked)   # not registered
+
+        # Restore no-op hooks
+        set_symbol_hooks!((_) -> nothing, (_, _) -> nothing)
+        reset_state!()
+    end
 end

@@ -33,6 +33,9 @@ export XCore, XTensor, XPerm, reset_state!
 @reexport using .XTensor
 @reexport using .XTensor.XPerm
 
+# Wire XCore symbol validation into XTensor's def_*! functions
+XTensor.set_symbol_hooks!(XCore.ValidateSymbol, XCore.register_symbol)
+
 """
     reset_state!()
 

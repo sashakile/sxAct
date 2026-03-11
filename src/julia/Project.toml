@@ -1,9 +1,12 @@
 name = "xAct"
 uuid = "61ed89dc-cc38-478d-be53-e1ee1d7160f1"
-authors = ["sxAct contributors"]
 version = "0.1.0"
+authors = ["sxAct contributors"]
 
 [deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]

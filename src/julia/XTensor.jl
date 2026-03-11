@@ -39,6 +39,9 @@ export ManifoldQ, TensorQ, VBundleQ, MetricQ, CovDQ, PerturbationQ, FermionicQ
 export Dimension, IndicesOfVBundle, SlotsOfTensor
 export MemberQ
 
+# Symbol validation
+export ValidateSymbolInSession, set_symbol_hooks!
+
 # Canonicalization and contraction
 export ToCanonical, Contract, CommuteCovDs, Simplify
 
@@ -144,6 +147,57 @@ const _trace_scalars = Dict{Symbol,Tuple{Symbol,Int}}()
 # Einstein expansion rules: EinsteinXXX → (RicciXXX, metricXXX, RicciScalarXXX)
 # Allows ToCanonical to substitute G_{ab} = R_{ab} - (1/2) g_{ab} R
 const _einstein_expansion = Dict{Symbol,Tuple{Symbol,Symbol,Symbol}}()
+
+# ============================================================
+# Symbol validation hooks
+# ============================================================
+#
+# XTensor runs standalone (no XCore dependency at module level).
+# When loaded via xAct.jl, set_symbol_hooks! wires in XCore.ValidateSymbol
+# and XCore.register_symbol so that every def_*! call validates names against
+# the global xAct symbol registry.  In standalone mode, the hooks are no-ops
+# and validation is limited to XTensor's own session-level checks.
+
+const _validate_symbol_hook = Ref{Function}((_) -> nothing)
+const _register_symbol_hook = Ref{Function}((_, _) -> nothing)
+
+"""
+    set_symbol_hooks!(validate, register)
+
+Install XCore symbol-validation and registration hooks.
+
+Called by xAct.jl after loading both XCore and XTensor:
+
+    XTensor.set_symbol_hooks!(XCore.ValidateSymbol, XCore.register_symbol)
+"""
+function set_symbol_hooks!(validate::Function, register::Function)
+    _validate_symbol_hook[] = validate
+    _register_symbol_hook[] = register
+    nothing
+end
+
+"""
+    ValidateSymbolInSession(name::Symbol)
+
+Check that `name` is not already used as a manifold, tensor, metric, vbundle,
+covariant derivative, or perturbation in the current session.  Throws on
+collision.  Analogous to Wolfram `ValidateSymbolInSession`.
+"""
+function ValidateSymbolInSession(name::Symbol)
+    sname = string(name)
+    ManifoldQ(name) &&
+        error("ValidateSymbolInSession: \"$sname\" already used as a manifold")
+    VBundleQ(name) &&
+        error("ValidateSymbolInSession: \"$sname\" already used as a vector bundle")
+    MetricQ(name) && error("ValidateSymbolInSession: \"$sname\" already used as a metric")
+    TensorQ(name) && error("ValidateSymbolInSession: \"$sname\" already used as a tensor")
+    CovDQ(name) &&
+        error("ValidateSymbolInSession: \"$sname\" already used as a covariant derivative")
+    PerturbationQ(name) &&
+        error("ValidateSymbolInSession: \"$sname\" already used as a perturbation")
+    nothing
+end
+ValidateSymbolInSession(name::AbstractString) = ValidateSymbolInSession(Symbol(name))
 
 # ============================================================
 # State management
@@ -329,15 +383,21 @@ end
 Define a new abstract manifold.
 """
 function def_manifold!(name::Symbol, dim::Int, index_labels::Vector{Symbol})::ManifoldObj
-    haskey(_manifolds, name) && error("Manifold $name already defined")
+    _validate_symbol_hook[](name)
+    ValidateSymbolInSession(name)
+
+    tb_name = Symbol("Tangent" * string(name))
 
     m = ManifoldObj(name, dim, index_labels)
-    tb = VBundleObj(Symbol("Tangent" * string(name)), name, index_labels)
+    tb = VBundleObj(tb_name, name, index_labels)
 
     _manifolds[name] = m
     _vbundles[tb.name] = tb
     push!(Manifolds, name)
     push!(VBundles, tb.name)
+
+    _register_symbol_hook[](name, "XTensor")
+    _register_symbol_hook[](tb_name, "XTensor")
 
     m
 end
@@ -360,7 +420,13 @@ function def_tensor!(
     index_specs::Vector{String},
     manifold::Symbol;
     symmetry_str::Union{String,Nothing}=nothing,
+    _skip_validation::Bool=false,
 )::TensorObj
+    if !_skip_validation
+        _validate_symbol_hook[](name)
+        ValidateSymbolInSession(name)
+    end
+
     m = get(_manifolds, manifold, nothing)
     isnothing(m) && error("def_tensor!: manifold $manifold not defined")
 
@@ -385,6 +451,9 @@ function def_tensor!(
     t = TensorObj(name, slots, manifold, sym)
     _tensors[name] = t
     push!(Tensors, name)
+
+    _register_symbol_hook[](name, "XTensor")
+
     t
 end
 
@@ -412,8 +481,14 @@ function def_tensor!(
     index_specs::Vector{String},
     manifolds::Vector{Symbol};
     symmetry_str::Union{String,Nothing}=nothing,
+    _skip_validation::Bool=false,
 )::TensorObj
     isempty(manifolds) && error("def_tensor!: manifolds list is empty")
+
+    if !_skip_validation
+        _validate_symbol_hook[](name)
+        ValidateSymbolInSession(name)
+    end
 
     # Validate all listed manifolds exist and build union of allowed labels
     allowed = Set{Symbol}()
@@ -445,6 +520,9 @@ function def_tensor!(
     t = TensorObj(name, slots, primary_manifold, sym)
     _tensors[name] = t
     push!(Tensors, name)
+
+    _register_symbol_hook[](name, "XTensor")
+
     t
 end
 
@@ -471,6 +549,10 @@ covd_name: e.g. "Cnd" (used as suffix for auto-created curvature tensors)
 function def_metric!(
     signdet::Int, metric_expr::AbstractString, covd_name::Symbol
 )::MetricObj
+    # Validate covd name against xAct registry and session
+    _validate_symbol_hook[](covd_name)
+    ValidateSymbolInSession(covd_name)
+
     # Parse metric_expr: extract name and slots
     m = match(r"^(\w+)\[([^\]]*)\]$", metric_expr)
     isnothing(m) && error("Cannot parse metric expression: $metric_expr")
@@ -484,11 +566,14 @@ function def_metric!(
         error("Cannot determine manifold for metric indices: $slot_strs")
 
     # Register the metric tensor (symmetric rank-2 covariant)
+    # (metric tensor name validated inside def_tensor!)
     sym_str = "Symmetric[{$(join(slot_strs, ","))}]"
     def_tensor!(metric_name, slot_strs, manifold_sym; symmetry_str=sym_str)
 
     metric = MetricObj(metric_name, manifold_sym, covd_name, signdet)
     _metrics[covd_name] = metric
+
+    _register_symbol_hook[](covd_name, "XTensor")
 
     # Auto-create curvature tensors
     _auto_create_curvature!(manifold_sym, covd_name)
@@ -533,6 +618,7 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
         )
         _tensors[ricci_scalar_name] = t
         push!(Tensors, ricci_scalar_name)
+        _register_symbol_hook[](ricci_scalar_name, "XTensor")
     end
 
     # Need at least 2 indices for Ricci and Einstein
@@ -1636,7 +1722,7 @@ is already defined.
 """
 function def_perturbation!(tensor::Symbol, background::Symbol, order::Int)::PerturbationObj
     order < 1 && error("def_perturbation!: order must be ≥ 1, got $order")
-    haskey(_perturbations, tensor) &&
+    PerturbationQ(tensor) &&
         error("def_perturbation!: perturbation $tensor already defined")
     haskey(_tensors, tensor) ||
         error("def_perturbation!: tensor $tensor not registered — call def_tensor! first")
