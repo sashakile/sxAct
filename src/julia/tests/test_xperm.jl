@@ -1,8 +1,7 @@
 # Tests for XPerm.jl — permutation utilities and canonicalization.
 using Test
-
-include(joinpath(@__DIR__, "..", "XPerm.jl"))
-using .XPerm
+using xAct
+using xAct.XPerm
 
 @testset "XPerm" begin
     @testset "Permutation utilities" begin

@@ -29,15 +29,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Run unit tests
@@ -50,15 +50,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Run XPerm tests
@@ -71,15 +71,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Run XTensor tests
@@ -95,7 +95,7 @@ jobs:
           python-version: "3.12"
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
@@ -106,8 +106,8 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Run TOML regression tests (xperm)
@@ -125,7 +125,7 @@ jobs:
           python-version: "3.12"
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
@@ -136,8 +136,8 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Check benchmark regressions

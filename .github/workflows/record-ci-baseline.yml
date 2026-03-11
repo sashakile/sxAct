@@ -21,7 +21,7 @@ jobs:
           python-version: "3.12"
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
+          version: "1.12"
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
@@ -32,8 +32,8 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.10-${{ hashFiles('src/julia/Project.toml') }}
-          restore-keys: julia-1.10-
+          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
       - name: Record CI baseline
@@ -56,7 +56,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            MSG="ci(benchmarks): record CI baseline on ubuntu-latest / Julia 1.10"
+            MSG="ci(benchmarks): record CI baseline on ubuntu-latest / Julia 1.12"
             if [ -n "${{ github.event.inputs.commit_message }}" ]; then
               MSG="$MSG — ${{ github.event.inputs.commit_message }}"
             fi

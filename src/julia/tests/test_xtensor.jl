@@ -1,8 +1,6 @@
 # Tests for XTensor.jl — DefManifold, DefMetric, DefTensor, ToCanonical.
 using Test
-
-include(joinpath(@__DIR__, "..", "XTensor.jl"))
-using .XTensor
+using xAct
 
 @testset "XTensor" begin
 

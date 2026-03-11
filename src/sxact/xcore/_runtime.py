@@ -45,9 +45,8 @@ def _init_julia() -> None:
     # xAct.jl lives at src/julia/src/xAct.jl relative to the repo root.
     # From this file: src/sxact/xcore/_runtime.py → go up 3 levels → src/
     # then into julia/src/xAct.jl.
-    xact_path = (
-        Path(__file__).parent.parent.parent / "julia" / "src" / "xAct.jl"
-    ).resolve()
+    julia_dir = (Path(__file__).parent.parent.parent / "julia").resolve()
+    xact_path = julia_dir / "src" / "xAct.jl"
 
     if not xact_path.exists():
         raise FileNotFoundError(
@@ -55,6 +54,8 @@ def _init_julia() -> None:
             "Ensure the sxAct repo structure is intact."
         )
 
+    # Activate the Julia project so Reexport and other deps are available.
+    _jl.seval(f'import Pkg; Pkg.activate("{julia_dir}"; io=devnull)')
     _jl.seval(f'include("{xact_path}")')
     _jl.seval("using .xAct")
     _xcore = _jl.xAct

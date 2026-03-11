@@ -31,6 +31,15 @@ Thumbs.db
 # Logs
 *.log
 
+# Julia — Manifest.toml is machine-generated and version-specific
+**/Manifest.toml
+
+# Documenter.jl build output
+docs/build/
+
+# CondaPkg (auto-generated)
+docs/.CondaPkg/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
