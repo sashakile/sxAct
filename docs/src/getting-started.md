@@ -1,144 +1,54 @@
-# Getting Started
+# Getting Started with xAct.jl
 
-This guide walks through the core sxAct workflow: querying xAct via the oracle,
-normalizing results, and comparing implementations.
+This guide walks through the basic usage of the `xAct.jl` library in Julia and the `sxact-py` verification suite in Python.
 
-## Prerequisites
+## Quick Start (Julia)
 
-- Docker oracle running: `docker compose up -d oracle`
-- Python environment set up: `uv sync`
+The primary interface for tensor calculus is the Julia package.
 
-## 1. Check the oracle is healthy
+```julia
+using xAct
+
+# 1. Define a manifold
+M = def_manifold!(:M, 4, [:a, :b, :c, :d])
+
+# 2. Define a symmetric tensor
+T = def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
+
+# 3. Canonicalize an expression
+# Since T is symmetric, T_{ba} - T_{ab} should be zero.
+result = ToCanonical("T[-b, -a] - T[-a, -b]")
+println(result)  # "0"
+```
+
+For a more detailed tutorial, see the [Basics Tutorial](examples/basics.md).
+
+## Quick Start (Python)
+
+The Python wrapper allows researchers in the Python ecosystem to leverage the `xAct.jl` engines.
 
 ```python
-from sxact.oracle.client import OracleClient
+from sxact import xAct
 
-client = OracleClient()  # defaults to http://localhost:8765
-print(client.health())   # True
+# Create a manifold and tensor
+m = xAct.def_manifold("M", 4, ["a", "b"])
+t = xAct.def_tensor("T", ["-a", "-b"], "M", symmetry="Symmetric")
+
+# Perform canonicalization
+result = xAct.to_canonical("T[-b, -a] - T[-a, -b]")
+print(result)  # "0"
 ```
 
-## 2. Evaluate a Wolfram expression
+*Note: The Python high-level API is a current development focus. See the [Verification Guide](verification-tools.md) for low-level oracle comparison tools.*
 
-Use `evaluate` for plain Wolfram expressions:
+## Key Concepts
 
-```python
-result = client.evaluate("2 + 2")
-print(result.status)   # "ok"
-print(result.result)   # "4"
-```
+-   **Symbol Registry**: `xAct.jl` maintains a global registry of manifolds, bundles, and tensors. Functions that modify this state end in `!` (e.g., `def_tensor!`).
+-   **Indices**: We follow the standard xAct notation: `-a` for covariant (lower) and `a` for contravariant (upper) indices.
+-   **Parity**: All operations in `xAct.jl` are verified against the Wolfram Language implementation to ensure mathematical correctness.
 
-## 3. Evaluate with xAct pre-loaded
+## Next Steps
 
-Use `evaluate_with_xact` for tensor algebra expressions. xAct initializes once
-per server session (~3 minutes on first load, then cached):
-
-```python
-result = client.evaluate_with_xact("""
-DefManifold[M, 4, {a, b, c, d}];
-DefMetric[-1, g[-a, -b], CD];
-g[a, -a]
-""")
-print(result.status)   # "ok"
-print(result.result)   # "4"  (trace of 4D metric = 4)
-```
-
-For test isolation (prevents symbol pollution between test cases), pass a `context_id`:
-
-```python
-result = client.evaluate_with_xact(
-    "DefManifold[M, 4, {a, b, c, d}]; ...",
-    context_id="my-test-001"
-)
-```
-
-## 4. Use the structured Result
-
-`evaluate_result` returns a typed `Result` with normalization built in:
-
-```python
-from sxact.oracle.result import Result
-
-result: Result = client.evaluate_result("x + y")
-print(result.status)      # "ok" | "error" | "timeout"
-print(result.type)        # "Expr", "Scalar", etc.
-print(result.repr)        # raw xAct output
-print(result.normalized)  # canonicalized form (for comparison)
-print(result.properties)  # {"rank": ..., "symmetry": ..., ...}
-```
-
-## 5. Normalize expressions manually
-
-The normalization pipeline canonicalizes xAct output independently:
-
-```python
-from sxact.normalize.pipeline import normalize
-
-# Index names, whitespace, and term order are all canonicalized
-a = normalize("v[a] * CD[-a][u[b]]")
-b = normalize("v[c]  *CD[-c][u[d]]")
-print(a == b)  # True — same structure, different dummy indices
-```
-
-The pipeline applies four transforms in order:
-
-1. Whitespace normalization
-2. Coefficient normalization (`2*x` → `2 x`, `1*x` → `x`)
-3. Dummy index canonicalization (`a, b, c` → `$1, $2, $3`)
-4. Term ordering (lexicographic sort of sums)
-
-## 6. Compare two implementations
-
-The comparator uses a three-tier strategy to determine equivalence:
-
-| Tier | Method | Oracle needed? |
-|------|--------|---------------|
-| 1 | Normalized string equality | No |
-| 2 | Symbolic `Simplify[lhs - rhs] == 0` | Yes |
-| 3 | Numeric sampling (90% threshold) | Yes |
-
-```python
-from sxact.compare.comparator import compare, EqualityMode
-
-lhs = client.evaluate_result("expr1")
-rhs = client.evaluate_result("expr2")
-
-result = compare(lhs, rhs, oracle=client)
-print(result.equal)       # True / False
-print(result.tier)        # 1, 2, or 3
-print(result.confidence)  # 1.0 for tiers 1-2; <1.0 for tier 3
-print(result.diff)        # description of mismatch, if any
-```
-
-To stop after normalized string comparison (no oracle calls):
-
-```python
-result = compare(lhs, rhs, oracle=None, mode=EqualityMode.NORMALIZED)
-```
-
-## 7. Write a test
-
-```python
-import pytest
-from sxact.oracle.client import OracleClient
-from sxact.compare.comparator import compare
-
-@pytest.fixture
-def oracle():
-    return OracleClient()
-
-@pytest.mark.oracle
-def test_metric_trace(oracle):
-    result = oracle.evaluate_result("""
-        DefManifold[M, 4, {a, b, c, d}];
-        DefMetric[-1, g[-a, -b], CD];
-        g[a, -a]
-    """)
-    assert result.status == "ok"
-    assert result.repr == "4"
-```
-
-Run oracle tests with:
-
-```bash
-uv run pytest tests/ -m oracle
-```
+-   **Installation**: See the [Installation Guide](installation.md) for local setup.
+-   **Roadmap**: Check the [Feature Matrix](theory/STATUS.md) to see which xAct functions are currently supported.
+-   **Architecture**: Learn about the multi-tier verification strategy in the [Architecture Guide](architecture.md).

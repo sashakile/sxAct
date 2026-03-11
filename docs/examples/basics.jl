@@ -16,7 +16,7 @@ using PythonCall
 # In the original Wolfram xAct, you would use:
 # `DefManifold[M, 4, {a, b, c, d, e, f}]`
 #
-# In `sxAct.jl`, we use `def_manifold!`. The `!` indicates that this function
+# In `xAct.jl`, we use `def_manifold!`. The `!` indicates that this function
 # modifies the global session state.
 
 M = def_manifold!(:M, 4, [:a, :b, :c, :d, :e, :f])
@@ -42,7 +42,7 @@ canonical = ToCanonical(expr)
 println("Canonical form of '$expr': ", canonical)
 
 # ## 5. The Python Bridge
-# `sxAct` is designed to be accessible from Python. Using `PythonCall.jl`,
+# `xAct.jl` is designed to be accessible from Python. Using `PythonCall.jl`,
 # we can see how a Python user would interact with the same core.
 
 # ```python
@@ -58,8 +58,6 @@ println("Canonical form of '$expr': ", canonical)
 
 # ## 6. Summary Table
 #
-# | Operation | Wolfram (xAct) | Julia (sxAct.jl) |
-# | :--- | :--- | :--- |
 # | **DefManifold** | `DefManifold[M, 4, {a,b}]` | `def_manifold!(:M, 4, [:a, :b])` |
 # | **DefTensor** | `DefTensor[T[-a,-b], M]` | `def_tensor!(:T, ["-a", "-b"], :M)` |
 # | **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` |

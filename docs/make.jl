@@ -27,18 +27,23 @@ makedocs(;
     modules=[xAct, xAct.XCore, xAct.XPerm, xAct.XTensor],
     pages=[
         "Home" => "index.md",
-        "Examples" => ["Getting Started" => "examples/basics.md"],
-        "Getting Started (legacy)" => "getting-started.md",
+        "Getting Started" => "getting-started.md",
         "Installation" => "installation.md",
-        "Architecture" => "architecture.md",
-        "Differential Geometry Primer" => "differential-geometry-primer.md",
+        "Tutorials" => [
+            "Basics" => "examples/basics.md",
+            "Differential Geometry Primer" => "differential-geometry-primer.md",
+        ],
         "Theory" => [
-            "Status" => "theory/STATUS.md",
+            "Feature Status" => "theory/STATUS.md",
             "Oracle Quirks" => "theory/oracle-quirks.md",
             "Tensor DSL Integration" => "theory/tensordsl-integration.md",
         ],
-        "API Reference" =>
-            ["Julia API" => "api.md", "Verification API" => "api-verification.md"],
+        "Architecture" => "architecture.md",
+        "Reference" => [
+            "Julia API" => "api.md",
+            "Verification API" => "api-verification.md",
+            "Verification Tools" => "verification-tools.md",
+        ],
         "Contributing" => "contributing.md",
     ],
 )

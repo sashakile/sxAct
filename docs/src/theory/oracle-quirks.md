@@ -4,7 +4,7 @@ This document captures quirks, edge cases, and gotchas discovered while working 
 
 ## Symbol Context Pollution (RESOLVED)
 
-> **Status**: Fixed in commit 9cc21fa (2026-01-26). See [session doc](../sessions/2026-01-26-context-isolation-fix.md) for details.
+> **Status**: Resolved (2026-01-26). Symbol isolation is now handled via the `context_id` parameter to ensure a clean evaluation environment.
 
 ### The Problem
 
