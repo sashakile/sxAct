@@ -42,10 +42,12 @@ def _init_julia() -> None:
 
     _jl = juliacall.Main
 
-    # xAct.jl lives at src/julia/xAct.jl relative to the repo root.
+    # xAct.jl lives at src/julia/src/xAct.jl relative to the repo root.
     # From this file: src/sxact/xcore/_runtime.py → go up 3 levels → src/
-    # then into julia/xAct.jl.
-    xact_path = (Path(__file__).parent.parent.parent / "julia" / "xAct.jl").resolve()
+    # then into julia/src/xAct.jl.
+    xact_path = (
+        Path(__file__).parent.parent.parent / "julia" / "src" / "xAct.jl"
+    ).resolve()
 
     if not xact_path.exists():
         raise FileNotFoundError(

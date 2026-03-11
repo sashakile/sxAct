@@ -21,7 +21,8 @@
       "Bash(bd list:*)",
       "Bash(wc:*)",
       "Bash(find:*)",
-      "Bash(do:*)"
+      "Bash(do:*)",
+      "Bash(bd ready:*)"
     ]
   }
 }
