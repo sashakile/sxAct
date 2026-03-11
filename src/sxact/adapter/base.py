@@ -260,6 +260,10 @@ class TestAdapter(abc.ABC, Generic[ContextT]):
                 "IntegrateByParts",
                 "TotalDerivativeQ",
                 "VarD",
+                "SetBasisChange",
+                "ChangeBasis",
+                "GetJacobian",
+                "BasisChangeQ",
             }
         )
 

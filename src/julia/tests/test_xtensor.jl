@@ -925,4 +925,187 @@ using .XTensor
 
         @test BasesOfVBundle("TangentOm3") == BasesOfVBundle(:TangentOm3)
     end
+
+    # ==========================================================
+    # Coordinate transformations (basis changes)
+    # ==========================================================
+
+    @testset "set_basis_change! basic 2x2" begin
+        reset_state!()
+        def_manifold!(:Bc2, 2, [:bca, :bcb])
+        def_chart!(:Cart2, :Bc2, [1, 2], [:x2, :y2])
+        def_chart!(:Polar2, :Bc2, [1, 2], [:r2, :th2])
+
+        M = Any[1 2; 3 4]
+        bc = set_basis_change!(:Cart2, :Polar2, M)
+        @test bc.from_basis == :Cart2
+        @test bc.to_basis == :Polar2
+        @test bc.matrix == M
+        # Jacobian = det([1 2;3 4]) = 1*4 - 2*3 = -2
+        @test bc.jacobian ≈ -2.0
+        # Inverse
+        @test bc.inverse ≈ inv(Float64.(M))
+    end
+
+    @testset "set_basis_change! 4x4" begin
+        reset_state!()
+        def_manifold!(:Bc4, 4, [:b4a, :b4b, :b4c, :b4d])
+        def_chart!(:Cart4, :Bc4, [1, 2, 3, 4], [:cx, :cy, :cz, :cw])
+        def_chart!(:Sph4, :Bc4, [1, 2, 3, 4], [:sr, :sth, :sph, :st])
+
+        M4 = Float64[
+            1 0 0 0
+            0 2 0 0
+            0 0 3 0
+            0 0 0 4
+        ]
+        bc = set_basis_change!(:Cart4, :Sph4, M4)
+        @test bc.jacobian ≈ 24.0  # 1*2*3*4
+        @test bc.inverse ≈ inv(M4)
+    end
+
+    @testset "BasisChangeQ predicate" begin
+        reset_state!()
+        def_manifold!(:Bq2, 2, [:bqa, :bqb])
+        def_chart!(:A2, :Bq2, [1, 2], [:ax, :ay])
+        def_chart!(:B2, :Bq2, [1, 2], [:bx, :by])
+
+        @test !BasisChangeQ(:A2, :B2)
+        set_basis_change!(:A2, :B2, Any[1 0; 0 1])
+        @test BasisChangeQ(:A2, :B2)
+        # Bidirectional
+        @test BasisChangeQ(:B2, :A2)
+        # Non-existent pair
+        @test !BasisChangeQ(:A2, :nonexistent)
+    end
+
+    @testset "BasisChangeMatrix / InverseBasisChangeMatrix" begin
+        reset_state!()
+        def_manifold!(:Bm2, 2, [:bma2, :bmb2])
+        def_chart!(:X2, :Bm2, [1, 2], [:xx, :xy])
+        def_chart!(:Y2, :Bm2, [1, 2], [:yx, :yy])
+
+        M = Any[2 1; 0 3]
+        set_basis_change!(:X2, :Y2, M)
+
+        @test BasisChangeMatrix(:X2, :Y2) == M
+        @test InverseBasisChangeMatrix(:X2, :Y2) ≈ inv(Float64.(M))
+
+        # Reverse direction
+        @test BasisChangeMatrix(:Y2, :X2) ≈ inv(Float64.(M))
+        @test InverseBasisChangeMatrix(:Y2, :X2) ≈ Float64.(M)
+    end
+
+    @testset "Jacobian" begin
+        reset_state!()
+        def_manifold!(:Jm2, 2, [:jma, :jmb])
+        def_chart!(:J1, :Jm2, [1, 2], [:j1x, :j1y])
+        def_chart!(:J2, :Jm2, [1, 2], [:j2x, :j2y])
+
+        M = Any[3 1; 0 2]
+        set_basis_change!(:J1, :J2, M)
+
+        @test Jacobian(:J1, :J2) ≈ 6.0   # det([3 1;0 2]) = 6
+        @test Jacobian(:J2, :J1) ≈ 1.0 / 6.0  # inverse direction
+    end
+
+    @testset "set_basis_change! validation errors" begin
+        reset_state!()
+        def_manifold!(:Ve2, 2, [:vea, :veb])
+        def_chart!(:V1, :Ve2, [1, 2], [:v1x, :v1y])
+        def_chart!(:V2, :Ve2, [1, 2], [:v2x, :v2y])
+
+        # Non-existent basis
+        @test_throws Exception set_basis_change!(:V1, :nonexistent, Any[1 0; 0 1])
+        @test_throws Exception set_basis_change!(:nonexistent, :V2, Any[1 0; 0 1])
+
+        # Wrong matrix dimensions (3x3 for 2D basis)
+        @test_throws Exception set_basis_change!(:V1, :V2, Any[1 0 0; 0 1 0; 0 0 1])
+
+        # Singular matrix
+        @test_throws Exception set_basis_change!(:V1, :V2, Any[1 2; 2 4])
+
+        # Cross-vbundle: bases on different manifolds
+        def_manifold!(:Ve3, 2, [:ve3a, :ve3b])
+        def_chart!(:V3, :Ve3, [1, 2], [:v3x, :v3y])
+        @test_throws Exception set_basis_change!(:V1, :V3, Any[1 0; 0 1])
+    end
+
+    @testset "change_basis rank-1" begin
+        reset_state!()
+        def_manifold!(:Cb2, 2, [:cba, :cbb])
+        def_chart!(:C1, :Cb2, [1, 2], [:c1x, :c1y])
+        def_chart!(:C2, :Cb2, [1, 2], [:c2x, :c2y])
+
+        M = Any[0 1; 1 0]  # swap components
+        set_basis_change!(:C1, :C2, M)
+
+        v = [3.0, 7.0]
+        result = change_basis(v, [:C1], 1, :C1, :C2)
+        @test result ≈ [7.0, 3.0]  # swapped
+    end
+
+    @testset "change_basis rank-2" begin
+        reset_state!()
+        def_manifold!(:Cr2, 2, [:cra, :crb])
+        def_chart!(:R1, :Cr2, [1, 2], [:r1x, :r1y])
+        def_chart!(:R2, :Cr2, [1, 2], [:r2x, :r2y])
+
+        M = Float64[2 0; 0 3]
+        set_basis_change!(:R1, :R2, M)
+
+        A = Float64[1 2; 3 4]
+
+        # Transform slot 1: result[i',j] = M[i',i] * A[i,j]
+        result1 = change_basis(A, [:R1, :R1], 1, :R1, :R2)
+        @test result1 ≈ M * A
+
+        # Transform slot 2: result[i,j'] = A[i,j] * M'[j,j'] = (M * A')'
+        result2 = change_basis(A, [:R1, :R1], 2, :R1, :R2)
+        @test result2 ≈ (M * A')'
+    end
+
+    @testset "reset_state! clears basis changes" begin
+        reset_state!()
+        def_manifold!(:Rs2, 2, [:rsa, :rsb])
+        def_chart!(:S1, :Rs2, [1, 2], [:s1x, :s1y])
+        def_chart!(:S2, :Rs2, [1, 2], [:s2x, :s2y])
+
+        set_basis_change!(:S1, :S2, Any[1 0; 0 1])
+        @test BasisChangeQ(:S1, :S2)
+
+        reset_state!()
+
+        @test !BasisChangeQ(:S1, :S2)
+    end
+
+    @testset "Bidirectional storage" begin
+        reset_state!()
+        def_manifold!(:Bd2, 2, [:bda, :bdb])
+        def_chart!(:D1, :Bd2, [1, 2], [:d1x, :d1y])
+        def_chart!(:D2, :Bd2, [1, 2], [:d2x, :d2y])
+
+        M = Any[1 2; 3 4]
+        set_basis_change!(:D1, :D2, M)
+
+        # Forward
+        @test BasisChangeQ(:D1, :D2)
+        @test BasisChangeMatrix(:D1, :D2) == M
+
+        # Reverse: matrix should be inverse
+        @test BasisChangeQ(:D2, :D1)
+        @test BasisChangeMatrix(:D2, :D1) ≈ inv(Float64.(M))
+        @test InverseBasisChangeMatrix(:D2, :D1) ≈ Float64.(M)
+    end
+
+    @testset "String overloads for basis change" begin
+        reset_state!()
+        def_manifold!(:So2, 2, [:soa, :sob])
+        def_chart!(:E1, :So2, [1, 2], [:e1x, :e1y])
+        def_chart!(:E2, :So2, [1, 2], [:e2x, :e2y])
+
+        set_basis_change!("E1", "E2", Any[1 0; 0 1])
+        @test BasisChangeQ("E1", "E2")
+        @test Jacobian("E1", "E2") ≈ 1.0
+    end
 end

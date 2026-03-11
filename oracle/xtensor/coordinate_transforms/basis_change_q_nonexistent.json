@@ -1,0 +1,11 @@
+{
+  "test_id": "basis_change_q_nonexistent",
+  "oracle_version": "julia-axiom",
+  "mathematica_version": "N/A",
+  "timestamp": "2026-03-11T14:16:57.029486+00:00",
+  "commands": "[julia-adapter]",
+  "raw_output": "False",
+  "normalized_output": "False",
+  "properties": {},
+  "hash": "sha256:82d00aac8815"
+}

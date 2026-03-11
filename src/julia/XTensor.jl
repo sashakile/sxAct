@@ -14,6 +14,8 @@ module XTensor
 include("XPerm.jl")
 using .XPerm
 
+using LinearAlgebra: det, inv
+
 # ============================================================
 # Exports
 # ============================================================
@@ -62,6 +64,11 @@ export perturb
 
 # IBP and VarD
 export IBP, TotalDerivativeQ, VarD
+
+# xCoba coordinate transformations
+export BasisChangeObj
+export set_basis_change!, change_basis, Jacobian
+export BasisChangeQ, BasisChangeMatrix, InverseBasisChangeMatrix
 
 # ============================================================
 # Types
@@ -150,6 +157,17 @@ struct ChartObj
     scalars::Vector{Symbol} # coordinate scalar fields, e.g. [:t, :r, :theta, :phi]
 end
 
+"""
+A coordinate transformation between two bases (stored as matrix + inverse + jacobian).
+"""
+struct BasisChangeObj
+    from_basis::Symbol      # source basis name
+    to_basis::Symbol        # target basis name
+    matrix::Matrix{Any}     # transformation matrix (n×n)
+    inverse::Matrix{Any}    # inverse matrix
+    jacobian::Any           # determinant of matrix (cached)
+end
+
 # ============================================================
 # Global state
 # ============================================================
@@ -161,6 +179,7 @@ const _metrics = Dict{Symbol,MetricObj}()
 const _perturbations = Dict{Symbol,PerturbationObj}()
 const _bases = Dict{Symbol,BasisObj}()
 const _charts = Dict{Symbol,ChartObj}()
+const _basis_changes = Dict{Tuple{Symbol,Symbol},BasisChangeObj}()
 
 const Manifolds = Symbol[]   # ordered list
 const Tensors = Symbol[]
@@ -245,6 +264,7 @@ function reset_state!()
     empty!(_perturbations)
     empty!(_bases);
     empty!(_charts)
+    empty!(_basis_changes)
     empty!(Manifolds);
     empty!(Tensors);
     empty!(VBundles);
@@ -3131,6 +3151,195 @@ end
 
 function VarD(expr::AbstractString, field::Symbol, covd::AbstractString)::String
     VarD(expr, String(field), covd)
+end
+
+# ============================================================
+# xCoba: Coordinate transformations (basis changes)
+# ============================================================
+
+"""
+    set_basis_change!(from_basis, to_basis, matrix) → BasisChangeObj
+
+Register a coordinate transformation between two bases.
+The matrix transforms components from `from_basis` to `to_basis`.
+Both the forward (from→to) and inverse (to→from) directions are stored.
+
+Validates:
+
+  - Both bases exist (via BasisQ)
+  - Both bases belong to the same vector bundle
+  - Matrix is square with size matching the basis dimension
+  - Matrix is invertible (non-singular)
+"""
+function set_basis_change!(
+    from_basis::Symbol, to_basis::Symbol, matrix::AbstractMatrix
+)::BasisChangeObj
+    BasisQ(from_basis) || error("set_basis_change!: basis $from_basis not defined")
+    BasisQ(to_basis) || error("set_basis_change!: basis $to_basis not defined")
+
+    vb_from = VBundleOfBasis(from_basis)
+    vb_to = VBundleOfBasis(to_basis)
+    vb_from == vb_to || error(
+        "set_basis_change!: bases $from_basis ($vb_from) and $to_basis ($vb_to) belong to different vector bundles",
+    )
+
+    dim = length(CNumbersOf(from_basis))
+    n, m = size(matrix)
+    (n == m == dim) ||
+        error("set_basis_change!: matrix size ($n×$m) does not match basis dimension $dim")
+
+    # Convert to Matrix{Any} for storage
+    mat = Matrix{Any}(matrix)
+    jac = det(Float64.(matrix))
+    abs(jac) < 1e-15 && error("set_basis_change!: matrix is singular (det ≈ 0)")
+    inv_mat = Matrix{Any}(inv(Float64.(matrix)))
+
+    bc = BasisChangeObj(from_basis, to_basis, mat, inv_mat, jac)
+    _basis_changes[(from_basis, to_basis)] = bc
+
+    # Store inverse direction
+    bc_inv = BasisChangeObj(to_basis, from_basis, inv_mat, mat, 1.0 / jac)
+    _basis_changes[(to_basis, from_basis)] = bc_inv
+
+    bc
+end
+
+function set_basis_change!(
+    from_basis::AbstractString, to_basis::AbstractString, matrix::AbstractMatrix
+)::BasisChangeObj
+    set_basis_change!(Symbol(from_basis), Symbol(to_basis), matrix)
+end
+
+"""
+    BasisChangeQ(from, to) → Bool
+
+Check if a basis change from `from` to `to` is registered.
+"""
+BasisChangeQ(from::Symbol, to::Symbol) = haskey(_basis_changes, (from, to))
+function BasisChangeQ(from::AbstractString, to::AbstractString)
+    BasisChangeQ(Symbol(from), Symbol(to))
+end
+
+"""
+    BasisChangeMatrix(from, to) → Matrix
+
+Return the transformation matrix from `from` basis to `to` basis.
+"""
+function BasisChangeMatrix(from::Symbol, to::Symbol)::Matrix{Any}
+    haskey(_basis_changes, (from, to)) ||
+        error("BasisChangeMatrix: no basis change registered from $from to $to")
+    _basis_changes[(from, to)].matrix
+end
+function BasisChangeMatrix(from::AbstractString, to::AbstractString)
+    BasisChangeMatrix(Symbol(from), Symbol(to))
+end
+
+"""
+    InverseBasisChangeMatrix(from, to) → Matrix
+
+Return the inverse transformation matrix (i.e. the matrix that goes from `to` back to `from`).
+"""
+function InverseBasisChangeMatrix(from::Symbol, to::Symbol)::Matrix{Any}
+    haskey(_basis_changes, (from, to)) ||
+        error("InverseBasisChangeMatrix: no basis change registered from $from to $to")
+    _basis_changes[(from, to)].inverse
+end
+function InverseBasisChangeMatrix(from::AbstractString, to::AbstractString)
+    InverseBasisChangeMatrix(Symbol(from), Symbol(to))
+end
+
+"""
+    Jacobian(basis1, basis2) → Any
+
+Return the Jacobian determinant of the transformation from `basis1` to `basis2`.
+"""
+function Jacobian(basis1::Symbol, basis2::Symbol)
+    haskey(_basis_changes, (basis1, basis2)) ||
+        error("Jacobian: no basis change registered from $basis1 to $basis2")
+    _basis_changes[(basis1, basis2)].jacobian
+end
+function Jacobian(basis1::AbstractString, basis2::AbstractString)
+    Jacobian(Symbol(basis1), Symbol(basis2))
+end
+
+"""
+    change_basis(array, bases, slot, from_basis, to_basis) → Array
+
+Apply a basis change to a specific slot of a component array.
+
+  - `array`      — the component array (Vector for rank-1, Matrix for rank-2, etc.)
+  - `bases`      — vector of basis symbols for each slot (unused, reserved for future)
+  - `slot`       — 1-indexed slot to transform
+  - `from_basis` — current basis of that slot
+  - `to_basis`   — target basis
+
+For rank-1 (vector): result = M * v
+For rank-2 (matrix): transforms the specified slot using the transformation matrix.
+"""
+function change_basis(
+    array::AbstractArray,
+    bases::Vector{Symbol},
+    slot::Int,
+    from_basis::Symbol,
+    to_basis::Symbol,
+)::AbstractArray
+    haskey(_basis_changes, (from_basis, to_basis)) ||
+        error("change_basis: no basis change registered from $from_basis to $to_basis")
+    M = Float64.(_basis_changes[(from_basis, to_basis)].matrix)
+    ndims(array) == 0 && return array
+
+    # Contract M along the `slot`-th dimension of the array
+    # TensorContraction: result_{...i'...} = M_{i',i} * array_{...i...}
+    # with i in position `slot`
+    _contract_slot(M, array, slot)
+end
+
+function change_basis(
+    array::AbstractArray,
+    bases::Vector,
+    slot::Int,
+    from_basis::AbstractString,
+    to_basis::AbstractString,
+)::AbstractArray
+    change_basis(
+        array, Symbol[Symbol(b) for b in bases], slot, Symbol(from_basis), Symbol(to_basis)
+    )
+end
+
+"""
+Contract matrix M into array along the given slot dimension.
+"""
+function _contract_slot(M::AbstractMatrix, A::AbstractVector, slot::Int)
+    slot == 1 || error("change_basis: slot $slot out of range for rank-1 array")
+    M * A
+end
+
+function _contract_slot(M::AbstractMatrix, A::AbstractMatrix, slot::Int)
+    if slot == 1
+        # Transform first index: result[i',j] = sum_i M[i',i] * A[i,j]
+        M * A
+    elseif slot == 2
+        # Transform second index: result[i,j'] = sum_j A[i,j] * M'[j,j']
+        # = (M * A')'
+        (M * A')'
+    else
+        error("change_basis: slot $slot out of range for rank-2 array")
+    end
+end
+
+function _contract_slot(M::AbstractMatrix, A::AbstractArray, slot::Int)
+    nd = ndims(A)
+    (1 <= slot <= nd) || error("change_basis: slot $slot out of range for rank-$nd array")
+    # General case: permute slot dimension to front, reshape, multiply, reshape back, permute back
+    perm = vcat(slot, setdiff(1:nd, slot))
+    iperm = invperm(perm)
+    sz = size(A)
+    Ap = permutedims(A, perm)
+    n = sz[slot]
+    Ar = reshape(Ap, n, :)
+    Br = M * Ar
+    Bp = reshape(Br, size(Ap))
+    permutedims(Bp, iperm)
 end
 
 end  # module XTensor

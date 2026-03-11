@@ -1,0 +1,176 @@
+# tests/xtensor/coordinate_transforms.toml
+# Tests for xCoba coordinate transformations (basis changes)
+
+[meta]
+id              = "xtensor/coordinate_transforms"
+description     = "Coordinate transformation support (SetBasisChange, Jacobian, BasisChangeQ)"
+tags            = ["xtensor", "xcoba", "coordinates", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ============================================================
+# Setup: 4D manifold with metric, two charts
+# ============================================================
+
+[[setup]]
+action   = "DefManifold"
+store_as = "Ctm"
+[setup.args]
+name      = "Ctm"
+dimension = 4
+indices   = ["cta", "ctb", "ctc", "ctd"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "Ctg"
+[setup.args]
+signdet = -1
+metric  = "Ctg[-cta,-ctb]"
+covd    = "Ctd"
+
+[[setup]]
+action   = "DefChart"
+store_as = "Cart"
+[setup.args]
+name     = "Cart"
+manifold = "Ctm"
+cnumbers = [1, 2, 3, 4]
+scalars  = ["ctx", "cty", "ctz", "ctw"]
+
+[[setup]]
+action   = "DefChart"
+store_as = "Sph"
+[setup.args]
+name     = "Sph"
+manifold = "Ctm"
+cnumbers = [1, 2, 3, 4]
+scalars  = ["ctr", "cttheta", "ctphi", "ctt"]
+
+# ============================================================
+# Test: SetBasisChange with 4x4 diagonal matrix
+# ============================================================
+
+[[tests]]
+id          = "set_basis_change"
+description = "SetBasisChange registers a transformation between two charts"
+
+[[tests.operations]]
+action   = "SetBasisChange"
+store_as = "bc"
+[tests.operations.args]
+from_basis = "Cart"
+to_basis   = "Sph"
+matrix     = [[1, 0, 0, 0], [0, 2, 0, 0], [0, 0, 3, 0], [0, 0, 0, 4]]
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "true"
+message   = "SetBasisChange should succeed"
+
+# ============================================================
+# Test: BasisChangeQ forward
+# ============================================================
+
+[[tests]]
+id          = "basis_change_q_forward"
+description = "BasisChangeQ returns True for registered pair (forward)"
+dependencies = ["set_basis_change"]
+
+[[tests.operations]]
+action = "BasisChangeQ"
+[tests.operations.args]
+from_basis = "Cart"
+to_basis   = "Sph"
+
+[tests.expected]
+expr = "True"
+
+# ============================================================
+# Test: BasisChangeQ reverse (bidirectional)
+# ============================================================
+
+[[tests]]
+id          = "basis_change_q_reverse"
+description = "BasisChangeQ returns True for reverse direction (bidirectional)"
+dependencies = ["set_basis_change"]
+
+[[tests.operations]]
+action = "BasisChangeQ"
+[tests.operations.args]
+from_basis = "Sph"
+to_basis   = "Cart"
+
+[tests.expected]
+expr = "True"
+
+# ============================================================
+# Test: GetJacobian
+# ============================================================
+
+[[tests]]
+id          = "get_jacobian"
+description = "GetJacobian returns determinant of transformation matrix"
+dependencies = ["set_basis_change"]
+
+[[tests.operations]]
+action = "GetJacobian"
+[tests.operations.args]
+basis1 = "Cart"
+basis2 = "Sph"
+
+[tests.expected]
+expr = "24.0"
+
+# ============================================================
+# Test: BasisChangeQ for non-existent pair
+# ============================================================
+
+[[tests]]
+id          = "basis_change_q_nonexistent"
+description = "BasisChangeQ returns False for unregistered pair"
+
+[[tests.operations]]
+action = "BasisChangeQ"
+[tests.operations.args]
+from_basis = "Cart"
+to_basis   = "Cart"
+
+[tests.expected]
+expr = "False"
+
+# ============================================================
+# Test: Error — wrong dimension matrix
+# ============================================================
+
+[[tests]]
+id          = "error_wrong_dim"
+description = "SetBasisChange with wrong dimension matrix throws"
+
+[[tests.operations]]
+action = "SetBasisChange"
+[tests.operations.args]
+from_basis = "Cart"
+to_basis   = "Sph"
+matrix     = [[1, 0], [0, 1]]
+
+[tests.expected]
+expect_error = true
+
+# ============================================================
+# Test: Error — non-existent basis
+# ============================================================
+
+[[tests]]
+id          = "error_nonexistent_basis"
+description = "SetBasisChange with non-existent basis throws"
+
+[[tests.operations]]
+action = "SetBasisChange"
+[tests.operations.args]
+from_basis = "Cart"
+to_basis   = "NoSuchBasis"
+matrix     = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+
+[tests.expected]
+expect_error = true

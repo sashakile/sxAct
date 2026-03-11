@@ -108,6 +108,10 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             "IntegrateByParts",
             "TotalDerivativeQ",
             "VarD",
+            "SetBasisChange",
+            "ChangeBasis",
+            "GetJacobian",
+            "BasisChangeQ",
         }
     )
 
@@ -249,6 +253,14 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 return self._total_derivative_q(args)
             if action == "VarD":
                 return self._vard(args)
+            if action == "SetBasisChange":
+                return self._set_basis_change(args)
+            if action == "ChangeBasis":
+                return self._change_basis(args)
+            if action == "GetJacobian":
+                return self._get_jacobian(args)
+            if action == "BasisChangeQ":
+                return self._basis_change_q(args)
         except Exception as exc:
             return Result(
                 status="error", type="", repr="", normalized="", error=str(exc)
@@ -524,6 +536,46 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         raw = self._jl.seval(f'XTensor.VarD("{expr_jl}", "{field_jl}", "{covd_jl}")')
         s = str(raw).strip()
         return Result(status="ok", type="Expr", repr=s, normalized=_normalize(s))
+
+    def _set_basis_change(self, args: dict[str, Any]) -> Result:
+        from_basis = str(args["from_basis"])
+        to_basis = str(args["to_basis"])
+        matrix = args["matrix"]  # list of lists
+        # Build Julia matrix literal
+        rows = []
+        for row in matrix:
+            rows.append(" ".join(str(x) for x in row))
+        mat_jl = "Any[" + "; ".join(rows) + "]"
+        self._jl.seval(
+            f"XTensor.set_basis_change!(:{from_basis}, :{to_basis}, {mat_jl})"
+        )
+        repr_str = f"BasisChange({from_basis}, {to_basis})"
+        return Result(status="ok", type="Handle", repr=repr_str, normalized=repr_str)
+
+    def _change_basis(self, args: dict[str, Any]) -> Result:
+        expr = str(args["expr"])
+        slot = int(args["slot"])
+        from_basis = str(args["from_basis"])
+        to_basis = str(args["to_basis"])
+        result = self._jl.seval(
+            f"XTensor.change_basis({expr}, Symbol[], {slot}, :{from_basis}, :{to_basis})"
+        )
+        raw = str(result)
+        return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
+
+    def _get_jacobian(self, args: dict[str, Any]) -> Result:
+        basis1 = str(args["basis1"])
+        basis2 = str(args["basis2"])
+        result = self._jl.seval(f"XTensor.Jacobian(:{basis1}, :{basis2})")
+        raw = str(result)
+        return Result(status="ok", type="Scalar", repr=raw, normalized=raw)
+
+    def _basis_change_q(self, args: dict[str, Any]) -> Result:
+        from_basis = str(args["from_basis"])
+        to_basis = str(args["to_basis"])
+        result = self._jl.seval(f"XTensor.BasisChangeQ(:{from_basis}, :{to_basis})")
+        raw = "True" if result is True or str(result).lower() == "true" else "False"
+        return Result(status="ok", type="Bool", repr=raw, normalized=raw)
 
     def _execute_expr(self, wolfram_expr: str) -> Result:
         julia_expr = _wl_to_jl(wolfram_expr)

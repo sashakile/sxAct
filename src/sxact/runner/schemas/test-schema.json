@@ -103,6 +103,10 @@
         "IntegrateByParts",
         "TotalDerivativeQ",
         "VarD",
+        "SetBasisChange",
+        "ChangeBasis",
+        "GetJacobian",
+        "BasisChangeQ",
         "Assert"
       ]
     },
@@ -128,6 +132,10 @@
         { "$ref": "#/$defs/args/IntegrateByParts" },
         { "$ref": "#/$defs/args/TotalDerivativeQ" },
         { "$ref": "#/$defs/args/VarD" },
+        { "$ref": "#/$defs/args/SetBasisChange" },
+        { "$ref": "#/$defs/args/ChangeBasis" },
+        { "$ref": "#/$defs/args/GetJacobian" },
+        { "$ref": "#/$defs/args/BasisChangeQ" },
         { "$ref": "#/$defs/args/Assert" }
       ]
     },
@@ -594,6 +602,88 @@
             "description": "Perturbation order to query (≥ 1)",
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "SetBasisChange": {
+        "description": "Arguments for SetBasisChange action. Registers a coordinate transformation between two bases.",
+        "type": "object",
+        "required": ["from_basis", "to_basis", "matrix"],
+        "additionalProperties": false,
+        "properties": {
+          "from_basis": {
+            "description": "Source basis name",
+            "type": "string"
+          },
+          "to_basis": {
+            "description": "Target basis name",
+            "type": "string"
+          },
+          "matrix": {
+            "description": "Transformation matrix as list of lists (rows)",
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "ChangeBasis": {
+        "description": "Arguments for ChangeBasis action. Applies a basis change to a specific slot of a component array.",
+        "type": "object",
+        "required": ["expr", "slot", "from_basis", "to_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "expr": {
+            "description": "Julia expression evaluating to the component array",
+            "type": "string"
+          },
+          "slot": {
+            "description": "1-indexed slot to transform",
+            "type": "integer",
+            "minimum": 1
+          },
+          "from_basis": {
+            "description": "Current basis of that slot",
+            "type": "string"
+          },
+          "to_basis": {
+            "description": "Target basis for that slot",
+            "type": "string"
+          }
+        }
+      },
+      "GetJacobian": {
+        "description": "Arguments for GetJacobian action. Returns the Jacobian determinant of a basis change.",
+        "type": "object",
+        "required": ["basis1", "basis2"],
+        "additionalProperties": false,
+        "properties": {
+          "basis1": {
+            "description": "First basis name",
+            "type": "string"
+          },
+          "basis2": {
+            "description": "Second basis name",
+            "type": "string"
+          }
+        }
+      },
+      "BasisChangeQ": {
+        "description": "Arguments for BasisChangeQ action. Returns True/False whether a basis change is registered.",
+        "type": "object",
+        "required": ["from_basis", "to_basis"],
+        "additionalProperties": false,
+        "properties": {
+          "from_basis": {
+            "description": "Source basis name",
+            "type": "string"
+          },
+          "to_basis": {
+            "description": "Target basis name",
+            "type": "string"
           }
         }
       },
