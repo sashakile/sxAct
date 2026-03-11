@@ -10,6 +10,7 @@ The primary interface for tensor calculus is the Julia package.
 using xAct
 
 # 1. Define a manifold
+# Note: index labels must be symbols
 M = def_manifold!(:M, 4, [:a, :b, :c, :d])
 
 # 2. Define a symmetric tensor
@@ -25,21 +26,25 @@ For a more detailed tutorial, see the [Basics Tutorial](examples/basics.md).
 
 ## Quick Start (Python)
 
-The Python wrapper allows researchers in the Python ecosystem to leverage the `xAct.jl` engines.
+*Note: The high-level Python user API is currently in development. For now, researchers can access the Julia engine via the `JuliaAdapter` in the `sxact` framework.*
 
 ```python
-from sxact import xAct
+from sxact.adapter.julia_stub import JuliaAdapter
 
-# Create a manifold and tensor
-m = xAct.def_manifold("M", 4, ["a", "b"])
-t = xAct.def_tensor("T", ["-a", "-b"], "M", symmetry="Symmetric")
+# Initialize the Julia engine
+adapter = JuliaAdapter()
+adapter.initialize()
+
+# Define a manifold and tensor
+adapter.execute("def_manifold", {"name": "M", "dim": 4, "index_labels": ["a", "b"]})
+adapter.execute("def_tensor", {"name": "T", "index_specs": ["-a", "-b"], "manifold": "M", "symmetry_str": "Symmetric[{-a,-b}]"})
 
 # Perform canonicalization
-result = xAct.to_canonical("T[-b, -a] - T[-a, -b]")
-print(result)  # "0"
+result = adapter.execute("ToCanonical", {"expr": "T[-b, -a] - T[-a, -b]"})
+print(result.result)  # "0"
 ```
 
-*Note: The Python high-level API is a current development focus. See the [Verification Guide](verification-tools.md) for low-level oracle comparison tools.*
+See the [Verification Guide](verification-tools.md) for details on comparing these results against the Wolfram Oracle.
 
 ## Key Concepts
 

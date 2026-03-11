@@ -9,25 +9,12 @@ This guide covers how to install the `xAct.jl` Julia package and the optional Py
 ### Prerequisites
 - [Julia 1.10+](https://julialang.org/downloads/)
 
-### Installation via Pkg
-From the Julia REPL, enter the package manager by pressing `]` and run:
-
-```julia
-pkg> add xAct
-```
-
-Alternatively, using the `Pkg` module:
+### Installation via GitHub (Development)
+Since `xAct.jl` is currently in active migration, you can add it directly from the repository:
 
 ```julia
 using Pkg
-Pkg.add("xAct")
-```
-
-### Development Version
-If you want to use the latest development version from the repository:
-
-```julia
-pkg> add https://github.com/sashakile/sxAct.git:src/julia
+Pkg.add(url="https://github.com/sashakile/sxAct.git", subdir="src/julia")
 ```
 
 ## 2. Python Verification Framework (sxact-py)
@@ -44,6 +31,8 @@ git clone https://github.com/sashakile/sxAct.git
 cd sxAct
 uv sync
 ```
+
+> **Note on Naming**: When defining manifolds or tensors, ensure you choose names that do not collide with built-in Julia or Base exports (e.g., avoid `:Base`, `:map`, or `:log`).
 
 ### Activation of the Wolfram Oracle
 The verification suite requires a Dockerized Wolfram Engine. You must activate it once:
