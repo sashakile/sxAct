@@ -209,6 +209,77 @@ class WolframAdapter(TestAdapter[_WolframContext]):
         if action == "Assert":
             return str(args["condition"])
 
+        if action == "Christoffel":
+            return f"ChristoffelP[{args['covd']}]"
+
+        if action == "DefPerturbation":
+            return f"DefPerturbation[{args['name']}, {args['metric']}, {args['parameter']}]"
+
+        if action == "Perturb":
+            return f"Perturb[{args['expression']}, {args['order']}]"
+
+        if action == "PerturbCurvature":
+            # In xAct, this is usually automatic or part of Perturb
+            # but we can return the formula key if requested
+            key = args.get("key")
+            if key:
+                return f"{key}[{args['covd']}]"
+            return f"Perturbation[{args['expression']}, {args['order']}]"
+
+        if action == "PerturbationOrder":
+            return f"PerturbationOrder[{args['expression']}]"
+
+        if action == "PerturbationAtOrder":
+            return f"PerturbationAtOrder[{args['expression']}, {args['order']}]"
+
+        if action == "CommuteCovDs":
+            return f"CommuteCovDs[{args['expression']}, {args['cd1']}, {args['cd2']}]"
+
+        if action == "CheckMetricConsistency":
+            return f"CheckMetricConsistency[{args['metric']}, {args['covd']}]"
+
+        if action == "IntegrateByParts":
+            return f"IBP[{args['expression']}, {args['covd']}]"
+
+        if action == "TotalDerivativeQ":
+            return f"TotalDerivativeQ[{args['expression']}, {args['covd']}]"
+
+        if action == "VarD":
+            return f"VarD[{args['variable']}][{args['expression']}]"
+
+        if action == "SetBasisChange":
+            return f"SetBasisChange[{args['basis1']}, {args['basis2']}, {args['matrix']}]"
+
+        if action == "ChangeBasis":
+            return f"ChangeBasis[{args['expression']}, {args['target_basis']}]"
+
+        if action == "GetJacobian":
+            return f"Jacobian[{args['basis1']}, {args['basis2']}]"
+
+        if action == "BasisChangeQ":
+            return f"BasisChangeQ[{args['basis1']}, {args['basis2']}]"
+
+        if action == "SetComponents":
+            return f"SetComponents[{args['tensor']}, {args['components']}]"
+
+        if action == "GetComponents":
+            return f"GetComponents[{args['tensor']}, {args['basis']}]"
+
+        if action == "ComponentValue":
+            return f"{args['tensor']}[{','.join(map(str, args['indices']))}]"
+
+        if action == "CTensorQ":
+            return f"CTensorQ[{args['tensor']}]"
+
+        if action == "ToBasis":
+            return f"ToBasis[{args['basis']}][{args['expression']}]"
+
+        if action == "FromBasis":
+            return f"FromBasis[{args['basis']}][{args['expression']}]"
+
+        if action == "TraceBasisDummy":
+            return f"TraceBasisDummy[{args['expression']}]"
+
         raise ValueError(f"Unknown action: {action!r}")  # unreachable
 
     # ------------------------------------------------------------------
