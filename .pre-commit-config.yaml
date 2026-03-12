@@ -15,7 +15,7 @@ repos:
       - id: mypy
         name: mypy
         language: system
-        entry: uv run mypy src/python/
+        entry: uv run mypy packages/xact-py/src packages/sxact/src
         pass_filenames: false
         types: [python]
 
