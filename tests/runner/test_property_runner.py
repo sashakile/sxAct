@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from xact.runner.property_runner import (
+from sxact.runner.property_runner import (
     GeneratorSpec,
     PropertyFile,
     PropertyLoadError,
@@ -17,7 +17,7 @@ from xact.runner.property_runner import (
     load_property_file,
     run_property_file,
 )
-from xact.cli.property import _apply_cross_adapter_diff
+from sxact.cli.property import _apply_cross_adapter_diff
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ class AlwaysTrueAdapter:
         pass
 
     def execute(self, ctx, action, args):
-        from xact.oracle.result import Result
+        from sxact.oracle.result import Result
 
         if action == "Evaluate":
             return Result(status="ok", type="Bool", repr="True", normalized="True")
@@ -198,7 +198,7 @@ class AlwaysFalseAdapter:
         pass
 
     def execute(self, ctx, action, args):
-        from xact.oracle.result import Result
+        from sxact.oracle.result import Result
 
         if action == "Evaluate":
             return Result(status="ok", type="Bool", repr="False", normalized="False")
@@ -221,7 +221,7 @@ class FirstSamplePassesAdapter:
         pass
 
     def execute(self, ctx, action, args):
-        from xact.oracle.result import Result
+        from sxact.oracle.result import Result
 
         if action == "Evaluate":
             self._call_count += 1
@@ -243,7 +243,7 @@ class ErrorAdapter:
         pass
 
     def execute(self, ctx, action, args):
-        from xact.oracle.result import Result
+        from sxact.oracle.result import Result
 
         return Result(status="error", type="", repr="", normalized="", error="boom")
 
@@ -405,7 +405,7 @@ class TestRunPropertyFile:
 
     def test_cross_adapter_diff_missing_property(self, tmp_path):
         """Property missing from secondary run → cross_adapter_diff with 'missing'."""
-        from xact.runner.property_runner import PropertyFileResult
+        from sxact.runner.property_runner import PropertyFileResult
 
         pf = _make_minimal_prop_file(tmp_path)
         primary = run_property_file(pf, AlwaysTrueAdapter())
@@ -430,7 +430,7 @@ class TestRunPropertyFile:
                 pass
 
             def execute(self, ctx, action, args):
-                from xact.oracle.result import Result
+                from sxact.oracle.result import Result
 
                 executed.append(action)
                 return Result(status="ok", type="", repr="True", normalized="True")

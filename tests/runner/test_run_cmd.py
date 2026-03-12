@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-from xact.cli import (
+from sxact.cli import (
     _RunResult,
     _cmd_run,
     _print_json_run,
@@ -23,15 +23,15 @@ from xact.cli import (
     _sub_bindings,
     _tc_matches_tag,
 )
-from xact.oracle.result import Result
-from xact.runner.loader import (
+from sxact.oracle.result import Result
+from sxact.runner.loader import (
     Expected,
     Operation,
     TestCase,
     TestFile,
     TestMeta,
 )
-from xact.snapshot.runner import TestSnapshot
+from sxact.snapshot.runner import TestSnapshot
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ def _make_adapter(*results: Result) -> MagicMock:
 def _make_snapshot(
     test_id: str, normalized: str = "T", hash_: str = ""
 ) -> TestSnapshot:
-    from xact.snapshot.runner import compute_oracle_hash
+    from sxact.snapshot.runner import compute_oracle_hash
 
     h = hash_ or compute_oracle_hash(normalized, {})
     return TestSnapshot(
@@ -127,7 +127,7 @@ def _make_store(snapshots: dict[tuple[str, str], TestSnapshot]) -> MagicMock:
         return snapshots.get((meta_id, test_id))
 
     def _verify(snap: TestSnapshot) -> bool:
-        from xact.snapshot.runner import compute_oracle_hash
+        from sxact.snapshot.runner import compute_oracle_hash
 
         return snap.hash == compute_oracle_hash(snap.normalized_output, snap.properties)
 
@@ -566,7 +566,7 @@ class TestCmdRun:
 
         args = self._make_args(str(tmp_path))
         with patch(
-            "xact.snapshot.store.SnapshotStore", side_effect=ValueError("no dir")
+            "sxact.snapshot.store.SnapshotStore", side_effect=ValueError("no dir")
         ):
             rc = _cmd_run(args)
 
@@ -586,9 +586,9 @@ class TestCmdRun:
         store = _make_store({("pkg/tests", "t1"): snap})
 
         with (
-            patch("xact.runner.loader.load_test_file", return_value=tf),
-            patch("xact.snapshot.store.SnapshotStore", return_value=store),
-            patch("xact.adapter.julia_stub.JuliaAdapter") as MockJulia,
+            patch("sxact.runner.loader.load_test_file", return_value=tf),
+            patch("sxact.snapshot.store.SnapshotStore", return_value=store),
+            patch("sxact.adapter.julia_stub.JuliaAdapter") as MockJulia,
         ):
             adapter = _make_adapter(_ok("X", "X"))
             MockJulia.return_value = adapter
@@ -610,9 +610,9 @@ class TestCmdRun:
         store = _make_store({("pkg/tests", "t1"): snap})
 
         with (
-            patch("xact.runner.loader.load_test_file", return_value=tf),
-            patch("xact.snapshot.store.SnapshotStore", return_value=store),
-            patch("xact.adapter.julia_stub.JuliaAdapter") as MockJulia,
+            patch("sxact.runner.loader.load_test_file", return_value=tf),
+            patch("sxact.snapshot.store.SnapshotStore", return_value=store),
+            patch("sxact.adapter.julia_stub.JuliaAdapter") as MockJulia,
         ):
             adapter = _make_adapter(_ok("X", "X"))
             MockJulia.return_value = adapter
@@ -634,9 +634,9 @@ class TestCmdRun:
         store = _make_store({("pkg/tests", "t1"): snap})
 
         with (
-            patch("xact.runner.loader.load_test_file", return_value=tf),
-            patch("xact.snapshot.store.SnapshotStore", return_value=store),
-            patch("xact.adapter.julia_stub.JuliaAdapter") as MockJulia,
+            patch("sxact.runner.loader.load_test_file", return_value=tf),
+            patch("sxact.snapshot.store.SnapshotStore", return_value=store),
+            patch("sxact.adapter.julia_stub.JuliaAdapter") as MockJulia,
         ):
             adapter = _make_adapter(_ok("X", "X"))
             MockJulia.return_value = adapter
@@ -658,9 +658,9 @@ class TestCmdRun:
         store = _make_store({})
 
         with (
-            patch("xact.runner.loader.load_test_file", return_value=tf),
-            patch("xact.snapshot.store.SnapshotStore", return_value=store),
-            patch("xact.adapter.julia_stub.JuliaAdapter") as MockJulia,
+            patch("sxact.runner.loader.load_test_file", return_value=tf),
+            patch("sxact.snapshot.store.SnapshotStore", return_value=store),
+            patch("sxact.adapter.julia_stub.JuliaAdapter") as MockJulia,
         ):
             MockJulia.return_value = _make_adapter()
             args = self._make_args(str(toml_file), filter=["tag:smoke"])

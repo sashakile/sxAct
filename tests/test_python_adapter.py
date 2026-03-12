@@ -2,7 +2,7 @@
 
 import pytest
 
-from xact.adapter.python_stub import PythonAdapter
+from sxact.adapter.python_stub import PythonAdapter
 
 
 # Override the fixture so the conformance suite runs against PythonAdapter

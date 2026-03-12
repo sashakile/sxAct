@@ -1,4 +1,4 @@
-"""Unit tests for xact.runner.loader.
+"""Unit tests for sxact.runner.loader.
 
 All tests are oracle-free: they exercise TOML parsing, schema validation, and
 the data model without requiring a running CAS.
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from xact.runner.loader import (
+from sxact.runner.loader import (
     Expected,
     ExpectedProperties,
     LoadError,

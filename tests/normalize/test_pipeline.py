@@ -1,6 +1,6 @@
 """Tests for the normalization pipeline."""
 
-from xact.normalize import ast_normalize, normalize
+from sxact.normalize import ast_normalize, normalize
 
 
 class TestWhitespaceNormalization:
@@ -70,22 +70,22 @@ class TestAstParser:
     """Tests for the S-expression parser."""
 
     def test_parse_leaf(self) -> None:
-        from xact.normalize.ast_parser import Leaf, parse
+        from sxact.normalize.ast_parser import Leaf, parse
 
         assert parse("a") == Leaf("a")
 
     def test_parse_negative_leaf(self) -> None:
-        from xact.normalize.ast_parser import Leaf, parse
+        from sxact.normalize.ast_parser import Leaf, parse
 
         assert parse("-a") == Leaf("-a")
 
     def test_parse_number(self) -> None:
-        from xact.normalize.ast_parser import Leaf, parse
+        from sxact.normalize.ast_parser import Leaf, parse
 
         assert parse("2") == Leaf("2")
 
     def test_parse_simple_application(self) -> None:
-        from xact.normalize.ast_parser import Leaf, Node, parse
+        from sxact.normalize.ast_parser import Leaf, Node, parse
 
         tree = parse("T[-a, -b]")
         assert isinstance(tree, Node)
@@ -93,7 +93,7 @@ class TestAstParser:
         assert tree.args == [Leaf("-a"), Leaf("-b")]
 
     def test_parse_nested_application(self) -> None:
-        from xact.normalize.ast_parser import Node, parse
+        from sxact.normalize.ast_parser import Node, parse
 
         tree = parse("Plus[a, b]")
         assert isinstance(tree, Node)
@@ -101,7 +101,7 @@ class TestAstParser:
         assert len(tree.args) == 2
 
     def test_parse_deeply_nested(self) -> None:
-        from xact.normalize.ast_parser import Node, parse
+        from sxact.normalize.ast_parser import Node, parse
 
         tree = parse("CD[-a][CD[-b][T[c]]]")
         assert isinstance(tree, Node)

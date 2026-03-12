@@ -1,4 +1,4 @@
-"""Unit tests for xact.snapshot.writer.
+"""Unit tests for sxact.snapshot.writer.
 
 All tests use tmp_path; no oracle or network access required.
 """
@@ -10,8 +10,8 @@ import json
 from pathlib import Path
 
 
-from xact.snapshot.runner import FileSnapshot, TestSnapshot, compute_oracle_hash
-from xact.snapshot.writer import write_oracle_dir
+from sxact.snapshot.runner import FileSnapshot, TestSnapshot, compute_oracle_hash
+from sxact.snapshot.writer import write_oracle_dir
 
 
 # ---------------------------------------------------------------------------

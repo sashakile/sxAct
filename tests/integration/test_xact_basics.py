@@ -15,10 +15,10 @@ definition, so reusing names across tests causes errors.
 
 import pytest
 
-from xact.compare import compare
-from xact.compare.comparator import EqualityMode
-from xact.oracle import OracleClient
-from xact.oracle.result import Result
+from sxact.compare import compare
+from sxact.compare.comparator import EqualityMode
+from sxact.oracle import OracleClient
+from sxact.oracle.result import Result
 
 
 def xact_evaluate(

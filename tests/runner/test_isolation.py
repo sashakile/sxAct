@@ -1,4 +1,4 @@
-"""Unit tests for xact.runner.isolation.IsolatedContext.
+"""Unit tests for sxact.runner.isolation.IsolatedContext.
 
 All tests are oracle-free: the adapter is a lightweight fake.
 Key invariants under test:
@@ -16,13 +16,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from xact.oracle.result import Result
-from xact.runner.isolation import (
+from sxact.oracle.result import Result
+from sxact.runner.isolation import (
     IsolatedContext,
     _sub_refs,
     _substitute_bindings,
 )
-from xact.runner.loader import (
+from sxact.runner.loader import (
     Expected,
     ExpectedProperties,
     Operation,

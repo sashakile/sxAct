@@ -1,6 +1,6 @@
 """Tests for the Result dataclass."""
 
-from xact.oracle.result import Result
+from sxact.oracle.result import Result
 
 
 class TestResultDataclass:

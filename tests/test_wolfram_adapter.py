@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from xact.adapter.wolfram import WolframAdapter
+from sxact.adapter.wolfram import WolframAdapter
 
 # Re-export the entire conformance suite so pytest collects it against
 # WolframAdapter when running this file.
@@ -147,7 +147,7 @@ class TestWolframLifecycle:
         oracle = MagicMock()
         oracle.cleanup.return_value = True
         adapter = self._make_adapter(oracle)
-        from xact.adapter.wolfram import _WolframContext
+        from sxact.adapter.wolfram import _WolframContext
 
         ctx = _WolframContext(context_id="test-ctx")
         adapter.teardown(ctx)
@@ -158,7 +158,7 @@ class TestWolframLifecycle:
         oracle = MagicMock()
         oracle.cleanup.return_value = True
         adapter = self._make_adapter(oracle)
-        from xact.adapter.wolfram import _WolframContext
+        from sxact.adapter.wolfram import _WolframContext
 
         ctx = _WolframContext(context_id="test-ctx")
         assert ctx.alive is True
@@ -170,7 +170,7 @@ class TestWolframLifecycle:
         oracle = MagicMock()
         oracle.cleanup.return_value = False
         adapter = self._make_adapter(oracle)
-        from xact.adapter.wolfram import _WolframContext
+        from sxact.adapter.wolfram import _WolframContext
 
         ctx = _WolframContext(context_id="test-ctx")
         with warnings.catch_warnings(record=True) as caught:
@@ -185,7 +185,7 @@ class TestWolframLifecycle:
         oracle = MagicMock()
         oracle.cleanup.return_value = False
         adapter = self._make_adapter(oracle)
-        from xact.adapter.wolfram import _WolframContext
+        from sxact.adapter.wolfram import _WolframContext
 
         ctx = _WolframContext(context_id="test-ctx")
         with warnings.catch_warnings(record=True):
@@ -208,7 +208,7 @@ class TestWolframLifecycle:
 
     def test_initialize_raises_when_oracle_down(self):
         """initialize() raises AdapterError when oracle is unreachable."""
-        from xact.adapter.base import AdapterError
+        from sxact.adapter.base import AdapterError
 
         oracle = MagicMock()
         oracle.health.return_value = False
@@ -234,7 +234,7 @@ class TestWolframLifecycle:
 
     def test_initialize_raises_if_restart_fails_on_dirty(self):
         """initialize() raises AdapterError when dirty and restart() fails."""
-        from xact.adapter.base import AdapterError
+        from sxact.adapter.base import AdapterError
 
         oracle = MagicMock()
         oracle.health.return_value = True

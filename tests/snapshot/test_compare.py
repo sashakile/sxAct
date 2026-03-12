@@ -1,4 +1,4 @@
-"""Unit tests for xact.snapshot.compare.SnapshotComparator.
+"""Unit tests for sxact.snapshot.compare.SnapshotComparator.
 
 All tests use tmp_path and pre-written snapshot files; no oracle required.
 """
@@ -9,10 +9,10 @@ import json
 from pathlib import Path
 
 
-from xact.oracle.result import Result
-from xact.snapshot.compare import SnapshotComparator, SnapshotCompareResult
-from xact.snapshot.runner import compute_oracle_hash
-from xact.snapshot.store import SnapshotStore
+from sxact.oracle.result import Result
+from sxact.snapshot.compare import SnapshotComparator, SnapshotCompareResult
+from sxact.snapshot.runner import compute_oracle_hash
+from sxact.snapshot.store import SnapshotStore
 
 
 # ---------------------------------------------------------------------------

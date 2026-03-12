@@ -59,8 +59,8 @@ def _sha_prefix(normalized_output: str, properties: dict = None) -> str:
 def process_single_file(toml_path: Path, dry_run: bool) -> dict:
     """Process one TOML file and return a result dict (written to stdout as JSON
     when run as --single-file subprocess)."""
-    from xact.adapter.julia_stub import JuliaAdapter
-    from xact.runner.loader import load_test_file, LoadError
+    from sxact.adapter.julia_stub import JuliaAdapter
+    from sxact.runner.loader import load_test_file, LoadError
 
     timestamp = datetime.now(timezone.utc).isoformat()
 

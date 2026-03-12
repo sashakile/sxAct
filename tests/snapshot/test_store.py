@@ -1,4 +1,4 @@
-"""Unit tests for xact.snapshot.store.SnapshotStore.
+"""Unit tests for sxact.snapshot.store.SnapshotStore.
 
 All tests use tmp_path; no oracle or network access required.
 """
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from xact.snapshot.runner import compute_oracle_hash
-from xact.snapshot.store import SnapshotLoadError, SnapshotStore
+from sxact.snapshot.runner import compute_oracle_hash
+from sxact.snapshot.store import SnapshotLoadError, SnapshotStore
 
 
 # ---------------------------------------------------------------------------

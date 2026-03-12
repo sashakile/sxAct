@@ -12,14 +12,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from xact.compare.sampling import (
+from sxact.compare.sampling import (
     TensorContext,
     build_tensor_context,
     sample_numeric,
 )
-from xact.compare.comparator import compare, EqualityMode
-from xact.compare.tensor_objects import Manifold, Metric, TensorField
-from xact.oracle.result import Result
+from sxact.compare.comparator import compare, EqualityMode
+from sxact.compare.tensor_objects import Manifold, Metric, TensorField
+from sxact.oracle.result import Result
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +294,7 @@ class TestJuliaAdapterTensorContextTracking:
         )
 
     def test_def_manifold_records_manifold(self) -> None:
-        from xact.adapter.julia_stub import JuliaAdapter
+        from sxact.adapter.julia_stub import JuliaAdapter
 
         adapter = JuliaAdapter()
         ctx = adapter.initialize()
@@ -311,7 +311,7 @@ class TestJuliaAdapterTensorContextTracking:
             adapter.teardown(ctx)
 
     def test_def_metric_records_metric(self) -> None:
-        from xact.adapter.julia_stub import JuliaAdapter
+        from sxact.adapter.julia_stub import JuliaAdapter
 
         adapter = JuliaAdapter()
         ctx = adapter.initialize()
@@ -333,7 +333,7 @@ class TestJuliaAdapterTensorContextTracking:
             adapter.teardown(ctx)
 
     def test_def_tensor_records_tensor(self) -> None:
-        from xact.adapter.julia_stub import JuliaAdapter
+        from sxact.adapter.julia_stub import JuliaAdapter
 
         adapter = JuliaAdapter()
         ctx = adapter.initialize()
@@ -361,7 +361,7 @@ class TestJuliaAdapterTensorContextTracking:
             adapter.teardown(ctx)
 
     def test_get_tensor_context_returns_populated_context(self) -> None:
-        from xact.adapter.julia_stub import JuliaAdapter
+        from sxact.adapter.julia_stub import JuliaAdapter
 
         adapter = JuliaAdapter()
         ctx = adapter.initialize()

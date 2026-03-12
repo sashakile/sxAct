@@ -146,7 +146,7 @@ jobs:
             uv run xact-test benchmark "$dir" \
               --adapter julia \
               --baseline benchmarks/ci_baseline.json \
-              --n-warmup 1 \
-              --n-measure 5 \
+              --n-warmup 3 \
+              --n-measure 10 \
               --check
           done

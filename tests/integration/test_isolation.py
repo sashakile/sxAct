@@ -11,8 +11,8 @@ import warnings
 
 import pytest
 
-from xact.adapter.wolfram import WolframAdapter
-from xact.oracle import OracleClient
+from sxact.adapter.wolfram import WolframAdapter
+from sxact.oracle import OracleClient
 
 
 @pytest.mark.oracle

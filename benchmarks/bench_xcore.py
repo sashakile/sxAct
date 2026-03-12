@@ -155,7 +155,7 @@ def main() -> None:
     args = parser.parse_args()
 
     print("Initialising Julia + XCore …", flush=True)
-    from sxact.xcore._runtime import get_julia, get_xcore
+    from xact.xcore._runtime import get_julia, get_xcore
 
     jl = get_julia()
     xc = get_xcore()

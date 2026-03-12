@@ -1,4 +1,4 @@
-"""Unit tests for xact.snapshot.runner.
+"""Unit tests for sxact.snapshot.runner.
 
 All tests are oracle-free: the WolframAdapter is replaced by a lightweight
 fake that returns pre-canned results without touching the network.
@@ -13,14 +13,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from xact.oracle.result import Result
-from xact.runner.loader import (
+from sxact.oracle.result import Result
+from sxact.runner.loader import (
     Operation,
     TestCase,
     TestFile,
     TestMeta,
 )
-from xact.snapshot.runner import (
+from sxact.snapshot.runner import (
     FileSnapshot,
     TestSnapshot,
     _sub_refs,

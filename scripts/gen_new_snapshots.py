@@ -60,7 +60,7 @@ def _sha_prefix(normalized_output: str, properties: dict = None) -> str:
 
 def process_file(toml_path: Path, adapter, dry_run: bool) -> dict:
     """Process one TOML file with the given adapter and return results."""
-    from xact.runner.loader import load_test_file, LoadError
+    from sxact.runner.loader import load_test_file, LoadError
 
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -197,7 +197,7 @@ def main() -> None:
     if dry_run:
         print("(dry-run: no files will be written)")
 
-    from xact.adapter.julia_stub import JuliaAdapter
+    from sxact.adapter.julia_stub import JuliaAdapter
 
     adapter = JuliaAdapter()
 

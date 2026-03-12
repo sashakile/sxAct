@@ -2,9 +2,9 @@
 
 import pytest
 
-from xact.compare import compare
-from xact.compare.comparator import EqualityMode
-from xact.oracle.result import Result
+from sxact.compare import compare
+from sxact.compare.comparator import EqualityMode
+from sxact.oracle.result import Result
 
 
 class TestTier1ExactMatch:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from xact.oracle import OracleClient
+from sxact.oracle import OracleClient
 
 
 @pytest.mark.oracle
