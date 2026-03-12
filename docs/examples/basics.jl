@@ -56,7 +56,18 @@ println("Metric g defined with signature -1.")
 # | **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` |
 # | **DefMetric** | `DefMetric[-1, g[-a,-b], CD]` | `def_metric!(-1, "g[-a,-b]", :CD)` |
 
-# ## 7. Next Steps
+# ## 7. Common Pitfalls & Fail-States
+# - **Name Collisions**: If you try to define a manifold or tensor with a name
+#   that already exists, `xAct.jl` will throw an error. Use `validate_symbol(:Name)`
+#   to check before defining.
+# - **Index Mismatch**: Ensure your tensor indices match the dimension of the
+#   manifold. Defining a rank-3 tensor on a 2D manifold is allowed, but
+#   contracting them incorrectly will fail.
+# - **Global State**: The `!` in `def_manifold!` and `def_tensor!` means they
+#   modify the global session. If you are in a notebook, re-running a cell
+#   containing these might trigger a "Symbol already exists" error.
+
+# ## 8. Next Steps
 # Now that you've mastered the basics, check out:
 # - [Differential Geometry Primer](../differential-geometry-primer.md)
 # - [Feature Status](../theory/STATUS.md)

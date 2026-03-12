@@ -1,8 +1,13 @@
 # Getting Started with xAct.jl
 
-This guide walks through the basic usage of `xAct.jl` in Julia and introduces the "Rosetta Stone" for users migrating from the original Wolfram implementation.
+This tutorial walks through the basic usage of `xAct.jl` in Julia and provides a reference "Rosetta Stone" for users migrating from the original Wolfram implementation.
 
-## 1. Quick Start (Julia)
+!!! info "Prerequisites"
+    Ensure you have installed `xAct.jl` according to the [Installation Guide](installation.md) before starting this tutorial.
+
+---
+
+## 1. Interactive Tutorial (Julia)
 
 The primary interface for tensor calculus is the Julia REPL or a Jupyter notebook.
 
@@ -23,7 +28,11 @@ result = ToCanonical("T[-b, -a] - T[-a, -b]")
 println(result)  # "0"
 ```
 
-## 2. Migration Rosetta Stone
+For a more detailed, step-by-step walkthrough, see the [Basics Tutorial](examples/basics.md).
+
+---
+
+## 2. Reference: Migration Rosetta Stone
 
 For experienced `xAct` users, this table shows the direct mappings from Wolfram Language to Julia.
 
@@ -36,6 +45,8 @@ For experienced `xAct` users, this table shows the direct mappings from Wolfram 
 | **Contract** | `ContractMetric[expr]` | `Contract(expr)` | 🏗️ Beta |
 | **IBP** | `IBP[expr, CD]` | `IBP(expr, :CD)` | 🗓️ Planned |
 
+---
+
 ## 3. Core Concepts
 
 - **Symbol Registry**: `xAct.jl` maintains a global registry of manifolds, bundles, and tensors. Functions that modify this state end in `!` (e.g., `def_tensor!`).
@@ -44,7 +55,7 @@ For experienced `xAct` users, this table shows the direct mappings from Wolfram 
 
 ## 4. Using Python for Verification
 
-*Note: The high-level Python API is currently in development. For now, the Python framework is used primarily for verification.*
+*Note: The high-level Python API is currently in development. For now, the Python framework is used primarily for verification. See the [Python API Reference](api-python.md) for details.*
 
 ```python
 from sxact.adapter.julia_stub import JuliaAdapter
@@ -60,6 +71,5 @@ result = adapter.execute("ToCanonical", {"expr": "T[-b, -a] - T[-a, -b]"})
 
 ## Next Steps
 
-- **Tutorials**: See the [Basics Tutorial](examples/basics.md) for a step-by-step walkthrough.
-- **Status Dashboard**: Check the [Feature Matrix](theory/STATUS.md) to see which functions are ready for production use.
 - **Installation**: See the [Installation Guide](installation.md) for local setup.
+- **Status Dashboard**: Check the [Feature Matrix](theory/STATUS.md) to see which functions are ready for production use.
