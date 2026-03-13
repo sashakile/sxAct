@@ -122,7 +122,7 @@ DefTensor[T[a,b], M, Symmetric[{a,b}]]  (* May silently fail *)
 ### Tier 1: Normalized Comparison
 
 - Most xAct outputs differ only in dummy index naming
-- Proper normalization catches ~80% of equality cases
+- Proper normalization handles the majority of equality cases
 
 ### Tier 2: Symbolic Simplify
 
@@ -153,26 +153,16 @@ DefTensor[T[a,b], M, Symmetric[{a,b}]]  (* May silently fail *)
 - Check that all indices are defined before use
 - Verify manifold dimensions match tensor rank
 
-### Tests Status (12/12 Pass)
+### Integration Tests
 
-All integration tests now pass after implementing context isolation:
+37 integration tests across three suites verify Oracle behavior:
 
-1. ✅ TestDefineManifold::test_define_manifold_returns_manifold_info
-2. ✅ TestDefineManifold::test_manifold_dimension
-3. ✅ TestDefineMetric::test_define_metric_with_signature
-4. ✅ TestSymmetricTensor::test_symmetric_tensor_swap_indices
-5. ✅ TestToCanonical::test_tocanonical_reorders_indices
-6. ✅ TestMetricContraction::test_metric_contraction_raises_index
-7. ✅ TestRiemannTensor::test_riemann_exists_after_metric_definition
-8. ✅ TestSymbolicEquality::test_symmetric_tensor_sum_equals_double (uses context_id)
-9. ✅ TestNumericSampling::test_numeric_evaluation_of_scalar_expression
-10. ✅ TestAntisymmetricTensor::test_antisymmetric_tensor_swap_negates (uses context_id)
-11. ✅ TestBianchiIdentity::test_riemann_antisymmetry_first_pair (uses context_id)
-12. ✅ TestBianchiIdentity::test_riemann_pair_exchange (uses context_id)
+- `test_xact_basics.py` (12 tests) — manifold/metric/tensor definitions, canonicalization, contraction, curvature, numeric sampling
+- `test_isolation.py` (6 tests) — kernel cleanup, state isolation between test files, dirty-kernel recovery
+- `test_tensor_tier3.py` (19 tests) — tensor numeric sampling, tier-3 comparison fallback, context tracking
 
-> **Note**: The original Bianchi identity test was replaced. ToCanonical doesn't apply
-> multi-term symmetries like the first Bianchi identity. Tests now verify mono-term
-> symmetries (antisymmetry, pair exchange) that ToCanonical does support.
+> **Note**: `ToCanonical` does not apply multi-term symmetries like the first Bianchi identity.
+> Integration tests verify mono-term symmetries (antisymmetry, pair exchange) that `ToCanonical` supports.
 
 ## Performance Tips
 
@@ -208,6 +198,4 @@ With[{result$$ = ToExpression["expr"]}, End[]; result$$]
 
 ### Future Improvements
 
-1. **Comparator**: Could add `ToCanonical` for tensor expressions in tier-2 comparison
-2. **Bianchi identity**: Could load xTras and use `CurvatureRelationsBianchi` if needed
-3. **Context cleanup**: May want kernel restart strategy for very long test runs
+1. **Context cleanup**: May want kernel restart strategy for very long test runs
