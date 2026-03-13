@@ -167,6 +167,10 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             "FromBasis",
             "TraceBasisDummy",
             "Christoffel",
+            "CollectTensors",
+            "AllContractions",
+            "SymmetryOf",
+            "MakeTraceFree",
         }
     )
 
@@ -340,6 +344,14 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 return self._trace_basis_dummy(args)
             if action == "Christoffel":
                 return self._christoffel(args)
+            if action == "CollectTensors":
+                return self._collect_tensors(args)
+            if action == "AllContractions":
+                return self._all_contractions(args)
+            if action == "SymmetryOf":
+                return self._symmetry_of(args)
+            if action == "MakeTraceFree":
+                return self._make_trace_free(args)
         except Exception as exc:
             return Result(
                 status="error", type="", repr="", normalized="", error=str(exc)
@@ -757,6 +769,37 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         )
         raw = str(result)
         return Result(status="ok", type="Expr", repr=raw, normalized=raw)
+
+    # ------------------------------------------------------------------
+    # xTras actions
+    # ------------------------------------------------------------------
+
+    def _collect_tensors(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        result = self._jl.seval(f'XTensor.CollectTensors("{expr}")')
+        s = str(result)
+        return Result(status="ok", type="String", repr=s, normalized=s)
+
+    def _all_contractions(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        metric = str(args["metric"])
+        result = self._jl.seval(f'XTensor.AllContractions("{expr}", :{metric})')
+        items = [str(x) for x in result]
+        s = ", ".join(items) if len(items) > 1 else items[0]
+        return Result(status="ok", type="String", repr=s, normalized=s)
+
+    def _symmetry_of(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        result = self._jl.seval(f'XTensor.SymmetryOf("{expr}")')
+        s = str(result)
+        return Result(status="ok", type="String", repr=s, normalized=s)
+
+    def _make_trace_free(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        metric = str(args["metric"])
+        result = self._jl.seval(f'XTensor.MakeTraceFree("{expr}", :{metric})')
+        s = str(result)
+        return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _execute_expr(self, wolfram_expr: str) -> Result:
         julia_expr = _wl_to_jl(wolfram_expr)

@@ -17,7 +17,7 @@
 #   3. Verify the Einstein tensor trace identity g^{ab} G_{ab} = -R (4D)
 #   4. Verify Weyl tensor antisymmetry properties
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/curvature_invariants"

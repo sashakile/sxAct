@@ -10,7 +10,7 @@
 # Reference: Wald (1984) Appendix C.2 (commutation of covariant derivatives),
 #            xTensor documentation §3.4 (CommuteCovDs).
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/covd_advanced"

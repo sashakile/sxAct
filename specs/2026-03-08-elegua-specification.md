@@ -80,14 +80,14 @@ The Normalizer is a pluggable strategy that transforms a **ValidationToken** int
 *   **Client-Assisted**: The IUT (e.g., Julia `XPerm`) can provide its own canonical representation as part of the `ValidationToken`.
 
 ## 6. Technical Architecture
-*   **Language**: Python 3.10+ (extension of the `sxact` runner).
+*   **Language**: Python 3.10+ (generalization of the `sxact` validation framework).
 *   **Data Models**: Pydantic for strict schema enforcement. The `ValidationToken` utilizes a **MathJSON-compatible AST structure** to ensure cross-domain expressiveness (Tensors, Integrals, etc.).
 *   **Blob Store**: Implements a **Reference-by-Hash** pattern for large payloads (>1MB). This enables future storage deduplication and offline "Record & Replay" for CI/CD environments without active Oracle licenses.
 *   **IPC**: Support for Subprocesses (standard) and ZMQ/TCP (high-performance persistent kernels).
 *   **Extensibility**: Designed to support non-tensor domains (e.g., **RUBI** for integration, **FeynCalc** for particle physics) by swapping the Normalizer and Adapter plugins.
 
 ## 7. Next Steps
-1.  Refactor `src/sxact/runner` into the `elegua` core package.
+1.  Refactor `packages/sxact/src/sxact/runner` into the `elegua` core package.
 2.  Implement the `Pydantic` models for `EleguaTask` and `ValidationToken` (with blob-store support).
 3.  Develop the `Context`-based isolation wrapper for the `WolframOracle` with robust DownValue clearing.
 4.  Prototype the Layer 4 Numerical Sampler with Jittered Pole Handling.

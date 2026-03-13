@@ -1,0 +1,11 @@
+{
+  "test_id": "collect_antisymmetric_cancellation",
+  "oracle_version": "axiom",
+  "mathematica_version": "N/A",
+  "timestamp": "2026-03-13T00:00:00Z",
+  "commands": "",
+  "raw_output": "True",
+  "normalized_output": "True",
+  "properties": {},
+  "hash": "sha256:7a834da09e03"
+}

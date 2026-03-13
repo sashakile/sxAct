@@ -13,7 +13,7 @@
 #   4. Cross-manifold independence: gauge index swap does not affect spacetime symmetry
 #   5. Product expression with independent symmetric tensors from different manifolds
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xperm/multi_index_sets"

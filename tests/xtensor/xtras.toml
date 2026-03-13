@@ -1,0 +1,276 @@
+# xtensor/xtras.toml
+# Tests for xTras utilities: CollectTensors, AllContractions, SymmetryOf, MakeTraceFree
+# Validates against schema: tests/schema/test-schema.json
+
+[meta]
+id              = "xtensor/xtras"
+description     = "xTras: CollectTensors, AllContractions, SymmetryOf, MakeTraceFree"
+tags            = ["xtensor", "xtras", "layer:1"]
+layer           = 1
+oracle_is_axiom = true
+
+# ---------------------------------------------------------------------------
+# Setup: 4D Euclidean manifold with symmetric and antisymmetric tensors.
+# ---------------------------------------------------------------------------
+
+[[setup]]
+action   = "DefManifold"
+store_as = "Xm"
+[setup.args]
+name      = "Xm"
+dimension = 4
+indices   = ["xa", "xb", "xc", "xd"]
+
+[[setup]]
+action   = "DefMetric"
+store_as = "Xg"
+[setup.args]
+signdet = 1
+metric  = "Xg[-xa,-xb]"
+covd    = "Xd"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "XT"
+[setup.args]
+name     = "XT"
+indices  = ["-xa", "-xb"]
+manifold = "Xm"
+symmetry = "Symmetric[{-xa,-xb}]"
+
+[[setup]]
+action   = "DefTensor"
+store_as = "XA"
+[setup.args]
+name     = "XA"
+indices  = ["-xa", "-xb"]
+manifold = "Xm"
+symmetry = "Antisymmetric[{-xa,-xb}]"
+
+# ---------------------------------------------------------------------------
+# CollectTensors tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "collect_identical_terms"
+description = "CollectTensors combines two identical terms"
+
+[[tests.operations]]
+action   = "CollectTensors"
+store_as = "result"
+[tests.operations.args]
+expression = "XT[-xa,-xb] + XT[-xa,-xb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 2 XT[-xa,-xb]"
+message   = "Two identical terms should combine to 2*T"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "collect_cancellation"
+description = "CollectTensors cancels opposite terms"
+
+[[tests.operations]]
+action   = "CollectTensors"
+store_as = "result"
+[tests.operations.args]
+expression = "XT[-xa,-xb] - XT[-xa,-xb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 0"
+message   = "T - T should give 0"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "collect_symmetric_equivalence"
+description = "CollectTensors recognizes symmetric index equivalence"
+
+[[tests.operations]]
+action   = "CollectTensors"
+store_as = "result"
+[tests.operations.args]
+expression = "XT[-xa,-xb] + XT[-xb,-xa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == 2 XT[-xa,-xb]"
+message   = "Symmetric T[-a,-b] + T[-b,-a] = 2*T[-a,-b]"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "collect_antisymmetric_cancellation"
+description = "CollectTensors recognizes antisymmetric cancellation"
+
+[[tests.operations]]
+action   = "CollectTensors"
+store_as = "result"
+[tests.operations.args]
+expression = "XA[-xa,-xb] + XA[-xb,-xa]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 0"
+message   = "Antisymmetric A[-a,-b] + A[-b,-a] = 0"
+
+# ---------------------------------------------------------------------------
+# SymmetryOf tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symmetry_of_symmetric_tensor"
+description = "SymmetryOf detects symmetric tensor"
+
+[[tests.operations]]
+action   = "SymmetryOf"
+store_as = "result"
+[tests.operations.args]
+expression = "XT[-xa,-xb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == Symmetric"
+message   = "Symmetric tensor should be detected as Symmetric"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symmetry_of_antisymmetric_tensor"
+description = "SymmetryOf detects antisymmetric tensor"
+
+[[tests.operations]]
+action   = "SymmetryOf"
+store_as = "result"
+[tests.operations.args]
+expression = "XA[-xa,-xb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == Antisymmetric"
+message   = "Antisymmetric tensor should be detected as Antisymmetric"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symmetry_of_metric"
+description = "SymmetryOf detects metric as symmetric"
+
+[[tests.operations]]
+action   = "SymmetryOf"
+store_as = "result"
+[tests.operations.args]
+expression = "Xg[-xa,-xb]"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == Symmetric"
+message   = "Metric should be detected as Symmetric"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "symmetry_of_zero"
+description = "SymmetryOf of zero is Symmetric"
+
+[[tests.operations]]
+action   = "SymmetryOf"
+store_as = "result"
+[tests.operations.args]
+expression = "0"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result == Symmetric"
+message   = "Zero expression should be Symmetric"
+
+# ---------------------------------------------------------------------------
+# MakeTraceFree tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "tracefree_metric_is_zero"
+description = "MakeTraceFree of the metric gives zero"
+
+[[tests.operations]]
+action   = "MakeTraceFree"
+store_as = "result"
+[tests.operations.args]
+expression = "Xg[-xa,-xb]"
+metric     = "Xg"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 0"
+message   = "Trace-free part of metric should be zero"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "tracefree_zero"
+description = "MakeTraceFree of zero is zero"
+
+[[tests.operations]]
+action   = "MakeTraceFree"
+store_as = "result"
+[tests.operations.args]
+expression = "0"
+metric     = "Xg"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 0"
+message   = "Trace-free part of zero should be zero"
+
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "tracefree_metric_returns_zero"
+description = "MakeTraceFree of 2*metric gives zero (linearity + metric trace)"
+
+[[tests.operations]]
+action   = "MakeTraceFree"
+store_as = "result"
+[tests.operations.args]
+expression = "2*Xg[-xa,-xb]"
+metric     = "Xg"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 0"
+message   = "Trace-free part of 2*metric should be zero"
+
+# ---------------------------------------------------------------------------
+# AllContractions tests
+# ---------------------------------------------------------------------------
+
+[[tests]]
+id          = "allcontractions_metric_trace"
+description = "AllContractions of metric gives dimension"
+
+[[tests.operations]]
+action   = "AllContractions"
+store_as = "result"
+[tests.operations.args]
+expression = "Xg[-xa,-xb]"
+metric     = "Xg"
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$result === 4"
+message   = "AllContractions of g_{ab} with g should give dimension 4"

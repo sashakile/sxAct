@@ -80,10 +80,10 @@ XTensor.jl is already large. New code is organized as follows:
 
 | File | Content | Phases |
 |------|---------|--------|
-| `src/julia/XTensor.jl` | Multi-term identity framework (`_apply_identities!`, `register_identity!`) | Phase 1 |
-| `src/julia/XInvar.jl` | Invariant types (RPerm, RInv), RiemannToPerm, PermToRiemann, InvSimplify, RiemannSimplify | Phases 2-10 |
-| `src/julia/InvarDB.jl` | Database parser (Maple/Mathematica formats), caching, download | Phase 5 |
-| `src/julia/xAct.jl` | `include("XInvar.jl")` after `include("XTensor.jl")` | Phase 2 |
+| `src/XTensor.jl` | Multi-term identity framework (`_apply_identities!`, `register_identity!`) | Phase 1 |
+| `src/XInvar.jl` | Invariant types (RPerm, RInv), RiemannToPerm, PermToRiemann, InvSimplify, RiemannSimplify | Phases 2-10 |
+| `src/InvarDB.jl` | Database parser (Maple/Mathematica formats), caching, download | Phase 5 |
+| `src/xAct.jl` | `include("XInvar.jl")` after `include("XTensor.jl")` | Phase 2 |
 
 XInvar.jl depends on XTensor.jl (uses `ToCanonical`, `Contract`, tensor registries) but not vice versa.
 
@@ -154,7 +154,7 @@ All phases must handle these scenarios:
 
 ### Changes Required
 
-**File: `src/julia/XTensor.jl`**
+**File: `src/XTensor.jl`**
 - Add `MultiTermIdentity` struct
 - Add `_identity_registry::Dict{Symbol, Vector{MultiTermIdentity}}` — identities keyed by tensor name
 - Add `RegisterIdentity!(tensor_name, identity)` — register a multi-term identity
@@ -247,7 +247,7 @@ None — purely internal refactoring.
 
 ### Changes Required
 
-**New file: `src/julia/XInvar.jl`**
+**New file: `src/XInvar.jl`**
 - Add `InvariantCase` type: encodes a case as `(deriv_orders::Vector{Int}, n_epsilon::Int)`
 - Add `RPerm` type: `(metric::Symbol, case::InvariantCase, perm::Vector{Int})`
 - Add `RInv` type: `(metric::Symbol, case::InvariantCase, index::Int)`
@@ -255,7 +255,7 @@ None — purely internal refactoring.
 - Add `InvarCases(order, degree)` — enumerate cases matching Invar.m:324-357
 - Add `PermDegree(case)` — compute permutation degree from case
 
-**File: `src/julia/xAct.jl`**
+**File: `src/xAct.jl`**
 - Add `include("XInvar.jl")` after `include("XTensor.jl")`
 
 ### Data Structures
@@ -315,7 +315,7 @@ None — standalone data types.
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add `RiemannToPerm(expr, metric)` — converts a Riemann scalar expression to RPerm (threads over sums)
 - Add `_classify_case(expr, metric)` — determines which InvariantCase an expression belongs to
 - Add `_extract_contraction_perm(canonical_str, case)` — extracts the contraction permutation from canonical form
@@ -386,7 +386,7 @@ Phase 2 (RPerm types).
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add `PermToInv(rperm)` — looks up the invariant index from a loaded database
 - Add `InvToPerm(rinv)` — reverse lookup (invariant → canonical permutation)
 - Add internal dispatch cache: `Dict{Vector{Int}, Dict{Vector{Int}, Int}}` keyed by `case.deriv_orders` for O(1) lookup
@@ -417,14 +417,14 @@ Phase 2 (RPerm/RInv types), Phase 5 (database loading — but can unit-test with
 
 ### Changes Required
 
-**New file: `src/julia/InvarDB.jl`** (included by XInvar.jl)
+**New file: `src/InvarDB.jl`** (included by XInvar.jl)
 - Add `LoadInvarDB(dir)` — loads all step-1 through step-6 rule files
 - Add Maple format parser: `_read_invar_perms_maple(filename)` — parse permutation cycle notation
 - Add Mathematica format parser: `_read_invar_rules_mma(filename)` — parse simplification rules
 - Add database caching: serialize to JLD2 or JSON for fast reload
 - Add `_download_invar_database()` — fetch from xact.es if not present locally
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add lazy loading: database loaded on first use of `RiemannSimplify`
 - Add `_invar_db_loaded::Bool` flag, cleared by `reset_state!()`
 
@@ -467,7 +467,7 @@ None — standalone parser.
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add `InvSimplify(expr, level=6; dim=nothing)` — apply simplification rules at specified level
 - Level 1: No simplification (identity)
 - Level 2: Cyclic identity rules (loaded from step-2 database)
@@ -516,16 +516,16 @@ Phase 4 (PermToInv), Phase 5 (database).
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add `RiemannSimplify(expr, metric; level=6, curvature_relations=false)` — top-level API
 - Pipeline handles sums: decompose into monomials, classify each, simplify, recombine
 - Validate: raise `ArgumentError` if expression has free indices
 
-**File: `src/sxact/adapter/julia_stub.py`**
+**File: `packages/sxact/src/sxact/adapter/julia_stub.py`**
 - Add `RiemannSimplify` action handler
 - Add `InvSimplify` action handler
 
-**File: `src/sxact/runner/schemas/test-schema.json`**
+**File: `packages/sxact/src/sxact/runner/schemas/test-schema.json`**
 - Add schemas for `RiemannSimplify`, `InvSimplify`
 
 ### Implementation (from Invar.m:834-839)
@@ -579,7 +579,7 @@ Phases 3, 4, 5, 6.
 
 ### Changes Required
 
-**File: `src/julia/XTensor.jl`**
+**File: `src/XTensor.jl`**
 - Extend `CommuteCovDs` to handle nested CovD chains: ∇_a ∇_b ∇_c R → fully commuted form
 - Add `SortCovDs(expr, metric)` — bring all CovDs into canonical (lexicographic) order using Riemann correction terms
 - Register CovD commutation as a MultiTermIdentity (Phase 1 framework)
@@ -614,7 +614,7 @@ Phase 1 (identity framework), Phase 7 (integration point).
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Load step-5 database rules (dimension-specific)
 - Apply via `InvSimplify` level 5
 
@@ -648,7 +648,7 @@ Phase 6 (InvSimplify framework), Phase 5 (database for step-5 files).
 
 ### Changes Required
 
-**File: `src/julia/XInvar.jl`**
+**File: `src/XInvar.jl`**
 - Add `epsilon` tensor: totally antisymmetric Levi-Civita tensor (dimension-dependent rank)
 - Add `DualRInv`, `DualRPerm` types (parallel to RInv/RPerm)
 - Add dual database loading (DInv files from step-1, step-2 through step-5)
@@ -686,7 +686,7 @@ Phase 6 (InvSimplify), Phase 5 (database loading for DInv files).
 - Differential invariants through order 6
 - Edge case: `RiemannSimplify("0")`, free-index rejection
 
-**File: `src/julia/tests/test_xtensor.jl`**
+**File: `test/julia/test_xtensor.jl`**
 - Unit tests for all Phase 1-10 functions
 - Property tests: random invariant generation → simplify → verify independence
 - Performance tests: verify targets from Performance Budget section

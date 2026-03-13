@@ -16,7 +16,7 @@
 # correctness (oracle assertion) and performance (Layer 3 timing via `xact-test
 # benchmark`).
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/gw_memory_3p5pn"

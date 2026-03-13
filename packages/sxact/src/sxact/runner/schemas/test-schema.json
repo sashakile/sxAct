@@ -115,6 +115,10 @@
         "FromBasis",
         "TraceBasisDummy",
         "Christoffel",
+        "CollectTensors",
+        "AllContractions",
+        "SymmetryOf",
+        "MakeTraceFree",
         "Assert"
       ]
     },
@@ -152,6 +156,10 @@
         { "$ref": "#/$defs/args/FromBasis" },
         { "$ref": "#/$defs/args/TraceBasisDummy" },
         { "$ref": "#/$defs/args/Christoffel" },
+        { "$ref": "#/$defs/args/CollectTensors" },
+        { "$ref": "#/$defs/args/AllContractions" },
+        { "$ref": "#/$defs/args/SymmetryOf" },
+        { "$ref": "#/$defs/args/MakeTraceFree" },
         { "$ref": "#/$defs/args/Assert" }
       ]
     },
@@ -935,6 +943,44 @@
             "description": "Name of the covariant derivative operator (for IBP steps)",
             "type": "string"
           }
+        }
+      },
+      "CollectTensors": {
+        "description": "Arguments for CollectTensors action.",
+        "type": "object",
+        "required": ["expression"],
+        "additionalProperties": false,
+        "properties": {
+          "expression": { "type": "string" }
+        }
+      },
+      "AllContractions": {
+        "description": "Arguments for AllContractions action.",
+        "type": "object",
+        "required": ["expression", "metric"],
+        "additionalProperties": false,
+        "properties": {
+          "expression": { "type": "string" },
+          "metric": { "type": "string" }
+        }
+      },
+      "SymmetryOf": {
+        "description": "Arguments for SymmetryOf action.",
+        "type": "object",
+        "required": ["expression"],
+        "additionalProperties": false,
+        "properties": {
+          "expression": { "type": "string" }
+        }
+      },
+      "MakeTraceFree": {
+        "description": "Arguments for MakeTraceFree action.",
+        "type": "object",
+        "required": ["expression", "metric"],
+        "additionalProperties": false,
+        "properties": {
+          "expression": { "type": "string" },
+          "metric": { "type": "string" }
         }
       }
     }

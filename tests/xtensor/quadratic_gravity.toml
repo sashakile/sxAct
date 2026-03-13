@@ -22,7 +22,7 @@
 #   4. Gauss-Bonnet combination expression (topological in 4D)
 #   5. Idempotency of canonicalization on a Gauss-Bonnet-like scalar
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/quadratic_gravity"

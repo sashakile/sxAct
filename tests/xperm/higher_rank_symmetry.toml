@@ -9,7 +9,7 @@
 # Reference: xPerm documentation §2.2 (Young tableaux representations),
 #            Butler (1991) §4 (permutation group generators).
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xperm/higher_rank_symmetry"

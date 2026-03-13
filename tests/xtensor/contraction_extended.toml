@@ -5,7 +5,7 @@
 # traces, double contraction, and manifold-dimension checks across multiple
 # dimensions.
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/contraction_extended"

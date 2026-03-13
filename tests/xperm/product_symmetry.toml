@@ -9,7 +9,7 @@
 # Reference: xPerm documentation §3 (symmetry reduction in products),
 #            xTensor documentation §2.4 (tensor algebra).
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xperm/product_symmetry"

@@ -93,12 +93,12 @@ A working Python module that can:
 - FROM wolframresearch/wolframengine
 - Install Python, Flask
 
-**Create: `src/sxact/__init__.py`**
+**Create: `packages/sxact/src/sxact/__init__.py`**
 - Package initialization, version export
 
-**Create: `src/sxact/oracle/__init__.py`**
+**Create: `packages/sxact/src/sxact/oracle/__init__.py`**
 
-**Create: `src/sxact/oracle/client.py`**
+**Create: `packages/sxact/src/sxact/oracle/client.py`**
 - `OracleClient` class:
   - `__init__(base_url: str = "http://localhost:8765")`
   - `evaluate(expr: str) -> Result` - HTTP POST, parse JSON
@@ -150,7 +150,7 @@ A working Python module that can:
 
 2. **Client (on host):**
    ```python
-   # src/sxact/oracle/client.py
+   # packages/sxact/src/sxact/oracle/client.py
    import requests
 
    class OracleClient:
@@ -201,7 +201,7 @@ A working Python module that can:
 
 ### Changes Required
 
-**Create: `src/sxact/oracle/result.py`**
+**Create: `packages/sxact/src/sxact/oracle/result.py`**
 - `Result` dataclass matching spec:
   ```python
   @dataclass
@@ -215,11 +215,11 @@ A working Python module that can:
       error: Optional[str]
   ```
 
-**Update: `src/sxact/oracle/client.py`**
+**Update: `packages/sxact/src/sxact/oracle/client.py`**
 - Return `Result` objects instead of raw dict
 
-**Create: `src/sxact/normalize/__init__.py`**
-**Create: `src/sxact/normalize/pipeline.py`**
+**Create: `packages/sxact/src/sxact/normalize/__init__.py`**
+**Create: `packages/sxact/src/sxact/normalize/pipeline.py`**
 - `normalize(expr: str) -> str` function with:
   1. Whitespace normalization
   2. Dummy index canonicalization (`$1, $2, ...`)
@@ -274,8 +274,8 @@ def test_coefficient_normalization():
 
 ### Changes Required
 
-**Create: `src/sxact/compare/__init__.py`**
-**Create: `src/sxact/compare/comparator.py`**
+**Create: `packages/sxact/src/sxact/compare/__init__.py`**
+**Create: `packages/sxact/src/sxact/compare/comparator.py`**
 - `EqualityMode` enum: `NORMALIZED`, `SYMBOLIC`, `NUMERIC`
 - `CompareResult` dataclass:
   ```python
@@ -291,7 +291,7 @@ def test_coefficient_normalization():
   - Tier 2: Symbolic diff=0 via oracle (`Simplify[(lhs) - (rhs)] == 0`)
   - Tier 3: Numeric sampling (for expressions with free indices)
 
-**Create: `src/sxact/compare/sampling.py`**
+**Create: `packages/sxact/src/sxact/compare/sampling.py`**
 - `sample_numeric(lhs, rhs, oracle: OracleClient, n=10, seed=42) -> list[Sample]`
 - Substitute random values for free indices
 - Compare numeric results within tolerance

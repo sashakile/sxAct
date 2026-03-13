@@ -272,6 +272,10 @@ class TestAdapter(abc.ABC, Generic[ContextT]):
                 "FromBasis",
                 "TraceBasisDummy",
                 "Christoffel",
+                "CollectTensors",
+                "AllContractions",
+                "SymmetryOf",
+                "MakeTraceFree",
             }
         )
 

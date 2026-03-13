@@ -8,7 +8,7 @@
 # Reference: xTensor documentation §3.3 (covariant derivatives),
 #            Wald (1984) Appendix C.1 (Bianchi identities).
 #
-# Validates schema: src/sxact/runner/schemas/test-schema.json
+# Validates schema: packages/sxact/src/sxact/runner/schemas/test-schema.json
 
 [meta]
 id              = "xtensor/covd_basics"

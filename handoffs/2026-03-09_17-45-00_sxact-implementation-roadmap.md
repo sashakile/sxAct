@@ -15,7 +15,7 @@ This session focused on clarifying the long-term architectural direction of the 
 ## Current Status
 
 ### Completed
-- [x] **Repository Scope Clarification**: Updated `README.md`, `AGENTS.md`, and `docs/site/architecture.md` to define `sxAct` as the Julia/Python implementation core.
+- [x] **Repository Scope Clarification**: Updated `README.md`, `AGENTS.md`, and `docs/src/architecture.md` to define `sxAct` as the Julia/Python implementation core.
 - [x] **Documentation Cleanup**: Removed all emojis from `README.md`, `AGENTS.md`, `docs/`, `specs/`, and `research/` for a clean, CLI-friendly aesthetic.
 - [x] **Library Migration Roadmap**: Created `specs/XACT_LIBRARIES_MIGRATION_PLAN.md` (component-level) and `specs/2026-03-09-xact-migration-master-plan.md` (high-level progress).
 - [x] **Issue Tracking**: Created 19 detailed `bd` (beads) tickets for all missing/in-progress xAct components and fixed cross-task dependencies.
@@ -25,7 +25,7 @@ This session focused on clarifying the long-term architectural direction of the 
 - [ ] **Phase 2 Refactoring**: The codebase is ready for the extraction of `Elegua`-specific logic (runner, adapters) to its new repository.
 
 ### Planned
-- [ ] **Refactor `docs/`**: Move `docs/site/` to `docs/src/` and bootstrap `make.jl`.
+- [x] **Refactor `docs/`**: Moved `docs/site/` to `docs/src/` and bootstrapped `make.jl`.
 - [ ] **Literate Tutorial**: Create the first "Rosetta Stone" tutorial in `docs/examples/basics.jl`.
 - [ ] **Implementation**: Start `CovD` (Covariant Derivative) in `XTensor.jl`.
 
@@ -34,7 +34,7 @@ This session focused on clarifying the long-term architectural direction of the 
 1. `specs/XACT_LIBRARIES_MIGRATION_PLAN.md` - The authoritative record of which xAct parts are ported/missing.
 2. `specs/2026-03-09-documentation-strategy.md` - The blueprint for the new Julia-centric docs.
 3. `AGENTS.md` - Crucial context for repository scope (sxAct vs Elegua vs Chacana).
-4. `src/julia/XCore.jl` & `src/julia/XTensor.jl` - The primary targets for implementation work.
+4. `src/XCore.jl` & `src/XTensor.jl` - The primary targets for implementation work.
 
 ## Recent Changes
 
@@ -74,8 +74,8 @@ This session focused on clarifying the long-term architectural direction of the 
 **Modified files:**
 - `README.md`
 - `AGENTS.md`
-- `docs/site/index.md`
-- `docs/site/architecture.md`
+- `docs/src/index.md`
+- `docs/src/architecture.md`
 
 **Not committed:**
 - (Everything committed and pushed to `main`)

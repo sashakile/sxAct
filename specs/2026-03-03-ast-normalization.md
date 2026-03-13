@@ -6,7 +6,7 @@
 
 ## Problem Statement
 
-The current normalization pipeline (`src/sxact/normalize/pipeline.py`) relies on regular expressions. This approach is fragile because:
+The current normalization pipeline (`packages/sxact/src/sxact/normalize/pipeline.py`) relies on regular expressions. This approach is fragile because:
 1. **Nesting:** Regex struggles with deeply nested expressions like `CD[-a][CD[-b][T[c]]]`.
 2. **Formatting:** Minor whitespace or bracket variations in CAS output can break the regex match.
 3. **Commutativity:** Sorting terms in a sum using string splits (`split(" + ")`) fails if the terms themselves contain additions (e.g., inside sub-expressions).

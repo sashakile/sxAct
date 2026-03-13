@@ -70,7 +70,7 @@ Within this repository, the existing `xAct.jl` framework becomes a **user** of t
 │   └── TensorDSL.jl/           # Standalone Julia Parser
 │       ├── Project.toml
 │       └── src/TensorDSL.jl
-└── src/sxact/
+└── packages/sxact/src/sxact/
     └── dsl/
         └── adapter.py          # Bridge between tensordsl-py and xAct.jl adapters
 ```
