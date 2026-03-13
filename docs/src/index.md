@@ -1,5 +1,7 @@
 # xAct.jl
 
+!!! warning "This codebase was primarily developed with AI assistance ([details](#AI-Attribution))."
+
 !!! info "Project Profile for AI Agents (LLM TL;DR)"
     - **Name**: xAct.jl (Repository: `sxAct`)
     - **Primary Language**: Julia (Computational Core)
