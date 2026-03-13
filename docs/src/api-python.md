@@ -1,86 +1,78 @@
 # Python API Reference
 
-!!! info "Project Profile for AI Agents (LLM TL;DR)"
-    - **Distribution Name**: `xact-py`
-    - **Import Name**: `import xact`
-    - **Validation Framework**: `import sxact`
-    - **Primary Purpose**: Python interface to `xAct.jl` and automated parity verification.
-    - **Underlying Bridge**: `PythonCall.jl` and `juliacall`.
-    - **Key Components**: `xact.xcore` (wrapper), `sxact.adapter` (verification engine).
-
-This page describes the Python interface to the Julia `xAct.jl` core. The ecosystem is split into two packages (both included in the `xact-py` distribution):
-
-1.  `xact`: The core library for tensor algebra.
-2.  `sxact`: The testing and validation framework.
+!!! warning "No Public Python API"
+    There is no user-facing Python API for tensor algebra yet. For research use, use the Julia package `xAct.jl` directly. The Python packages described here are internal to the verification framework.
 
 ---
 
-## 1. Core Wrapper (`xact`)
+## Verification Framework (`sxact`)
 
-The `xact` package provides direct access to the Julia engines. It automatically manages the Julia runtime and the `xAct.jl` package using `juliapkg`.
+The `sxact` package powers the automated parity verification suite. It is an internal tool, not a user-facing API.
 
-### Low-level Symbol Access (`xact.xcore`)
+### Adapters (`sxact.adapter`)
 
-Direct Python wrappers for the foundational functions in `XCore.jl`.
+Adapters translate TOML test actions into backend-specific calls and return normalized results.
 
-```python
-from xact.xcore import validate_symbol, register_symbol
+| Adapter | Backend | Description |
+| :--- | :--- | :--- |
+| `JuliaAdapter` | `xAct.jl` via `juliacall` | Routes actions to XTensor.jl |
+| `WolframAdapter` | Dockerized Wolfram Engine | Connects to the Oracle HTTP server |
 
-# Validate a name before definition to avoid collisions
-validate_symbol("M")
-
-# List all registered tensor names
-from xact.xcore import x_tensor_names
-print(x_tensor_names())
-```
-
-### High-Level API
-
-The high-level Python API (e.g., `xact.Manifold("M", 4)`) is currently **in development**. For research use, we recommend using the Julia package `xAct.jl` directly.
-
----
-
-## 2. Validation Framework (`sxact`)
-
-The `sxact` package is used to prove mathematical parity between the new Julia implementation and the original Wolfram "Gold Standard."
-
-### The Verification Adapter (`sxact.adapter`)
-
-The `JuliaAdapter` is the primary way to interact with the Julia engine for testing purposes. It serializes commands into a standard format that can be compared against the Wolfram Oracle.
+### Adapter Lifecycle
 
 ```python
 from sxact.adapter.julia_stub import JuliaAdapter
 
-# Initialize the Julia engine
 adapter = JuliaAdapter()
-adapter.initialize()
+ctx = adapter.initialize()        # returns a context object
 
-# Execute a command in the isolated test context
-result = adapter.execute("def_manifold", {
+result = adapter.execute(ctx, "DefManifold", {
     "name": "M",
-    "dim": 4,
-    "index_labels": ["a", "b"]
+    "dimension": 4,
+    "indices": ["a", "b", "c", "d"],
 })
+
+result = adapter.execute(ctx, "ToCanonical", {
+    "expr": "T[-b, -a] - T[-a, -b]",
+})
+
+adapter.teardown(ctx)             # resets session state
 ```
 
-### Supported Adapter Commands
+### Supported Actions
 
-| Command | Description | Expects |
-| :--- | :--- | :--- |
-| `def_manifold` | Defines a new manifold. | `name`, `dim`, `index_labels` |
-| `def_tensor` | Defines a new tensor. | `name`, `index_specs`, `manifold` |
-| `def_metric` | Defines a metric tensor. | `signature`, `metric_str`, `cd_name` |
-| `ToCanonical` | Canonicalizes an expression. | `expr` (string) |
-| `Contract` | Contracts metric indices. | `expr` (string) |
+The adapter supports 30+ actions covering the full xAct feature set. Key actions include:
+
+| Action | Description |
+| :--- | :--- |
+| `DefManifold` | Define a manifold with dimension and index labels |
+| `DefMetric` | Define a metric tensor (auto-creates curvature tensors) |
+| `DefTensor` | Define a tensor with optional symmetry |
+| `DefBasis` / `DefChart` | Define coordinate bases and charts |
+| `ToCanonical` | Canonicalize a tensor expression |
+| `Contract` | Metric-aware index contraction |
+| `Simplify` | Iterative contraction + canonicalization |
+| `CommuteCovDs` | Commute covariant derivatives (introduces Riemann terms) |
+| `DefPerturbation` / `Perturb` | Perturbation theory |
+| `PerturbCurvature` | Curvature tensor perturbation rules |
+| `IBP` | Integration by parts |
+| `VarD` | Variational (Euler-Lagrange) derivative |
+| `SetBasisChange` / `ChangeBasis` | Coordinate transforms |
+| `SetComponents` / `GetComponents` | Component array operations |
+| `ToBasis` / `FromBasis` | Abstract index ↔ component conversion |
+| `Christoffel` | Christoffel symbol computation |
+| `CollectTensors` / `AllContractions` | xTras utilities |
+
+For the complete list, see the `_XTENSOR_ACTIONS` set in `sxact.adapter.julia_stub`.
 
 ---
 
-## 3. Why the Split?
+## Julia Runtime (`xact.xcore`)
 
-We separate the **computational wrapper** (`xact`) from the **verification logic** (`sxact`) to ensure that:
+The `xact` package (in `packages/xact-py/`) provides the low-level Julia runtime bridge used internally by the adapter. It manages the Julia process via `juliacall` and `juliapkg`.
 
-1.  **Lightweight Deployment**: Users who only need to perform tensor calculus don't need the heavy verification dependencies.
-2.  **Infrastructure of Trust**: Developers can verify every change to the core engine against the Wolfram Oracle without polluting the core API.
-3.  **Cross-Platform Parity**: The same `sxact` framework can be used to verify future implementations in other languages.
+This is not a user-facing API. For direct tensor algebra, use `xAct.jl` in Julia.
 
-For more information on the verification architecture, see the [Architecture Guide](architecture.md).
+---
+
+For more on the verification architecture, see the [Architecture Guide](architecture.md) and [Verification Tools](verification-tools.md).
