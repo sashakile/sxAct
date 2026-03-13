@@ -1,6 +1,7 @@
 # xAct.jl
 
-!!! warning "This codebase was primarily developed with AI assistance ([details](#AI-Attribution))."
+!!! warning "AI-Assisted Codebase"
+    This codebase was primarily developed with AI assistance. See [details below](#AI-Attribution).
 
 !!! info "Project Profile for AI Agents (LLM TL;DR)"
     - **Name**: xAct.jl (Repository: `sxAct`)
