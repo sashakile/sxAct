@@ -55,10 +55,10 @@ repos:
         language: system
         entry: bash -c "julia --project=. test/runtests.jl && julia --project=. test/julia/test_xperm.jl && julia --project=. test/julia/test_xtensor.jl"
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
       - id: python-tests
         name: python-tests
         language: system
         entry: bash -c "uv run pytest tests/unit -q --ignore=tests/integration --ignore=tests/properties --ignore=tests/xperm --ignore=tests/xtensor && uv run pytest tests/test_julia_adapter.py -q"
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
