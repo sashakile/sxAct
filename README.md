@@ -12,7 +12,7 @@ This repository is dedicated to the Julia implementation of the [xAct](http://xa
 
 The project is designed to ensure rigorous mathematical correctness through a multi-tier verification pipeline:
 
-1.  **xAct.jl** (Julia): The native computational engine, located in `src/julia`. This is the primary library for high-performance tensor calculus.
+1.  **xAct.jl** (Julia): The native computational engine, located in `src/`. This is the primary library for high-performance tensor calculus.
 2.  **xact-py** (Python): The core `xact` library, an idiomatic wrapper around the Julia core that facilitates interoperability with the scientific Python ecosystem.
 3.  **sxact** (Python): The testing and verification framework used to prove parity between Julia and Wolfram implementations.
 4.  **The Oracle** (Wolfram): A Dockerized Wolfram Engine running the original xAct code. It acts as the "Ground Truth" for proving implementation correctness.

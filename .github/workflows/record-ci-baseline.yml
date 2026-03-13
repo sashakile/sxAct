@@ -32,10 +32,10 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Record CI baseline
         # Use more iterations here than the regression check so the baseline
         # is stable (warmup=3, measure=10 mirrors the local recording defaults).

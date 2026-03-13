@@ -22,13 +22,13 @@ repos:
   # ── Julia: JuliaFormatter ──────────────────────────────────────────────────
   # Uses a dedicated tooling env so it never conflicts with the main project deps.
   # Requires Julia in PATH; run `julia -e 'using Pkg; Pkg.instantiate()'` in
-  # src/julia/tooling/ to set it up on a fresh machine.
+  # tooling/ to set it up on a fresh machine.
   - repo: local
     hooks:
       - id: julia-format
         name: julia-format
         language: system
-        entry: julia --project=src/julia/tooling -e "
+        entry: julia --project=tooling -e "
           using JuliaFormatter;
           ok = format(ARGS; overwrite=true);
           ok || (println(\"Reformatted Julia files — stage changes and re-commit\"); exit(1))

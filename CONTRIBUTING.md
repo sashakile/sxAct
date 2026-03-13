@@ -4,7 +4,7 @@ This repository contains both the `xAct.jl` Julia package and the `sxact-py` ver
 
 ## 1. Julia Development (xAct.jl)
 
-The Julia source code is located in `src/julia/`.
+The Julia source code is located in `src/`.
 
 ### Setup
 - [Julia 1.10+](https://julialang.org/downloads/)
@@ -12,7 +12,6 @@ The Julia source code is located in `src/julia/`.
 
 ### Running Julia Tests
 ```bash
-cd src/julia
 julia --project=. test/runtests.jl
 ```
 
@@ -80,7 +79,8 @@ just serve-docs
 
 | Path | Purpose |
 |------|---------|
-| `src/julia/` | Native Julia implementation of xAct engines. |
+| `src/` | Native Julia implementation of xAct engines. |
+| `test/` | Julia unit tests and quality checks. |
 | `packages/xact-py/` | Python computational wrapper (`import xact`). |
 | `packages/sxact/` | Python validation logic (`import sxact`). |
 | `tests/` | Multi-tier test suite (Julia, Python, Oracle). |

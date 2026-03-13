@@ -36,12 +36,12 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run unit tests
-        run: julia --project=src/julia src/julia/test/runtests.jl
+        run: julia --project=. test/runtests.jl
 
   julia-xperm:
     name: Julia XPerm unit tests
@@ -57,12 +57,12 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run XPerm tests
-        run: julia --project=src/julia src/julia/tests/test_xperm.jl
+        run: julia --project=. test/julia/test_xperm.jl
 
   julia-xtensor:
     name: Julia XTensor unit tests
@@ -78,12 +78,12 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run XTensor tests
-        run: julia --project=src/julia src/julia/tests/test_xtensor.jl
+        run: julia --project=. test/julia/test_xtensor.jl
 
   toml-regression:
     name: TOML snapshot regression tests
@@ -106,10 +106,10 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run TOML regression tests (xperm)
         run: uv run xact-test run tests/xperm --adapter julia --oracle-mode snapshot --oracle-dir oracle
       - name: Run TOML regression tests (xtensor)
@@ -136,10 +136,10 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('src/julia/Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
-        run: julia --project=src/julia -e 'using Pkg; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Check benchmark regressions
         run: |
           for dir in tests/xcore tests/xperm tests/xtensor; do

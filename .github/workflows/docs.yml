@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "src/julia/**"
+      - "src/**"
+      - "*.jl"
+      - "Project.toml"
       - "justfile"
 
 permissions:
@@ -31,11 +33,11 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-docs-${{ hashFiles('docs/Project.toml', 'src/julia/Project.toml') }}
+          key: julia-docs-${{ hashFiles('docs/Project.toml', 'Project.toml') }}
           restore-keys: julia-docs-
       - name: Build documentation
         run: |
-          julia --project=docs/ -e 'using Pkg; Pkg.develop(path="src/julia"); Pkg.instantiate()'
+          julia --project=docs/ -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
           julia --project=docs/ docs/make.jl
         env:
           CI: "true"
