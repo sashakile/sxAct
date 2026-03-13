@@ -4,45 +4,86 @@ The `sxact` Python package is a specialized framework for verifying the mathemat
 
 ## 1. Oracle Client
 
-The `OracleClient` manages the connection to the Dockerized Wolfram Engine.
-
-### OracleClient
 `sxact.oracle.client.OracleClient(base_url="http://localhost:8765")`
 
-- `health()`: Check if the server and Wolfram kernel are alive.
-- `evaluate(expr)`: Send a plain Wolfram expression.
-- `evaluate_with_xact(expr, context_id=None)`: Evaluate with xAct pre-loaded and optional context isolation.
-- `evaluate_result(expr)`: Return a structured `Result` object.
+Manages the connection to the Dockerized Wolfram Engine.
+
+| Method | Description |
+| :--- | :--- |
+| `health()` | Check if the server and Wolfram kernel are alive. Returns `bool`. |
+| `evaluate(expr, timeout=30)` | Evaluate a plain Wolfram expression. Returns `Result`. |
+| `evaluate_with_xact(expr, timeout=60, context_id=None)` | Evaluate with xAct pre-loaded and optional context isolation. Returns `Result`. |
+| `cleanup()` | Clear Global context and reset xAct registries. Returns `bool`. |
+| `restart()` | Hard-restart the Wolfram kernel (expensive fallback). Returns `bool`. |
+| `check_clean_state()` | Query registry counts for leak detection. Returns `(is_clean, leaked_symbols)`. |
 
 ## 2. Normalization Pipeline
 
-Canonicalizes xAct output strings to ensure they can be compared regardless of dummy index naming or whitespace.
+`sxact.normalize.pipeline`
 
-### normalize
-`sxact.normalize.pipeline.normalize(expr)`
+Canonicalizes xAct output strings for comparison regardless of dummy index naming or whitespace.
 
-Applies:
-1. Whitespace normalization.
-2. Coefficient normalization (e.g., `2*x` -> `2 x`).
-3. Dummy index canonicalization (`a, b` -> `$1, $2`).
-4. Term ordering (lexicographic sort for sums).
+### `normalize(expr)`
+
+Regex-based pipeline, applies in order:
+
+1. Whitespace normalization
+2. Coefficient normalization (`2*x` → `2 x`, `-1*x` → `-x`)
+3. Dummy index canonicalization (`a, b` → `$1, $2`)
+4. Term ordering (lexicographic sort for sums)
+
+### `ast_normalize(expr)`
+
+AST-based normalizer (preferred for Tier 1 comparison). Handles arbitrarily nested brackets, sorts commutative operators before canonicalizing indices. Falls back to `normalize()` on parse failure.
 
 ## 3. Comparison Engine
 
+`sxact.compare.comparator`
+
 Implements a multi-tier comparison strategy.
 
-### compare
-`sxact.compare.comparator.compare(lhs, rhs, oracle=None, mode=EqualityMode.FULL)`
+### `compare(lhs, rhs, oracle=None, mode=EqualityMode.SYMBOLIC, tensor_ctx=None)`
 
-- **Tier 1**: Normalized string equality (No oracle required).
-- **Tier 2**: Symbolic difference check (`Simplify[lhs - rhs] == 0`) using the Wolfram Oracle.
-- **Tier 3**: Numeric sampling (Probabilistic verification) for identities.
+Compares two `Result` objects for equivalence:
 
-## 4. Property Testing
+- **Tier 1** (`NORMALIZED`): Normalized string equality. No oracle required.
+- **Tier 2** (`SYMBOLIC`): Symbolic difference check (`Simplify[lhs - rhs] == 0`) using the Wolfram Oracle.
+- **Tier 3** (`NUMERIC`): Numeric sampling fallback for identities the simplifier can't handle.
 
-Tools for running property-based tests (e.g., verifying `R[a,b,c,d] == -R[b,a,c,d]` across random manifolds).
+Returns a `CompareResult(equal, tier, confidence, diff)`.
 
-### sample_numeric
-`sxact.compare.sampling.sample_numeric(expr, seed=42)`
+### `EqualityMode`
 
-Evaluates a symbolic expression at random numeric points to check for zero.
+| Value | Description |
+| :--- | :--- |
+| `NORMALIZED` | Stop at Tier 1 (string comparison only) |
+| `SYMBOLIC` | Try up to Tier 2 (default) |
+| `NUMERIC` | Try all three tiers |
+
+## 4. Numeric Sampling
+
+`sxact.compare.sampling`
+
+### `sample_numeric(lhs, rhs, oracle, n=10, seed=42, tensor_ctx=None, confidence_threshold=0.95)`
+
+Evaluates symbolic expressions at random numeric points to check for equivalence. Supports both scalar and tensor expressions (via `TensorContext`).
+
+Returns a `SamplingResult(equal, confidence, samples)`.
+
+## 5. Snapshot Comparator
+
+`sxact.snapshot.compare`
+
+Deterministic hash-based regression testing that allows verification without a live Wolfram Engine.
+
+### `SnapshotComparator`
+
+Compares adapter results against pre-recorded oracle snapshots (stored as JSON with SHA-256 content hashes).
+
+```python
+from sxact.snapshot.compare import SnapshotComparator
+
+comparator = SnapshotComparator(oracle_dir="oracle/")
+result = comparator.compare(test_id, adapter_result)
+# result.status: "match", "mismatch", or "missing"
+```
