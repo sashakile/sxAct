@@ -204,7 +204,7 @@ def bench_test_case(
         return round(times_sorted[idx], 4)
 
     return BenchResult(
-        test_id=tc.id,
+        test_id=f"{test_file.meta.id}/{tc.id}",
         adapter=adapter_name,
         n_warmup=n_warmup,
         n_measure=n_measure,
