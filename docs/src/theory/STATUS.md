@@ -15,8 +15,10 @@ High-performance implementation of the Butler-Portugal tensor index canonicaliza
 | Schreier-Sims algorithm | DONE | |
 | `canonicalize_slots()` API | DONE | High-level entry point |
 | Niehoff shortcut: `Symmetric` / `Antisymmetric` | DONE | O(k log k) optimization |
-| Predefined Groups (Riemann, etc.) | DONE | |
-| Butler-Portugal Test Suite (92 examples) | DONE | 100% verified parity |
+| Predefined Groups (Riemann, Young, etc.) | DONE | |
+| `double_coset_rep` | DONE | Full implementation replacing stub |
+| Young Tableaux | DONE | `YoungTableau` struct + 6 functions |
+| WL Compatibility Layer | DONE | CamelCase aliases for Wolfram parity |
 
 ---
 
@@ -27,53 +29,86 @@ Foundational tensor algebra and curvature operators.
 | Action / Feature | Status | Notes |
 |--------|--------|-------|
 | `DefManifold` / `DefVBundle` | DONE | |
-| `DefMetric` | DONE | |
-| `DefTensor` (with symmetry) | DONE | |
+| `DefMetric` | DONE | Auto-creates Riemann/Ricci/RicciScalar/Einstein/Weyl/Christoffel |
+| `DefTensor` (with symmetry) | DONE | Symmetric, Antisymmetric, GradedSymmetric, Riemann, Young |
 | `ToCanonical` | DONE | Full parse → canonicalize → serialize pipeline |
 | `Contract` | DONE | Metric-aware index contraction |
+| `Simplify` | DONE | Iterative Contract → ToCanonical loop |
+| `CommuteCovDs` | DONE | Covariant derivative commutation with Riemann terms |
+| `DefPerturbation` / `Perturb` | DONE | Multinomial Leibniz expansion |
+| `PerturbCurvature` | DONE | Curvature tensor perturbation rules |
+| `PerturbationOrder` / `PerturbationAtOrder` | DONE | Order extraction and filtering |
+| `IBP` (Integration by Parts) | DONE | |
+| `TotalDerivativeQ` | DONE | Total derivative detection |
+| `VarD` (Euler-Lagrange) | DONE | Variational derivative |
 | `Evaluate` | DONE | Expression evaluation and binding |
 | `Assert` | DONE | Symbolic condition checking |
 | Curvature Tensors (Riemann, Ricci, Weyl, etc.) | DONE | Auto-created by `DefMetric` |
 | `reset_state!()` | DONE | Clean session state for testing |
-| `Simplify` | DEFERRED | Planned for Tier 2 implementation |
-| `CovD` (Covariant Derivative) | MISSING | In progress |
-| `ChristoffelCD` | MISSING | Required for component calculus |
+| `ValidateSymbolInSession` | DONE | Checks all registries for name collisions |
 
 ---
 
-## 3. Python Wrapper & Verification Layer
+## 3. xCoba — Coordinate Components
 
-The `sxact` Python package provides interoperability and a multi-tier verification suite.
+Coordinate bases, component arrays, and Christoffel symbols.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `DefBasis` / `DefChart` | DONE | Basis and chart definitions |
+| `SetBasisChange` / `ChangeBasis` | DONE | Coordinate transforms with Jacobians |
+| `CTensor` / `SetComponents` / `GetComponents` | DONE | Component arrays with auto-transform |
+| `ToBasis` / `FromBasis` / `TraceBasisDummy` | DONE | Abstract ↔ component conversion |
+| `Christoffel` | DONE | Γ^a_{bc} from metric + derivatives |
+
+---
+
+## 4. xTras — Utilities
+
+Extended tensor manipulation utilities.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `CollectTensors` | DONE | Group like tensor terms |
+| `AllContractions` | DONE | Enumerate all possible contractions |
+| `SymmetryOf` | DONE | Extract symmetry of expression |
+| `MakeTraceFree` | DONE | Trace-free projection |
+
+---
+
+## 5. Verification Layer
+
+The `sxact` Python package provides a multi-tier verification suite.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | `JuliaAdapter` | DONE | Routes actions to XTensor.jl |
-| `PythonAdapter` | DONE | Wraps Julia via `PythonCall.jl` |
 | `WolframAdapter` (Oracle) | DONE | Connects to Dockerized Wolfram Engine |
 | Normalization Pipeline | DONE | Whitespace and dummy index canonicalization |
 | Three-tier Comparison Engine | DONE | String, Symbolic, and Numeric verification |
-| Property-based Testing | PARTIAL | 10+ core identities verified; tensor sampling in progress |
+| Oracle Snapshot Mode | DONE | Deterministic hash-based regression testing |
+| Property-based Testing | PARTIAL | 29 properties across 3 suites |
 | Performance Benchmarking | PARTIAL | Baseline tracking for core operations |
 
 ---
 
-## 4. Test Suites
+## 6. Test Suites
 
 | Suite | Count | Status | Notes |
 |-------|-------|--------|-------|
-| xCore Utilities | ~20 | PASS | Basic symbol and list operations |
-| xPerm Basic Symmetries | 6 | PASS | |
-| Butler-Portugal Examples | 92 | PASS | Complex permutation groups |
-| xTensor Fundamentals | ~40 | PASS | Manifolds, metrics, and curvature |
-| Curvature Invariants | 8 | PASS | Quadratic gravity and Bianchi identities |
-| Quadratic Gravity | 8 | PASS | |
-| xCore Laws (Property Tests) | 12 | PASS | 10/12 pass; 2 pending missing Julia shims |
+| XPerm TOML (Layer 1) | 64 | PASS | Symmetries, Young tableaux, multi-index |
+| XTensor TOML (Layer 1) | 213 | PASS | All xTensor/xCoba/xTras operations |
+| Julia Unit Tests | 372 | PASS | XTensor module tests |
+| Python Runner Tests | 567 | PASS | Adapter, normalization, CLI |
+| Property Tests (Layer 2) | 29 | PARTIAL | Riemann symmetries, tensor algebra, xCore laws |
 
 ---
 
 ## Roadmap & Known Gaps
 
-- **Covariant Derivatives**: Full support for `CovD` and its commutation rules is the next major milestone.
-- **xCoba (Components)**: Initial support for coordinate charts is present; component calculations are planned.
-- **Tier 2 Simplification**: Integration of more advanced symbolic simplification rules.
-- **Notebook Extraction**: Automatic extraction of regression tests from existing xAct notebooks.
+- **Invar / Multi-term Symmetry**: Riemann invariant engine — requires multi-term symmetry solver.
+- **Spinors / NP / GHP**: Spinor index type not yet implemented.
+- **xTerior**: Exterior calculus (differential forms, wedge, Hodge, d).
+- **Harmonics**: Spherical harmonic decomposition for perturbation theory.
+- **TexAct**: LaTeX rendering of tensor expressions.
+- **DifferentialEquations.jl**: Geodesic equations and ODE integration.
