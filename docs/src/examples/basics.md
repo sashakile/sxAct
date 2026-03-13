@@ -5,8 +5,7 @@ EditURL = "../../examples/basics.jl"
 # Getting Started with xAct.jl
 
 This tutorial introduces the core concepts of `xAct.jl` and shows how to perform
-basic tensor algebra operations. We also demonstrate how the same operations
-look in Python using the `sxact` wrapper.
+basic tensor algebra operations.
 
 ## 1. Setup
 First, we load the `xAct` module (the Julia port of the xAct suite).
@@ -64,18 +63,9 @@ g = def_metric!(-1, "g[-a,-b]", :CD)
 println("Metric g defined with signature -1.")
 ````
 
-## 6. Migration Rosetta Stone Summary
-
-| Operation | Wolfram (xAct) | Julia (xAct.jl) |
-| :--- | :--- | :--- |
-| **DefManifold** | `DefManifold[M, 4, {a,b}]` | `def_manifold!(:M, 4, [:a, :b])` |
-| **DefTensor** | `DefTensor[T[-a,-b], M]` | `def_tensor!(:T, ["-a", "-b"], :M)` |
-| **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` |
-| **DefMetric** | `DefMetric[-1, g[-a,-b], CD]` | `def_metric!(-1, "g[-a,-b]", :CD)` |
-
-## 7. Common Pitfalls & Fail-States
+## 6. Common Pitfalls & Fail-States
 - **Name Collisions**: If you try to define a manifold or tensor with a name
-  that already exists, `xAct.jl` will throw an error. Use `validate_symbol(:Name)`
+  that already exists, `xAct.jl` will throw an error. Use `ValidateSymbolInSession(:Name)`
   to check before defining.
 - **Index Mismatch**: Ensure your tensor indices match the dimension of the
   manifold. Defining a rank-3 tensor on a 2D manifold is allowed, but
@@ -84,7 +74,7 @@ println("Metric g defined with signature -1.")
   modify the global session. If you are in a notebook, re-running a cell
   containing these might trigger a "Symbol already exists" error.
 
-## 8. Next Steps
+## 7. Next Steps
 Now that you've mastered the basics, check out:
 - [Differential Geometry Primer](../differential-geometry-primer.md)
 - [Feature Status](../theory/STATUS.md)
@@ -92,3 +82,4 @@ Now that you've mastered the basics, check out:
 ---
 
 *This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+
