@@ -1,37 +1,24 @@
 # Architecture
 
-`xAct.jl` is the native Julia core of the xAct migration ecosystem. It is designed to be a high-performance, standalone library for symbolic tensor algebra, while also providing hooks for verification and interop.
+`xAct.jl` is the native Julia core of the xAct tensor algebra suite. It is designed to be a high-performance, standalone library for symbolic tensor algebra, with a companion verification framework to ensure parity with the original Wolfram implementation.
 
-## Ecosystem Context
+## Related Projects
 
-The migration project is organized into three pillars:
+- **xAct.jl** (This Repo): The native computational engine and verification suite.
+- [Chacana](https://github.com/sashakile/chacana) (External): A language-agnostic Tensor DSL and specification.
 
-- **xAct.jl** (This Repo): The native computational engines (`XCore.jl`, `XPerm.jl`, `XTensor.jl`).
-- [Elegua](https://github.com/sashakile/elegua) (External): The orchestration layer for parity verification and CI.
-- [Chacana](https://github.com/sashakile/chacana) (External): The unified Tensor DSL that connects different engines.
+## Julia Core
 
-## Computational Layers
+The native library follows the original xAct design, split into three modules bundled by `xAct.jl`:
 
-The project structure supports both native Julia usage and a robust verification pipeline:
+- **XCore.jl**: Foundational symbol registry, expression validator, and session state manager.
+- **XPerm.jl**: Group theory engine implementing the Butler-Portugal algorithm for tensor index canonicalization. Includes Schreier-Sims, Niehoff shortcuts, and Young tableaux.
+- **XTensor.jl**: Tensor algebra layer providing manifolds, bundles, metrics, curvature operators, covariant derivatives, perturbation theory, variational calculus, coordinate components (xCoba), and extended utilities (xTras).
 
-### Computational Layers (Julia Core)
+## Verification Layer
 
-The native library follows the original xAct design, split into four interoperable modules:
+To ensure mathematical correctness, `xAct.jl` is verified against the original Wolfram implementation:
 
-- **XCore.jl**: The foundational symbol registry, expression validator, and session state manager.
-- **XPerm.jl**: The group theory engine, implementing the Butler-Portugal algorithm for tensor index canonicalization.
-- **XTensor.jl**: The tensor algebra layer, providing manifolds, bundles, metrics, and curvature operators.
-- **xCoba.jl**: (Experimental) Support for coordinate bases and component calculations.
-
-### Verification Layer (Wolfram Oracle)
-
-To ensure mathematical correctness, `xAct.jl` is continuously verified against the original Wolfram implementation:
-- **The Oracle**: A Dockerized Wolfram Engine running xAct v1.2.0+.
-- **Parity Engine**: A specialized test runner that compares Julia and Wolfram results using symbolic and numeric modes.
-
-### Python Interoperability (`xact-py`)
-
-The project provides a comprehensive Python ecosystem split into two components:
-
-- **Wrapper (`xact`)**: An idiomatic Python interface to the Julia core modules. It allows researchers to use `xAct.jl` seamlessly within the scientific Python ecosystem (NumPy, SymPy, etc.).
-- **Validation Framework (`sxact`)**: The specialized engine that powers the parity verification suite, managing the communication between the Julia core and the Wolfram Oracle.
+- **Wolfram Oracle**: A Dockerized Wolfram Engine running xAct. Provides reference results for parity testing.
+- **Test Runner (`sxact`)**: A Python framework that drives TOML-defined test cases through the Julia and Wolfram adapters, comparing results via normalization, symbolic simplification, and numeric sampling.
+- **Oracle Snapshots**: Deterministic hash-based regression testing that allows verification without a live Wolfram Engine.
