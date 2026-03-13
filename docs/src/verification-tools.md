@@ -61,71 +61,39 @@ uv run xact-test snapshot tests/xtensor/ --output oracle/ --oracle-url http://lo
 uv run xact-test regen-oracle tests/xtensor/ --oracle-dir oracle/ --diff --yes
 ```
 
-## 2. Oracle Client (Low-Level)
-
-For direct interaction with the Wolfram Oracle:
+## 2. Using the Oracle Client
 
 ```python
 from sxact.oracle.client import OracleClient
 
 client = OracleClient()          # defaults to http://localhost:8765
 print(client.health())           # True
-```
 
-### Evaluate expressions
-
-Both `evaluate()` and `evaluate_with_xact()` return a `Result` object:
-
-```python
-result = client.evaluate("2 + 2")
-print(result.status)      # "ok"
-print(result.repr)        # "4"
-
-result = client.evaluate_with_xact("""
-DefManifold[M, 4, {a, b, c, d}];
-DefMetric[-1, g[-a, -b], CD];
-g[a, -a]
-""")
-print(result.repr)        # "4"  (trace of 4D metric)
-print(result.normalized)  # canonicalized form for comparison
-```
-
-For test isolation (prevents symbol pollution between test cases), pass a `context_id`:
-
-```python
 result = client.evaluate_with_xact(
     "DefManifold[M, 4, {a, b, c, d}]; ...",
-    context_id="my-test-001"
+    context_id="my-test-001"     # prevents symbol pollution between tests
 )
 ```
 
-## 3. Normalize expressions
+For full API details, see [Verification API Reference](api-verification.md#1-oracleclient).
 
-The normalization pipeline canonicalizes xAct output for comparison:
+## 3. Normalizing Expressions
 
 ```python
 from sxact.normalize.pipeline import normalize, ast_normalize
 
-# Regex-based pipeline
 a = normalize("v[a] * CD[-a][u[b]]")
 b = normalize("v[c]  *CD[-c][u[d]]")
 print(a == b)  # True — same structure, different dummy indices
 
-# AST-based pipeline (preferred, handles nested brackets)
 a = ast_normalize("Plus[T[-a, -b], T[-b, -a]]")
 b = ast_normalize("Plus[T[-c, -d], T[-d, -c]]")
 print(a == b)  # True
 ```
 
-## 4. Compare two results
+For full API details, see [Verification API Reference](api-verification.md#2-normalization-functions).
 
-The comparator uses a three-tier strategy:
-
-| Tier | Method | Oracle needed? |
-|------|--------|---------------|
-| 1 | Normalized string equality | No |
-| 2 | Symbolic `Simplify[lhs - rhs] == 0` | Yes |
-| 3 | Numeric sampling | Yes |
+## 4. Comparing Results
 
 ```python
 from sxact.compare.comparator import compare, EqualityMode
@@ -137,10 +105,9 @@ result = compare(lhs, rhs, oracle=client)
 print(result.equal)       # True / False
 print(result.tier)        # 1, 2, or 3
 print(result.confidence)  # 1.0 for tiers 1-2; <1.0 for tier 3
-
-# Normalized-only comparison (no oracle calls)
-result = compare(lhs, rhs, oracle=None, mode=EqualityMode.NORMALIZED)
 ```
+
+For full API details, see [Verification API Reference](api-verification.md#3-comparator-api).
 
 ## 5. Run Python tests
 

@@ -1,8 +1,14 @@
 # Verification API (`sxact`)
 
+!!! info "Verification API TL;DR for AI Agents"
+    - **OracleClient**: HTTP client for Dockerized Wolfram Engine (`health`, `evaluate`, `evaluate_with_xact`, `cleanup`)
+    - **Normalization**: `normalize()` (regex) and `ast_normalize()` (AST-based, preferred)
+    - **Comparison**: Three-tier (`compare()`): normalized string → symbolic Simplify → numeric sampling
+    - **Snapshots**: `SnapshotComparator` for offline hash-based regression testing
+
 The `sxact` Python package is a specialized framework for verifying the mathematical correctness of `xAct.jl` against the Wolfram Language implementation.
 
-## 1. Oracle Client
+## 1. OracleClient
 
 `sxact.oracle.client.OracleClient(base_url="http://localhost:8765")`
 
@@ -17,7 +23,7 @@ Manages the connection to the Dockerized Wolfram Engine.
 | `restart()` | Hard-restart the Wolfram kernel (expensive fallback). Returns `bool`. |
 | `check_clean_state()` | Query registry counts for leak detection. Returns `(is_clean, leaked_symbols)`. |
 
-## 2. Normalization Pipeline
+## 2. Normalization Functions
 
 `sxact.normalize.pipeline`
 
@@ -36,7 +42,7 @@ Regex-based pipeline, applies in order:
 
 AST-based normalizer (preferred for Tier 1 comparison). Handles arbitrarily nested brackets, sorts commutative operators before canonicalizing indices. Falls back to `normalize()` on parse failure.
 
-## 3. Comparison Engine
+## 3. Comparator API
 
 `sxact.compare.comparator`
 
@@ -60,7 +66,7 @@ Returns a `CompareResult(equal, tier, confidence, diff)`.
 | `SYMBOLIC` | Try up to Tier 2 (default) |
 | `NUMERIC` | Try all three tiers |
 
-## 4. Numeric Sampling
+## 4. Sampling API
 
 `sxact.compare.sampling`
 
@@ -70,7 +76,7 @@ Evaluates symbolic expressions at random numeric points to check for equivalence
 
 Returns a `SamplingResult(equal, confidence, samples)`.
 
-## 5. Snapshot Comparator
+## 5. Snapshot API
 
 `sxact.snapshot.compare`
 

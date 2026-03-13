@@ -71,8 +71,10 @@ All exported functions (see `xact.xcore.__all__`):
 | **List utilities** | `just_one`, `map_if_plus`, `thread_array`, `delete_duplicates`, `duplicate_free_q` |
 | **Argument guards** | `set_number_of_arguments`, `push_unevaluated` |
 | **Options** | `check_options`, `true_or_false`, `report_set`, `report_set_option` |
-| **Symbol naming** | `symbol_join`, `no_pattern`, `dagger_character`, `set_dagger_character`, `has_dagger_character_q`, `make_dagger_symbol`, `link_character`, `set_link_character`, `link_symbols`, `unlink_symbol` |
-| **Symbol registry** | `validate_symbol`, `find_symbols`, `register_symbol`, `x_perm_names`, `x_tensor_names`, `x_core_names`, `x_tableau_names`, `x_coba_names`, `invar_names`, `harmonics_names`, `x_pert_names`, `spinors_names`, `em_names` |
+| **Symbol naming** | `symbol_join`, `no_pattern` |
+| **Dagger/Link characters** | `dagger_character`, `set_dagger_character`, `has_dagger_character_q`, `make_dagger_symbol`, `link_character`, `set_link_character`, `link_symbols`, `unlink_symbol` |
+| **Symbol registry** | `validate_symbol`, `find_symbols`, `register_symbol` |
+| **Package name queries** | `x_perm_names`, `x_tensor_names`, `x_core_names`, `x_tableau_names`, `x_coba_names`, `invar_names`, `harmonics_names`, `x_pert_names`, `spinors_names`, `em_names` |
 | **Upvalues** | `sub_head`, `x_up_set`, `x_up_set_delayed`, `x_up_append_to`, `x_up_delete_cases_to` |
 | **Tags** | `x_tag_set`, `x_tag_set_delayed` |
 | **Extensions** | `x_tension`, `make_x_tensions`, `x_evaluate_at` |

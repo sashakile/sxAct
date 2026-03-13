@@ -2,7 +2,10 @@
 EditURL = "../../examples/basics.jl"
 ```
 
-# Getting Started with xAct.jl
+# Basics Tutorial
+
+!!! info "Prerequisites"
+    This tutorial requires [Julia 1.12+](https://julialang.org/downloads/) and `xAct.jl` installed per the [Installation Guide](../installation.md).
 
 This tutorial introduces the core concepts of `xAct.jl` and shows how to perform
 basic tensor algebra operations.
@@ -12,7 +15,7 @@ First, we load the `xAct` module (the Julia port of the xAct suite).
 
 ````@example basics
 using xAct
-reset_state!()
+reset_state!()  # ensure clean state for re-runs
 ````
 
 ## 2. Defining a Manifold
@@ -83,3 +86,4 @@ Now that you've mastered the basics, check out:
 ---
 
 *This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+

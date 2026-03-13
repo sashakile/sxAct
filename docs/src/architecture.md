@@ -1,5 +1,8 @@
 # Architecture
 
+!!! info "Architecture TL;DR for AI Agents"
+    Three Julia modules (XCore → XPerm → XTensor) bundled as `xAct.jl`. Verified via Python `sxact` framework against Dockerized Wolfram Oracle using TOML test cases and snapshot comparison.
+
 `xAct.jl` is the native Julia core of the xAct tensor algebra suite. It is designed to be a high-performance, standalone library for symbolic tensor algebra, with a companion verification framework to ensure parity with the original Wolfram implementation.
 
 ## Related Projects
@@ -22,3 +25,19 @@ To ensure mathematical correctness, `xAct.jl` is verified against the original W
 - **Wolfram Oracle**: A Dockerized Wolfram Engine running xAct. Provides reference results for parity testing.
 - **Test Runner (`sxact`)**: A Python framework that drives TOML-defined test cases through the Julia and Wolfram adapters, comparing results via normalization, symbolic simplification, and numeric sampling.
 - **Oracle Snapshots**: Deterministic hash-based regression testing that allows verification without a live Wolfram Engine.
+
+## Data Flow
+
+```text
+Julia REPL / Notebook
+  └── using xAct
+        ├── XCore.jl    (symbol registry, session state)
+        ├── XPerm.jl    (Butler-Portugal canonicalization)
+        └── XTensor.jl  (tensor algebra, xCoba, xTras)
+
+Verification Pipeline
+  TOML test file
+    → xact-test CLI
+      → JuliaAdapter (or WolframAdapter)
+        → Normalize + Compare against oracle snapshot
+```

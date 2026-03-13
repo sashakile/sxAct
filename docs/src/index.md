@@ -16,9 +16,9 @@ Get started in 60 seconds. Open your Julia REPL and run:
 
 ```julia
 using xAct
-M = def_manifold!(:M, 4, [:a, :b])
+M = def_manifold!(:M, 4, [:a, :b, :c, :d])
 T = def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
-ToCanonical("T[-b,-a] - T[-a,-b]") # returns "0"
+ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
 ```
 
 ## Project Overview
@@ -39,10 +39,6 @@ For the full table, see [Getting Started](getting-started.md#2-reference-migrati
 | **DefMetric** | `DefMetric[-1, g[-a,-b], CD]` | `def_metric!(-1, "g[-a,-b]", :CD)` | ✅ Verified |
 | **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` | ✅ Verified |
 | **Contract** | `ContractMetric[expr]` | `Contract(expr)` | ✅ Verified |
-| **Simplify** | `Simplification[expr]` | `Simplify(expr)` | ✅ Verified |
-| **IBP** | `IBP[expr, v]` | `IBP(expr, :CD)` | ✅ Verified |
-| **VarD** | `VarD[field][CD]expr` | `VarD(expr, :field, :CD)` | ✅ Verified |
-| **Perturb** | `Perturbation[expr]` | `Perturb(expr)` | ✅ Verified |
 
 ## Installation
 See the [Installation Guide](installation.md) for details on setting up the Julia package. Docker and the Wolfram Oracle are only required for running the verification suite.

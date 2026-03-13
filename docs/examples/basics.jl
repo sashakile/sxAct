@@ -1,4 +1,4 @@
-# # Getting Started with xAct.jl
+# # Basics Tutorial
 #
 # This tutorial introduces the core concepts of `xAct.jl` and shows how to perform
 # basic tensor algebra operations.

@@ -1,5 +1,10 @@
 # xAct Oracle Quirks
 
+!!! info "Quick Reference"
+    **Reserved names**: avoid `N`, `I`, `E`, `C`, `D`, `O` as symbol names.
+    **Context isolation**: use `context_id` parameter to prevent symbol pollution.
+    **Key gotcha**: `ToCanonical` only handles mono-term symmetries, not Bianchi identity.
+
 This document captures quirks, edge cases, and gotchas discovered while working with xAct through the Oracle HTTP server.
 
 ## Symbol Context Pollution (RESOLVED)
@@ -174,15 +179,6 @@ DefTensor[T[a,b], M, Symmetric[{a,b}]]  (* May silently fail *)
 
 ## Implementation Notes
 
-### Context Isolation (Completed)
-
-The context isolation feature was implemented in commit 9cc21fa:
-
-1. ✅ Added `context_id` parameter to `/evaluate-with-init` endpoint
-2. ✅ Server wraps evaluation in `Begin["xAct`xTensor`"]; ToExpression[...]; End[]`
-3. ✅ Pytest fixture generates unique context ID per test
-4. ✅ All evaluations within a test use the same context ID
-
 ### Why Begin/ToExpression Instead of Block
 
 The original plan suggested `Block[{$Context = ...}, expr]`, but this doesn't work because:
@@ -196,6 +192,3 @@ Begin["xAct`xTensor`"];
 With[{result$$ = ToExpression["expr"]}, End[]; result$$]
 ```
 
-### Future Improvements
-
-1. **Context cleanup**: May want kernel restart strategy for very long test runs

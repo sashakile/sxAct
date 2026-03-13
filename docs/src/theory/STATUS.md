@@ -1,5 +1,8 @@
 # xAct.jl Feature Completion Matrix
 
+!!! info "Status TL;DR for AI Agents"
+    All core features DONE: XPerm (canonicalization), XTensor (algebra, CovD, perturbation, IBP, VarD), xCoba (coordinates, Christoffel), xTras (utilities). 1216+ tests passing. Gaps: Invar (multi-term symmetry), spinors, exterior calculus, LaTeX rendering.
+
 This page tracks the implementation status of xAct features in the Julia core (`xAct.jl`) and their verification status against the Wolfram Language implementation.
 
 ---

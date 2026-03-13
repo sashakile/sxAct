@@ -4,11 +4,24 @@ We welcome contributions to `xAct.jl` (the Julia core) and the `sxact` verificat
 
 ## Getting Started
 
-Please see the root [CONTRIBUTING.md](https://github.com/sashakile/sxAct/blob/main/CONTRIBUTING.md) for detailed instructions on:
-- Setting up the Julia development environment.
-- Setting up the Python and Docker verification environment.
-- Running the test suites.
-- Following our code style and quality standards.
+Please see the root [CONTRIBUTING.md](https://github.com/sashakile/sxAct/blob/main/CONTRIBUTING.md) for full details on environment setup, code style, and workflow.
+
+### Quick Setup
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/sashakile/sxAct.git
+cd sxAct
+
+# 2. Install Python dependencies
+uv sync --extra dev
+
+# 3. Run Julia tests
+julia --project=. test/runtests.jl
+
+# 4. Run Python tests
+uv run pytest
+```
 
 ## Contribution Areas
 

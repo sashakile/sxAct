@@ -1,13 +1,13 @@
 # Getting Started with xAct.jl
 
-This tutorial walks through the basic usage of `xAct.jl` in Julia and provides a reference "Rosetta Stone" for users migrating from the original Wolfram implementation.
+This page covers quick start usage, a Wolfram-to-Julia migration reference, key concepts, and the verification framework.
 
 !!! info "Prerequisites"
     Ensure you have installed `xAct.jl` according to the [Installation Guide](installation.md) before starting this tutorial.
 
 ---
 
-## 1. Interactive Tutorial (Julia)
+## 1. Quick Start
 
 The primary interface for tensor calculus is the Julia REPL or a Jupyter notebook.
 
@@ -51,7 +51,7 @@ For experienced `xAct` users, this table shows the direct mappings from Wolfram 
 
 ---
 
-## 3. Core Concepts
+## 3. Key Concepts
 
 - **Symbol Registry**: `xAct.jl` maintains a global registry of manifolds, bundles, and tensors. Functions that modify this state end in `!` (e.g., `def_tensor!`).
 - **Indices**: We follow the standard xAct notation: `-a` for covariant (lower) and `a` for contravariant (upper) indices.
