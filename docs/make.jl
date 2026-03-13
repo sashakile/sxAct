@@ -36,7 +36,6 @@ makedocs(;
         "Theory" => ["Differential Geometry Primer" => "differential-geometry-primer.md"],
         "Advanced" => [
             "Oracle Quirks" => "theory/oracle-quirks.md",
-            "Tensor DSL Integration" => "theory/tensordsl-integration.md",
         ],
         "Architecture" => "architecture.md",
         "Reference" => [
