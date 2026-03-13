@@ -36,10 +36,12 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('Project.toml') }}
+          key: julia-1.12-${{ hashFiles('Project.toml', 'tooling/Manifest.toml') }}
           restore-keys: julia-1.12-
       - name: Instantiate Julia project
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+      - name: Instantiate tooling project (JuliaFormatter)
+        run: julia --project=tooling -e 'using Pkg; Pkg.instantiate()'
       - name: Run unit tests
         run: julia --project=. test/runtests.jl
 

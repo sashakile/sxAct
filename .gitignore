@@ -33,6 +33,7 @@ Thumbs.db
 
 # Julia — Manifest.toml is machine-generated and version-specific
 **/Manifest.toml
+!tooling/Manifest.toml
 
 # Documenter.jl build output
 docs/build/
