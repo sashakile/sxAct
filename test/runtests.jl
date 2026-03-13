@@ -737,9 +737,9 @@ end
     )
 end
 
-# @testset "JET static analysis" begin
-#     JET.test_package(xAct; target_modules=(xAct,))
-# end
+@testset "JET static analysis" begin
+    JET.test_package(xAct; target_modules=(xAct,))
+end
 
 @testset "JuliaFormatter" begin
     # Format check runs via the dedicated tooling environment to avoid
