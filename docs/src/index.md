@@ -45,3 +45,7 @@ See the [Installation Guide](installation.md) for details on setting up the Juli
 
 ## Architecture
 The implementation follows a layered approach, described in the [Architecture](architecture.md) section.
+
+## AI Attribution
+
+The majority of this codebase was developed with AI assistance using [Claude Code](https://claude.ai/claude-code), [Gemini](https://gemini.google.com/), and [Amp Code](https://ampcode.com/). All code is human-reviewed and tested against the Wolfram Engine oracle for mathematical correctness. We believe AI-assisted development, when paired with rigorous verification, produces higher-quality scientific software.

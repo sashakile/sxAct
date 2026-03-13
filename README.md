@@ -1,33 +1,29 @@
-# xAct.jl — Migration & Implementation
+# xAct.jl
 
-This repository is dedicated to the Julia implementation of the [xAct](http://xact.es/) suite and its Python wrapper. It provides the core tensor algebra engines and validation tooling to ensure mathematical parity with the Wolfram Language "Gold Standard."
+A high-performance Julia implementation of the [xAct](http://xact.es/) tensor algebra suite for general relativity.
 
-## Project Scope
+## Quick Start
 
-- Primary Goal: Migrate xAct's functionality (xCore, xPerm, xTensor, etc.) to Julia for high-performance, open-source tensor calculus.
-- Python Wrapper: Provide an idiomatic Python wrapper (`xact`, distributed as `xact-py`) around the Julia core.
-- Validation: Use a Dockerized Wolfram Engine (the "Oracle") via the `sxact` framework to prove implementation correctness.
+```julia
+using xAct
+M = def_manifold!(:M, 4, [:a, :b, :c, :d])
+T = def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
+ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
+```
 
-### The Migration Architecture
+## Components
 
-The project is designed to ensure rigorous mathematical correctness through a multi-tier verification pipeline:
+- **xAct.jl** (Julia): The computational engine — canonicalization, contraction, covariant derivatives, perturbation theory, coordinate components (xCoba), and more.
+- **sxact** (Python): Automated parity testing against the Wolfram Engine using TOML test cases and oracle snapshots.
+- **[Chacana](https://github.com/sashakile/chacana)** (External): Unified Tensor DSL and formal specification.
 
-1.  **xAct.jl** (Julia): The native computational engine, located in `src/`. This is the primary library for high-performance tensor calculus.
-2.  **xact-py** (Python): The core `xact` library, an idiomatic wrapper around the Julia core that facilitates interoperability with the scientific Python ecosystem.
-3.  **sxact** (Python): The testing and verification framework used to prove parity between Julia and Wolfram implementations.
-4.  **The Oracle** (Wolfram): A Dockerized Wolfram Engine running the original xAct code. It acts as the "Ground Truth" for proving implementation correctness.
+## Documentation
 
-Detailed documentation on the architecture can be found in the [Architecture Guide](https://sashakile.github.io/sxAct/architecture.html).
+Full documentation at [sashakile.github.io/sxAct](https://sashakile.github.io/sxAct/).
 
----
+## AI Attribution
 
-## The Verification Ecosystem
-
-To maintain modularity, this project is part of a larger verification framework:
-
-1.  **xAct.jl** (This Repo): The core Julia and Python implementations.
-2.  **[Elegua](https://github.com/sashakile/elegua)** (External): The orchestration layer and multi-tier task runner used for parity verification.
-3.  **[Chacana](https://github.com/sashakile/chacana)** (External): The unified Tensor DSL and formal specification that connects the different implementations.
+The majority of this codebase was developed with AI assistance using [Claude Code](https://claude.ai/claude-code), [Gemini](https://gemini.google.com/), and [Amp Code](https://ampcode.com/). All code is human-reviewed and tested against the Wolfram Engine oracle for mathematical correctness. We believe AI-assisted development, when paired with rigorous verification, produces higher-quality scientific software.
 
 ## License
 
