@@ -22,7 +22,8 @@
       "Bash(wc:*)",
       "Bash(find:*)",
       "Bash(do:*)",
-      "Bash(bd ready:*)"
+      "Bash(bd ready:*)",
+      "Bash(ls tests/xperm/*.toml tests/xtensor/*.toml 2>/dev/null | wc -l && for f in tests/xperm/*.toml tests/xtensor/*.toml; do grep -c '^\\\\[\\\\[test\\\\]\\\\]' \"$f\" 2>/dev/null; done | paste -sd+ | bc)"
     ]
   }
 }

@@ -26,12 +26,14 @@ using Reexport
 
 include("XCore.jl")
 include("XTensor.jl") # XTensor includes XPerm
+include("XInvar.jl")
 
-export XCore, XTensor, XPerm, reset_state!
+export XCore, XTensor, XPerm, XInvar, reset_state!
 
 @reexport using .XCore
 @reexport using .XTensor
 @reexport using .XTensor.XPerm
+@reexport using .XInvar
 
 # Wire XCore symbol validation into XTensor's def_*! functions
 XTensor.set_symbol_hooks!(XCore.ValidateSymbol, XCore.register_symbol)
@@ -44,6 +46,7 @@ Perform a global reset of all xAct subcomponents (XCore, XPerm, XTensor).
 function reset_state!()
     XCore.reset_core!()
     XTensor.reset_state!()
+    XInvar._reset_invar_db!()
 end
 
 end # module xAct

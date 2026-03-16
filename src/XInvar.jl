@@ -1,0 +1,1408 @@
+# Invar — Riemann Invariant Classification & Simplification
+# Copyright (C) 2026 sxAct Contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+"""
+    XInvar
+
+Invariant permutation representation system for the Invar pipeline.
+Implements InvariantCase, RPerm, RInv types, MaxIndex table, and
+case enumeration for Riemann tensor invariant classification.
+
+Reference: Martín-García, Yllanes & Portugal (2008) arXiv:0802.1274
+Wolfram source: resources/xAct/Invar/Invar.m
+"""
+module XInvar
+
+# ============================================================
+# Exports
+# ============================================================
+
+export InvariantCase, RPerm, RInv
+export PermDegree, MaxIndex, MaxDualIndex
+export InvarCases, InvarDualCases
+export RiemannToPerm, PermToRiemann
+
+# InvarDB submodule — database loading and rule parser
+include("InvarDB.jl")
+
+# ============================================================
+# Types
+# ============================================================
+
+"""
+    InvariantCase(deriv_orders, n_epsilon=0)
+
+Classifies a Riemann scalar monomial by the derivative orders on each
+Riemann factor and the number of epsilon (Levi-Civita) tensors.
+
+  - `deriv_orders`: sorted non-decreasing list; length = degree (number of Riemanns)
+  - `n_epsilon`: 0 = non-dual, 1 = dual (4D only)
+
+The derivative order of an invariant case is `2 * degree + sum(deriv_orders)`.
+"""
+struct InvariantCase
+    deriv_orders::Vector{Int}
+    n_epsilon::Int
+end
+
+InvariantCase(deriv_orders::Vector{Int}) = InvariantCase(deriv_orders, 0)
+
+"""
+    RPerm(metric, case, perm)
+
+A Riemann invariant in permutation representation. The permutation encodes
+the contraction pattern of indices across all tensor factors in images notation.
+"""
+struct RPerm
+    metric::Symbol
+    case::InvariantCase
+    perm::Vector{Int}
+end
+
+"""
+    RInv(metric, case, index)
+
+A labeled Riemann invariant with a canonical index (1-based) from the Invar database.
+"""
+struct RInv
+    metric::Symbol
+    case::InvariantCase
+    index::Int
+end
+
+# ============================================================
+# Equality and Hashing
+# ============================================================
+
+function Base.:(==)(a::InvariantCase, b::InvariantCase)
+    a.deriv_orders == b.deriv_orders && a.n_epsilon == b.n_epsilon
+end
+Base.hash(a::InvariantCase, h::UInt) = hash(a.n_epsilon, hash(a.deriv_orders, h))
+
+function Base.:(==)(a::RPerm, b::RPerm)
+    a.metric == b.metric && a.case == b.case && a.perm == b.perm
+end
+Base.hash(a::RPerm, h::UInt) = hash(a.perm, hash(a.case, hash(a.metric, h)))
+
+function Base.:(==)(a::RInv, b::RInv)
+    a.metric == b.metric && a.case == b.case && a.index == b.index
+end
+Base.hash(a::RInv, h::UInt) = hash(a.index, hash(a.case, hash(a.metric, h)))
+
+# ============================================================
+# Display
+# ============================================================
+
+function Base.show(io::IO, c::InvariantCase)
+    print(io, "InvariantCase([", join(c.deriv_orders, ","), "]")
+    c.n_epsilon > 0 && print(io, ", ε=", c.n_epsilon)
+    print(io, ")")
+end
+
+function Base.show(io::IO, r::RPerm)
+    print(io, "RPerm(:", r.metric, ", ", r.case, ", ", r.perm, ")")
+end
+
+function Base.show(io::IO, r::RInv)
+    print(io, "RInv(:", r.metric, ", ", r.case, ", ", r.index, ")")
+end
+
+# ============================================================
+# PermDegree
+# ============================================================
+
+"""
+    PermDegree(case::InvariantCase) -> Int
+
+Permutation degree (number of index slots) for an invariant case.
+
+Formula: `4 * n_riemanns + sum(deriv_orders) + 4 * n_epsilon`
+
+Source: Invar.m:696
+"""
+function PermDegree(c::InvariantCase)
+    4 * length(c.deriv_orders) + sum(c.deriv_orders; init=0) + 4 * c.n_epsilon
+end
+
+# ============================================================
+# MaxIndex Table (Invar.m:389-451)
+# ============================================================
+
+const _MAX_INDEX = Dict{Vector{Int},Int}(
+    # Order 2
+    [0] => 1,
+    # Order 4
+    [0, 0] => 3,
+    [2] => 2,
+    # Order 6
+    [0, 0, 0] => 9,
+    [0, 2] => 12,
+    [1, 1] => 12,
+    [4] => 12,
+    # Order 8
+    [0, 0, 0, 0] => 38,
+    [0, 0, 2] => 99,
+    [0, 1, 1] => 125,
+    [0, 4] => 126,
+    [1, 3] => 138,
+    [2, 2] => 86,
+    [6] => 105,
+    # Order 10
+    [0, 0, 0, 0, 0] => 204,
+    [0, 0, 0, 2] => 1020,
+    [0, 0, 1, 1] => 1749,
+    [0, 0, 4] => 1473,
+    [0, 1, 3] => 3099,
+    [0, 2, 2] => 1622,
+    [1, 1, 2] => 1617,
+    [0, 6] => 1665,
+    [1, 5] => 1770,
+    [2, 4] => 1746,
+    [3, 3] => 962,
+    [8] => 1155,
+    # Order 12
+    [0, 0, 0, 0, 0, 0] => 1613,
+    [0, 0, 0, 0, 2] => 12722,
+    [0, 0, 0, 1, 1] => 27022,
+    [0, 0, 0, 4] => 19617,
+    [0, 0, 1, 3] => 60984,
+    [0, 0, 2, 2] => 30974,
+    [0, 1, 1, 2] => 62465,
+    [1, 1, 1, 1] => 5606,
+    [0, 0, 6] => 25590,
+    [0, 1, 5] => 53160,
+    [0, 2, 4] => 52764,
+    [1, 1, 4] => 27396,
+    [0, 3, 3] => 27024,
+    [1, 2, 3] => 54654,
+    [2, 2, 2] => 9104,
+    [0, 8] => 25515,
+    [1, 7] => 26670,
+    [2, 6] => 26460,
+    [3, 5] => 26670,
+    [4, 4] => 13607,
+    [10] => 15120,
+    # Order 14 (algebraic only)
+    [0, 0, 0, 0, 0, 0, 0] => 16532,
+    # Higher algebraic (not in InvarCases[] but have MaxIndex)
+    [0, 0, 0, 0, 0, 0, 0, 0] => 217395,
+    [0, 0, 0, 0, 0, 0, 0, 0, 0] => 3406747,
+)
+
+"""
+    MaxIndex(case) -> Int
+
+Number of independent Riemann invariants for a given case.
+Accepts `InvariantCase`, `Vector{Int}` (deriv_orders), or `Int` (pure algebraic degree).
+
+Source: Invar.m:389-451
+"""
+MaxIndex(c::InvariantCase) = MaxIndex(c.deriv_orders)
+MaxIndex(n::Int) = n > 0 ? MaxIndex(fill(0, n)) : 0
+
+function MaxIndex(deriv_orders::Vector{Int})
+    haskey(_MAX_INDEX, deriv_orders) ||
+        throw(ArgumentError("Case $deriv_orders not in MaxIndex table"))
+    return _MAX_INDEX[deriv_orders]
+end
+
+# ============================================================
+# MaxDualIndex Table (Invar.m:455-483)
+# ============================================================
+
+const _MAX_DUAL_INDEX = Dict{Vector{Int},Int}(
+    # Order 2
+    [0] => 1,
+    # Order 4
+    [0, 0] => 4,
+    [2] => 3,
+    # Order 6
+    [0, 0, 0] => 27,
+    [0, 2] => 58,
+    [1, 1] => 36,
+    [4] => 32,
+    # Order 8
+    [0, 0, 0, 0] => 232,
+    [0, 0, 2] => 967,
+    [0, 1, 1] => 1047,
+    [0, 4] => 876,
+    [1, 3] => 920,
+    [2, 2] => 478,
+    [6] => 435,
+    # Order 10 (algebraic only)
+    [0, 0, 0, 0, 0] => 2582,
+    # Higher algebraic
+    [0, 0, 0, 0, 0, 0] => 35090,
+    [0, 0, 0, 0, 0, 0, 0] => 558323,
+)
+
+"""
+    MaxDualIndex(case) -> Int
+
+Number of independent dual Riemann invariants for a given case.
+
+Source: Invar.m:455-483
+"""
+MaxDualIndex(c::InvariantCase) = MaxDualIndex(c.deriv_orders)
+MaxDualIndex(n::Int) = n > 0 ? MaxDualIndex(fill(0, n)) : 0
+
+function MaxDualIndex(deriv_orders::Vector{Int})
+    haskey(_MAX_DUAL_INDEX, deriv_orders) ||
+        throw(ArgumentError("Dual case $deriv_orders not in MaxDualIndex table"))
+    return _MAX_DUAL_INDEX[deriv_orders]
+end
+
+# ============================================================
+# Partition Enumeration (internal)
+# ============================================================
+
+"""
+All partitions of `n` into `k` non-negative parts in non-decreasing order.
+"""
+function _sorted_partitions(n::Int, k::Int)
+    result = Vector{Vector{Int}}()
+    if k == 0
+        n == 0 && push!(result, Int[])
+        return result
+    end
+    _partition_helper!(result, Int[], n, k, 0)
+    return result
+end
+
+function _partition_helper!(
+    result::Vector{Vector{Int}},
+    current::Vector{Int},
+    remaining::Int,
+    slots::Int,
+    min_val::Int,
+)
+    if slots == 1
+        remaining >= min_val && push!(result, [current; remaining])
+        return nothing
+    end
+    for v in min_val:remaining
+        push!(current, v)
+        _partition_helper!(result, current, remaining - v, slots - 1, v)
+        pop!(current)
+    end
+end
+
+# ============================================================
+# InvarCases — Non-Dual Case Enumeration
+# ============================================================
+
+"""
+    InvarCases() -> Vector{InvariantCase}
+
+All non-dual invariant cases through order 14 (48 cases).
+Matches Wolfram `InvarCases[]`.
+"""
+function InvarCases()
+    cases = InvariantCase[]
+    for order in 2:2:14
+        append!(cases, InvarCases(order))
+    end
+    return cases
+end
+
+"""
+    InvarCases(order) -> Vector{InvariantCase}
+
+Non-dual cases for a given even derivative order (2 ≤ order ≤ 14).
+Degrees enumerate from highest to lowest.
+"""
+function InvarCases(order::Int)
+    order % 2 != 0 && throw(ArgumentError("Order must be even, got $order"))
+    order < 2 && throw(ArgumentError("Order must be >= 2, got $order"))
+    order > 14 && throw(ArgumentError("Order > 14 not supported"))
+
+    if order == 14
+        return [InvariantCase(fill(0, 7))]
+    end
+
+    cases = InvariantCase[]
+    for degree in (order ÷ 2):-1:1
+        for p in _sorted_partitions(order - 2 * degree, degree)
+            push!(cases, InvariantCase(p))
+        end
+    end
+    return cases
+end
+
+"""
+    InvarCases(order, degree) -> Vector{InvariantCase}
+
+Non-dual cases for a given order and degree (number of Riemann tensors).
+"""
+function InvarCases(order::Int, degree::Int)
+    remainder = order - 2 * degree
+    remainder < 0 && return InvariantCase[]
+    return [InvariantCase(p) for p in _sorted_partitions(remainder, degree)]
+end
+
+# ============================================================
+# InvarDualCases — Dual Case Enumeration
+# ============================================================
+
+"""
+    InvarDualCases() -> Vector{InvariantCase}
+
+All dual invariant cases through order 10.
+Matches Wolfram `InvarDualCases[]`.
+"""
+function InvarDualCases()
+    cases = InvariantCase[]
+    for order in 2:2:10
+        append!(cases, InvarDualCases(order))
+    end
+    return cases
+end
+
+"""
+    InvarDualCases(order) -> Vector{InvariantCase}
+
+Dual cases for a given even derivative order (2 ≤ order ≤ 10).
+"""
+function InvarDualCases(order::Int)
+    order % 2 != 0 && throw(ArgumentError("Order must be even, got $order"))
+    order < 2 && throw(ArgumentError("Order must be >= 2, got $order"))
+    order > 10 && throw(ArgumentError("Dual order > 10 not supported"))
+
+    if order == 10
+        return [InvariantCase(fill(0, 5), 1)]
+    end
+
+    cases = InvariantCase[]
+    for degree in (order ÷ 2):-1:1
+        for p in _sorted_partitions(order - 2 * degree, degree)
+            push!(cases, InvariantCase(p, 1))
+        end
+    end
+    return cases
+end
+
+# ============================================================
+# Phase 3: Riemann-to-Permutation Conversion
+# ============================================================
+
+# Index pool for generating fresh dummy indices.
+# Uses double-letter names to avoid collision with user indices.
+const _FRESH_INDEX_POOL = [
+    "xa",
+    "xb",
+    "xc",
+    "xd",
+    "xe",
+    "xf",
+    "xg",
+    "xh",
+    "xi",
+    "xj",
+    "xk",
+    "xl",
+    "xm",
+    "xn",
+    "xo",
+    "xp",
+    "xq",
+    "xr",
+    "xs",
+    "xt",
+    "xu",
+    "xv",
+    "xw",
+    "xx",
+    "xy",
+    "xz",
+    "ya",
+    "yb",
+    "yc",
+    "yd",
+    "ye",
+    "yf",
+    "yg",
+    "yh",
+    "yi",
+    "yj",
+    "yk",
+    "yl",
+    "ym",
+    "yn",
+    "yo",
+    "yp",
+    "yq",
+    "yr",
+    "ys",
+    "yt",
+]
+
+"""
+    _bare_index(idx::String) -> String
+
+Strip the leading '-' from a covariant index. E.g., "-a" → "a", "a" → "a".
+"""
+_bare_index(idx::AbstractString) = startswith(idx, "-") ? String(idx[2:end]) : String(idx)
+
+"""
+    _is_covariant_idx(idx::String) -> Bool
+
+True if the index is covariant (starts with '-').
+"""
+_is_covariant_idx(idx::AbstractString) = startswith(idx, "-")
+
+"""
+    _collect_used_indices(expr::String) -> Set{String}
+
+Collect all bare index names used in the expression.
+"""
+function _collect_used_indices(expr::AbstractString)::Set{String}
+    used = Set{String}()
+    for m in eachmatch(r"[\[,]\s*(-?[a-zA-Z]\w*)", expr)
+        push!(used, _bare_index(strip(m.captures[1])))
+    end
+    used
+end
+
+"""
+    _fresh_indices(n::Int, used::Set{String}) -> Vector{String}
+
+Generate `n` fresh index names not in `used`. Mutates `used` by adding the new names.
+"""
+function _fresh_indices(n::Int, used::Set{String})::Vector{String}
+    result = String[]
+    for idx in _FRESH_INDEX_POOL
+        idx in used && continue
+        push!(result, idx)
+        push!(used, idx)
+        length(result) >= n && return result
+    end
+    i = 1
+    while length(result) < n
+        idx = "zz$i"
+        if idx ∉ used
+            push!(result, idx)
+            push!(used, idx)
+        end
+        i += 1
+    end
+    result
+end
+
+# ============================================================
+# String Parsing Utilities for Tensor Expressions
+# ============================================================
+
+"""
+A parsed tensor factor from a monomial string.
+"""
+struct _InvarFactor
+    tensor_name::String
+    indices::Vector{String}
+    covd_indices::Vector{String}  # CovD indices applied to this factor (outermost first)
+end
+
+"""
+    _parse_invar_monomial(mono::String) -> (Rational{Int}, Vector{_InvarFactor})
+
+Parse a monomial string into its numeric coefficient and tensor factors.
+Handles CovD notation: `CD[-e][RiemannCD[-a,-b,-c,-d]]` is parsed as a single
+factor with covd_indices=["-e"] and tensor RiemannCD with indices ["-a","-b","-c","-d"].
+"""
+function _parse_invar_monomial(mono::AbstractString)
+    s = String(strip(mono))
+    isempty(s) && return (0 // 1, _InvarFactor[])
+
+    # Extract leading coefficient
+    coeff = 1 // 1
+
+    # Try rational coefficient: (N/M)
+    m_rat = match(r"^\((-?\d+)/(\d+)\)\s*\*?\s*", s)
+    if !isnothing(m_rat)
+        num = parse(Int, m_rat.captures[1])
+        den = parse(Int, m_rat.captures[2])
+        coeff = num // den
+        s = String(strip(s[(length(m_rat.match) + 1):end]))
+    else
+        # Try integer coefficient: only if followed by whitespace or *
+        m_int = match(r"^(-?\d+)\s*(\*\s*|\s+)", s)
+        if !isnothing(m_int)
+            rest = String(strip(s[(length(m_int.match) + 1):end]))
+            if !isempty(rest) && (isletter(rest[1]) || rest[1] == '(')
+                coeff = parse(Int, m_int.captures[1]) // 1
+                s = rest
+            end
+        end
+    end
+
+    factors = _InvarFactor[]
+    pos = 1
+    n = length(s)
+
+    while pos <= n
+        while pos <= n && isspace(s[pos])
+            pos += 1
+        end
+        pos > n && break
+
+        factor, pos = _parse_one_factor(s, pos)
+        !isnothing(factor) && push!(factors, factor)
+    end
+
+    (coeff, factors)
+end
+
+"""
+    _parse_one_factor(s, pos) -> (_InvarFactor or nothing, new_pos)
+
+Parse one tensor factor starting at position `pos`. Handles both plain
+`TensorName[indices]` and CovD-wrapped `CovD[-i][...CovD[-j][Tensor[indices]]...]`.
+"""
+function _parse_one_factor(s::AbstractString, pos::Int)
+    n = length(s)
+
+    # Read the name
+    name_start = pos
+    while pos <= n && (isletter(s[pos]) || isdigit(s[pos]) || s[pos] == '_')
+        pos += 1
+    end
+    name = String(s[name_start:(pos - 1)])
+    isempty(name) && return (nothing, pos)
+
+    # Skip whitespace
+    while pos <= n && isspace(s[pos])
+        pos += 1
+    end
+
+    # Must be followed by '['
+    (pos > n || s[pos] != '[') &&
+        error("Expected '[' after '$name' at position $pos in: $s")
+    pos += 1  # consume '['
+
+    # Read until matching ']'
+    idx_start = pos
+    depth = 1
+    while pos <= n && depth > 0
+        s[pos] == '[' && (depth += 1)
+        s[pos] == ']' && (depth -= 1)
+        depth > 0 && (pos += 1)
+    end
+    content = String(s[idx_start:(pos - 1)])
+    pos += 1  # consume ']'
+
+    # Check for CovD two-bracket pattern: Name[idx][operand]
+    # After consuming Name[content], if the next char is '[', this is a CovD application.
+    if pos <= n && s[pos] == '['
+        # CovD pattern: name[covd_idx][inner_expr]
+        covd_idx = String(strip(content))
+
+        # Read the second bracket: [inner_expr]
+        pos += 1  # consume '['
+        inner_start = pos
+        depth = 1
+        while pos <= n && depth > 0
+            s[pos] == '[' && (depth += 1)
+            s[pos] == ']' && (depth -= 1)
+            depth > 0 && (pos += 1)
+        end
+        inner_str = String(s[inner_start:(pos - 1)])
+        pos += 1  # consume ']'
+
+        inner_factor, _ = _parse_one_factor(inner_str, 1)
+        isnothing(inner_factor) && error("Failed to parse inner CovD factor in: $inner_str")
+
+        return (
+            _InvarFactor(
+                inner_factor.tensor_name,
+                inner_factor.indices,
+                [covd_idx; inner_factor.covd_indices],
+            ),
+            pos,
+        )
+    end
+
+    # Check if content itself contains a '][' split indicating CovD wrapping
+    # (alternative syntax where the split is inside the brackets)
+    bracket_pos = _find_covd_split(content)
+
+    if !isnothing(bracket_pos)
+        covd_idx = String(strip(content[1:(bracket_pos - 1)]))
+        inner_str = String(content[(bracket_pos + 2):end])
+
+        inner_factor, _ = _parse_one_factor(inner_str, 1)
+        isnothing(inner_factor) && error("Failed to parse inner CovD factor in: $content")
+
+        return (
+            _InvarFactor(
+                inner_factor.tensor_name,
+                inner_factor.indices,
+                [covd_idx; inner_factor.covd_indices],
+            ),
+            pos,
+        )
+    else
+        indices = _parse_idx_list(content)
+        return (_InvarFactor(name, indices, String[]), pos)
+    end
+end
+
+"""
+    _find_covd_split(content::String) -> Union{Int, Nothing}
+
+Find the position of '][' in content that indicates a CovD split.
+Returns the position of the ']' or nothing.
+"""
+function _find_covd_split(content::AbstractString)
+    depth = 0
+    n = length(content)
+    for i in 1:n
+        c = content[i]
+        if c == '['
+            depth += 1
+        elseif c == ']'
+            if depth == 0
+                if i + 1 <= n && content[i + 1] == '['
+                    return i
+                end
+            else
+                depth -= 1
+            end
+        end
+    end
+    nothing
+end
+
+"""
+    _parse_idx_list(s::String) -> Vector{String}
+
+Parse a comma-separated index list like "-a,-b,c,d" into ["-a", "-b", "c", "d"].
+"""
+function _parse_idx_list(s::AbstractString)::Vector{String}
+    s = strip(s)
+    isempty(s) && return String[]
+    [String(strip(idx)) for idx in split(s, ",")]
+end
+
+# ============================================================
+# Sum Parsing
+# ============================================================
+
+"""
+    _parse_invar_sum(expr::String) -> Vector{Tuple{Int, String}}
+
+Split an expression on top-level + and - (not inside brackets) into
+signed monomial strings. Returns (sign, monomial_string) pairs.
+"""
+function _parse_invar_sum(expr::AbstractString)::Vector{Tuple{Int,String}}
+    s = String(strip(expr))
+    isempty(s) && return Tuple{Int,String}[]
+
+    result = Tuple{Int,String}[]
+    pos = 1
+    n = length(s)
+    current_start = 1
+    current_sign = 1
+    depth = 0
+
+    # Handle leading sign
+    if pos <= n && (s[pos] == '+' || s[pos] == '-')
+        current_sign = s[pos] == '-' ? -1 : 1
+        pos += 1
+        current_start = pos
+    end
+
+    while pos <= n
+        c = s[pos]
+        if c == '[' || c == '('
+            depth += 1
+            pos += 1
+        elseif c == ']' || c == ')'
+            depth -= 1
+            pos += 1
+        elseif (c == '+' || c == '-') && depth == 0 && pos > 1
+            chunk = String(strip(s[current_start:(pos - 1)]))
+            !isempty(chunk) && push!(result, (current_sign, chunk))
+            current_sign = c == '-' ? -1 : 1
+            pos += 1
+            current_start = pos
+        else
+            pos += 1
+        end
+    end
+
+    chunk = String(strip(s[current_start:end]))
+    !isempty(chunk) && push!(result, (current_sign, chunk))
+    result
+end
+
+# ============================================================
+# _ricci_to_riemann
+# ============================================================
+
+"""
+    _ricci_to_riemann(expr::String, covd::Symbol) -> String
+
+Replace Ricci and RicciScalar tensors with their contracted Riemann equivalents.
+
+  - `RicciCD[-a,-b]` → `RiemannCD[xa,-a,-xa,-b]` (contracted Riemann)
+  - `RicciScalarCD[]` → `RiemannCD[xa,xb,-xa,-xb]` (double-contracted Riemann)
+
+The covd name determines the tensor prefix (e.g., covd=:CD → RiemannCD, RicciCD, etc.).
+"""
+function _ricci_to_riemann(expr::AbstractString, covd::Symbol)::String
+    prefix = string(covd)
+    riemann_name = "Riemann" * prefix
+    ricci_name = "Ricci" * prefix
+    ricci_scalar_name = "RicciScalar" * prefix
+
+    used = _collect_used_indices(expr)
+    result = expr
+
+    # Replace RicciScalar first (longer name avoids partial Ricci match)
+    while true
+        m = match(
+            Regex(
+                replace(ricci_scalar_name, r"([.*+?^${}()|\\])" => s"\\\1") * "\\[\\s*\\]"
+            ),
+            result,
+        )
+        isnothing(m) && break
+        fresh = _fresh_indices(2, used)
+        replacement = "$(riemann_name)[$(fresh[1]),$(fresh[2]),-$(fresh[1]),-$(fresh[2])]"
+        result = replace(result, m.match => replacement; count=1)
+    end
+
+    # Replace Ricci tensors
+    while true
+        m = match(
+            Regex(replace(ricci_name, r"([.*+?^${}()|\\])" => s"\\\1") * "\\[([^\\]]*)\\]"),
+            result,
+        )
+        isnothing(m) && break
+        indices = _parse_idx_list(m.captures[1])
+        length(indices) == 2 || error("Ricci tensor must have 2 indices, got: $(m.match)")
+        fresh = _fresh_indices(1, used)
+        # Ricci_{ab} = R^c{}_{acb}: contract slots 1&3 of Riemann
+        replacement = "$(riemann_name)[$(fresh[1]),$(indices[1]),-$(fresh[1]),$(indices[2])]"
+        result = replace(result, m.match => replacement; count=1)
+    end
+
+    result
+end
+
+# ============================================================
+# _classify_case
+# ============================================================
+
+"""
+    _classify_case(expr::String, metric::Symbol) -> InvariantCase
+
+Classify a single monomial (product of Riemann tensors, possibly with CovD derivatives)
+into an InvariantCase. Ricci/RicciScalar should already be replaced with Riemann.
+"""
+function _classify_case(expr::AbstractString, metric::Symbol)::InvariantCase
+    _, factors = _parse_invar_monomial(expr)
+    isempty(factors) && throw(ArgumentError("Empty expression cannot be classified"))
+
+    deriv_orders = Int[]
+    for f in factors
+        if startswith(f.tensor_name, "Riemann")
+            push!(deriv_orders, length(f.covd_indices))
+        elseif startswith(f.tensor_name, "Ricci")
+            error(
+                "_classify_case: Ricci/RicciScalar must be replaced before classification"
+            )
+        end
+    end
+
+    isempty(deriv_orders) && throw(ArgumentError("No Riemann factors found in expression"))
+    sort!(deriv_orders)
+    InvariantCase(deriv_orders)
+end
+
+# ============================================================
+# _extract_contraction_perm
+# ============================================================
+
+"""
+    _extract_contraction_perm(expr::String, case::InvariantCase) -> Vector{Int}
+
+Extract the contraction permutation from a monomial string.
+
+Slot assignment: for each Riemann factor (left to right), CovD indices come before
+the 4 Riemann indices. The result is an involution: perm[i] = j and perm[j] = i
+for each contracted pair (i, j).
+"""
+function _extract_contraction_perm(expr::AbstractString, case::InvariantCase)::Vector{Int}
+    _, factors = _parse_invar_monomial(expr)
+    expected_degree = PermDegree(case)
+
+    slot = 0
+    index_slots = Dict{String,Vector{Tuple{Int,Bool}}}()
+
+    for f in factors
+        startswith(f.tensor_name, "Riemann") || continue
+
+        # CovD indices first
+        for cidx in f.covd_indices
+            slot += 1
+            bare = _bare_index(cidx)
+            cov = _is_covariant_idx(cidx)
+            push!(get!(Vector{Tuple{Int,Bool}}, index_slots, bare), (slot, cov))
+        end
+
+        # Then Riemann indices
+        for idx in f.indices
+            slot += 1
+            bare = _bare_index(idx)
+            cov = _is_covariant_idx(idx)
+            push!(get!(Vector{Tuple{Int,Bool}}, index_slots, bare), (slot, cov))
+        end
+    end
+
+    slot == expected_degree ||
+        error("Slot count $slot != expected PermDegree $expected_degree for case $case")
+
+    perm = zeros(Int, expected_degree)
+
+    for (bare, occurrences) in index_slots
+        length(occurrences) == 2 || throw(
+            ArgumentError(
+                "Index '$bare' appears $(length(occurrences)) times; " *
+                "expected exactly 2 for a contracted pair",
+            ),
+        )
+
+        s1, cov1 = occurrences[1]
+        s2, cov2 = occurrences[2]
+        cov1 != cov2 ||
+            throw(ArgumentError("Index '$bare' has same variance in both occurrences"))
+
+        perm[s1] = s2
+        perm[s2] = s1
+    end
+
+    any(==(0), perm) && throw(
+        ArgumentError(
+            "Incomplete contraction: free indices not allowed in Riemann invariants"
+        ),
+    )
+
+    perm
+end
+
+# ============================================================
+# Permutation Canonicalization for Riemann Products
+# ============================================================
+
+"""
+    _swap_slots!(perm::Vector{Int}, a::Int, b::Int)
+
+Conjugate the contraction permutation by the transposition (a b).
+This swaps slots a and b: perm → (a b) ∘ perm ∘ (a b).
+"""
+function _swap_slots!(perm::Vector{Int}, a::Int, b::Int)
+    # Step 1: swap values a↔b throughout
+    for i in eachindex(perm)
+        if perm[i] == a
+            perm[i] = b
+        elseif perm[i] == b
+            perm[i] = a
+        end
+    end
+    # Step 2: swap entries at positions a and b
+    perm[a], perm[b] = perm[b], perm[a]
+end
+
+"""
+    _perm_sign_of(arr::Vector{Int}) -> Int
+
+Compute the sign (parity) of the permutation arr relative to its sorted order.
+"""
+function _perm_sign_of(arr::Vector{Int})::Int
+    n = length(arr)
+    n <= 1 && return 1
+    sorted = sort(arr)
+    pos = Dict(v => i for (i, v) in enumerate(sorted))
+    perm_indices = [pos[v] for v in arr]
+
+    visited = falses(n)
+    sign = 1
+    for i in 1:n
+        visited[i] && continue
+        cycle_len = 0
+        j = i
+        while !visited[j]
+            visited[j] = true
+            j = perm_indices[j]
+            cycle_len += 1
+        end
+        iseven(cycle_len) && (sign = -sign)
+    end
+    sign
+end
+
+"""
+    _all_permutations_of(indices::Vector{Int}) -> Vector{Tuple{Vector{Int}, Int}}
+
+Generate all permutations of `indices` as (permuted_list, sign_relative_to_sorted) pairs.
+"""
+function _all_permutations_of(indices::Vector{Int})::Vector{Tuple{Vector{Int},Int}}
+    n = length(indices)
+    n == 0 && return [(Int[], 1)]
+    n == 1 && return [(copy(indices), 1)]
+
+    result = Tuple{Vector{Int},Int}[]
+    arr = copy(indices)
+    _heap_permute!(result, arr, n)
+    result
+end
+
+function _heap_permute!(result::Vector{Tuple{Vector{Int},Int}}, arr::Vector{Int}, k::Int)
+    if k == 1
+        push!(result, (copy(arr), _perm_sign_of(arr)))
+        return nothing
+    end
+    for i in 1:k
+        _heap_permute!(result, arr, k - 1)
+        if iseven(k)
+            arr[i], arr[k] = arr[k], arr[i]
+        else
+            arr[1], arr[k] = arr[k], arr[1]
+        end
+    end
+end
+
+"""
+    _apply_block_perm_to_contraction(perm, block_perm, slot_ranges, degree) -> Vector{Int}
+
+Apply a block (factor) permutation to a contraction permutation.
+block_perm[i] = j means factor i moves to position j.
+"""
+function _apply_block_perm_to_contraction(
+    perm::Vector{Int},
+    block_perm::Vector{Int},
+    slot_ranges::Vector{UnitRange{Int}},
+    degree::Int,
+)::Vector{Int}
+    n = length(slot_ranges)
+    slot_map = zeros(Int, degree)
+    for i in 1:n
+        j = block_perm[i]
+        old_range = slot_ranges[i]
+        new_range = slot_ranges[j]
+        for (k, old_s) in enumerate(old_range)
+            slot_map[old_s] = new_range[k]
+        end
+    end
+
+    new_perm = zeros(Int, degree)
+    for i in 1:degree
+        new_perm[slot_map[i]] = slot_map[perm[i]]
+    end
+    new_perm
+end
+
+"""
+    _all_block_permutations(groups, n, slot_ranges) -> Vector{Tuple{Vector{Int}, Int}}
+
+Generate all block permutations respecting same-derivative-order groups.
+Returns (block_perm, sign) pairs where block_perm[i] = position that factor i maps to.
+"""
+function _all_block_permutations(
+    groups::Dict{Int,Vector{Int}}, n::Int, slot_ranges::Vector{UnitRange{Int}}
+)::Vector{Tuple{Vector{Int},Int}}
+    result = [(collect(1:n), 1)]
+
+    for (_, group_indices) in groups
+        length(group_indices) <= 1 && continue
+
+        # All permutations of this group
+        group_perms = _all_permutations_of(group_indices)
+
+        new_result = Tuple{Vector{Int},Int}[]
+        for (base_perm, base_sign) in result
+            for (gp, gp_sign) in group_perms
+                combined = copy(base_perm)
+                for (k, idx) in enumerate(group_indices)
+                    combined[idx] = base_perm[gp[k]]
+                end
+                push!(new_result, (combined, base_sign * gp_sign))
+            end
+        end
+        result = new_result
+    end
+
+    result
+end
+
+"""
+    _canonicalize_contraction_perm(perm, case) -> (canonical_perm, sign)
+
+Canonicalize a contraction permutation under the symmetry group of a product
+of Riemann tensors. The symmetry group combines:
+
+ 1. Riemann pair symmetries (8 elements per factor): swap (a,b) sign=-1,
+    swap (c,d) sign=-1, exchange pairs (a,b)↔(c,d) sign=+1.
+ 2. Block permutations of factors with the same derivative order (sign = parity).
+
+Returns the lexicographically minimal permutation and its sign.
+"""
+function _canonicalize_contraction_perm(
+    perm::Vector{Int}, case::InvariantCase
+)::Tuple{Vector{Int},Int}
+    n = length(case.deriv_orders)
+    n == 0 && return (copy(perm), 1)
+
+    degree = PermDegree(case)
+    length(perm) == degree || error("Perm length $(length(perm)) != PermDegree $degree")
+
+    # Compute slot ranges
+    slot_ranges = Vector{UnitRange{Int}}(undef, n)
+    riemann_offsets = Vector{Int}(undef, n)  # start of 4 Riemann slots in each factor
+    offset = 0
+    for i in 1:n
+        nd = case.deriv_orders[i]
+        total = nd + 4
+        slot_ranges[i] = (offset + 1):(offset + total)
+        riemann_offsets[i] = offset + nd
+        offset += total
+    end
+
+    # Group factors by derivative order
+    groups = Dict{Int,Vector{Int}}()
+    for i in 1:n
+        d = case.deriv_orders[i]
+        push!(get!(Vector{Int}, groups, d), i)
+    end
+
+    block_perms = _all_block_permutations(groups, n, slot_ranges)
+
+    best_perm = copy(perm)
+    best_sign = 1
+
+    for (block_perm_map, block_sign) in block_perms
+        bp = _apply_block_perm_to_contraction(perm, block_perm_map, slot_ranges, degree)
+
+        # After block perm, compute where each factor's Riemann slots ended up
+        target_riemann_starts = Vector{Int}(undef, n)
+        for i in 1:n
+            j = block_perm_map[i]
+            target_riemann_starts[j] = first(slot_ranges[j]) + case.deriv_orders[j]
+        end
+
+        # Enumerate all 8^n Riemann symmetry combinations
+        total_configs = 8^n
+        for config in 0:(total_configs - 1)
+            current_perm = copy(bp)
+            current_sign = block_sign
+
+            cfg = config
+            for i in 1:n
+                bits = cfg & 7
+                cfg >>= 3
+
+                rs = target_riemann_starts[i]
+                a, b, c, d = rs, rs + 1, rs + 2, rs + 3
+
+                if bits & 1 != 0  # swap first pair (a,b)
+                    _swap_slots!(current_perm, a, b)
+                    current_sign = -current_sign
+                end
+                if bits & 2 != 0  # swap second pair (c,d)
+                    _swap_slots!(current_perm, c, d)
+                    current_sign = -current_sign
+                end
+                if bits & 4 != 0  # exchange pairs (a,b) ↔ (c,d)
+                    _swap_slots!(current_perm, a, c)
+                    _swap_slots!(current_perm, b, d)
+                end
+            end
+
+            if current_perm < best_perm
+                best_perm = current_perm
+                best_sign = current_sign
+            end
+        end
+    end
+
+    (best_perm, best_sign)
+end
+
+# ============================================================
+# RiemannToPerm
+# ============================================================
+
+"""
+    RiemannToPerm(expr::String, metric::Symbol; covd::Symbol=metric)
+
+Convert a Riemann scalar expression into canonical RPerm permutation form.
+
+For a single monomial, returns an RPerm. For a sum, returns
+`Vector{Tuple{Rational{Int}, RPerm}}`.
+
+The expression should use pre-canonicalized index ordering. The `covd` keyword
+determines the tensor name prefix (default: same as metric).
+
+# Examples
+
+```julia
+RiemannToPerm("RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :g; covd=:CD)
+RiemannToPerm("RicciScalarCD[]", :g; covd=:CD)
+```
+"""
+function RiemannToPerm(expr::AbstractString, metric::Symbol; covd::Symbol=metric)
+    terms = _parse_invar_sum(expr)
+    isempty(terms) && throw(ArgumentError("Empty expression"))
+
+    results = Tuple{Rational{Int},RPerm}[]
+
+    for (sign, mono_str) in terms
+        coeff, rperm = _monomial_to_rperm(mono_str, metric, covd)
+        push!(results, (sign * coeff, rperm))
+    end
+
+    if length(results) == 1 && results[1][1] == 1
+        return results[1][2]
+    end
+
+    results
+end
+
+"""
+Process a single monomial into (coefficient, RPerm).
+"""
+function _monomial_to_rperm(
+    mono::AbstractString, metric::Symbol, covd::Symbol
+)::Tuple{Rational{Int},RPerm}
+    # Step 1: Replace Ricci/RicciScalar → Riemann
+    expanded = _ricci_to_riemann(mono, covd)
+
+    # Step 2: Parse
+    coeff, factors = _parse_invar_monomial(expanded)
+
+    for f in factors
+        startswith(f.tensor_name, "Riemann") || throw(
+            ArgumentError(
+                "Non-Riemann factor '$(f.tensor_name)' cannot be converted to RPerm"
+            ),
+        )
+    end
+
+    # Step 3: Classify
+    case = _classify_case(expanded, metric)
+
+    # Step 4: Extract contraction permutation
+    raw_perm = _extract_contraction_perm(expanded, case)
+
+    # Step 5: Canonicalize
+    canon_perm, canon_sign = _canonicalize_contraction_perm(raw_perm, case)
+
+    (coeff * canon_sign, RPerm(metric, case, canon_perm))
+end
+
+# ============================================================
+# PermToRiemann
+# ============================================================
+
+const _INDEX_ALPHABET = [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+]
+
+"""
+    PermToRiemann(rperm::RPerm; covd::Symbol=rperm.metric, curvature_relations::Bool=false) -> String
+
+Convert an RPerm back to a tensor expression string.
+
+The contraction permutation is an involution: perm[i]=j means slot i contracts with
+slot j. Each pair gets a unique index name. The lower-numbered slot gets the covariant
+(down) index, the higher slot gets the contravariant (up) index.
+
+If `curvature_relations=true`, contracted Riemann tensors are replaced with Ricci
+or RicciScalar where applicable.
+"""
+function PermToRiemann(
+    rperm::RPerm; covd::Symbol=rperm.metric, curvature_relations::Bool=false
+)::String
+    case = rperm.case
+    perm = rperm.perm
+    degree = PermDegree(case)
+    n = length(case.deriv_orders)
+    prefix = string(covd)
+    riemann_name = "Riemann" * prefix
+
+    n == 0 && return "1"
+
+    # Assign index names to contracted pairs
+    pair_count = 0
+    slot_index = Vector{String}(undef, degree)
+
+    for i in 1:degree
+        j = perm[i]
+        j > i || continue
+        pair_count += 1
+        pair_count <= length(_INDEX_ALPHABET) ||
+            error("Too many contracted pairs — index alphabet exhausted")
+        idx_name = _INDEX_ALPHABET[pair_count]
+        slot_index[i] = "-" * idx_name  # lower slot → covariant
+        slot_index[j] = idx_name         # higher slot → contravariant
+    end
+
+    # Build the tensor expression
+    parts = String[]
+    offset = 0
+    for i in 1:n
+        nd = case.deriv_orders[i]
+        total_slots = nd + 4
+
+        covd_indices = [slot_index[offset + k] for k in 1:nd]
+        riemann_indices = [slot_index[offset + nd + k] for k in 1:4]
+
+        if nd == 0
+            push!(parts, "$(riemann_name)[$(join(riemann_indices, ","))]")
+        else
+            inner = "$(riemann_name)[$(join(riemann_indices, ","))]"
+            for k in nd:-1:1
+                inner = "$(prefix)[$(covd_indices[k])][$(inner)]"
+            end
+            push!(parts, inner)
+        end
+
+        offset += total_slots
+    end
+
+    result = join(parts, " ")
+
+    curvature_relations && (result = _riemann_to_ricci(result, covd))
+
+    result
+end
+
+"""
+    _riemann_to_ricci(expr::String, covd::Symbol) -> String
+
+Replace contracted Riemann patterns with Ricci/RicciScalar where applicable.
+A Riemann factor with indices that self-contract can be simplified.
+"""
+function _riemann_to_ricci(expr::AbstractString, covd::Symbol)::String
+    prefix = string(covd)
+    riemann_name = "Riemann" * prefix
+    ricci_name = "Ricci" * prefix
+    ricci_scalar_name = "RicciScalar" * prefix
+
+    _, factors = _parse_invar_monomial(expr)
+
+    parts = String[]
+    for f in factors
+        if f.tensor_name == riemann_name && isempty(f.covd_indices)
+            self_pairs = _find_self_contractions(f.indices)
+
+            if length(self_pairs) == 2
+                push!(parts, "$(ricci_scalar_name)[]")
+            elseif length(self_pairs) == 1
+                contracted_slots = Set([self_pairs[1]...])
+                remaining = [f.indices[k] for k in 1:4 if k ∉ contracted_slots]
+                push!(parts, "$(ricci_name)[$(join(remaining, ","))]")
+            else
+                push!(parts, "$(riemann_name)[$(join(f.indices, ","))]")
+            end
+        else
+            if isempty(f.covd_indices)
+                push!(parts, "$(f.tensor_name)[$(join(f.indices, ","))]")
+            else
+                inner = "$(f.tensor_name)[$(join(f.indices, ","))]"
+                for k in length(f.covd_indices):-1:1
+                    inner = "$(prefix)[$(f.covd_indices[k])][$(inner)]"
+                end
+                push!(parts, inner)
+            end
+        end
+    end
+
+    join(parts, " ")
+end
+
+"""
+Find pairs of indices within a single factor that contract with each other.
+Returns list of (slot1, slot2) tuples.
+"""
+function _find_self_contractions(indices::Vector{String})::Vector{Tuple{Int,Int}}
+    pairs = Tuple{Int,Int}[]
+    n = length(indices)
+    used = falses(n)
+    for i in 1:n
+        used[i] && continue
+        for j in (i + 1):n
+            used[j] && continue
+            if _bare_index(indices[i]) == _bare_index(indices[j]) &&
+                _is_covariant_idx(indices[i]) != _is_covariant_idx(indices[j])
+                push!(pairs, (i, j))
+                used[i] = true
+                used[j] = true
+                break
+            end
+        end
+    end
+    pairs
+end
+
+# ============================================================
+# Lazy Database Loading
+# ============================================================
+
+"""
+Global cached InvarDB instance. Loaded on first access via `_ensure_db_loaded`.
+"""
+_invar_db::Union{Nothing,InvarDB} = nothing
+
+"""
+    _ensure_db_loaded(dbdir::String; dim::Int=4) -> InvarDB
+
+Load the Invar database if not already cached. Returns the cached instance.
+Thread-safe via simple check-and-set (sufficient for single-threaded use).
+"""
+function _ensure_db_loaded(dbdir::String; dim::Int=4)
+    global _invar_db
+    if _invar_db === nothing
+        _invar_db = LoadInvarDB(dbdir; dim=dim)
+    end
+    return _invar_db
+end
+
+"""
+    _reset_invar_db!()
+
+Clear the cached InvarDB instance. Called by `reset_state!` in xAct.jl.
+"""
+function _reset_invar_db!()
+    global _invar_db
+    _invar_db = nothing
+end
+
+end # module XInvar
