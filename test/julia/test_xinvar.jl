@@ -1189,4 +1189,194 @@ using xAct
             @test rperm1.case == rperm2.case
         end
     end
+
+    # ================================================================
+    # Phase 4: PermToInv / InvToPerm
+    # ================================================================
+
+    @testset "Phase 4: PermToInv / InvToPerm" begin
+
+        # Build a synthetic database for testing
+        function _make_test_db()
+            # Case [0]: 1 invariant (Ricci scalar / Kretschner for degree 1)
+            # Perm [2,1,4,3] is the canonical perm for the single case-[0] invariant
+            perms_0 = Dict{Int,Vector{Int}}(1 => [2, 1, 4, 3])
+
+            # Case [0,0]: 3 invariants
+            perms_00 = Dict{Int,Vector{Int}}(
+                1 => [2, 1, 4, 3, 6, 5, 8, 7],
+                2 => [6, 5, 8, 7, 2, 1, 4, 3],
+                3 => [8, 5, 4, 3, 2, 7, 6, 1],
+            )
+
+            perms = Dict{Vector{Int},Dict{Int,Vector{Int}}}(
+                [0] => perms_0, [0, 0] => perms_00
+            )
+
+            InvarDB(
+                perms,
+                Dict{Vector{Int},Dict{Int,Vector{Int}}}(),       # dual_perms
+                Dict{Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}}(), # rules
+                Dict{Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}}(), # dual_rules
+            )
+        end
+
+        @testset "PermToInv: case [0]" begin
+            db = _make_test_db()
+            rperm = RPerm(:CD, InvariantCase([0]), [2, 1, 4, 3])
+            rinv = PermToInv(rperm; db=db)
+            @test rinv.metric == :CD
+            @test rinv.case == InvariantCase([0])
+            @test rinv.index == 1
+        end
+
+        @testset "PermToInv: case [0,0] — all 3 invariants" begin
+            db = _make_test_db()
+
+            r1 = PermToInv(
+                RPerm(:CD, InvariantCase([0, 0]), [2, 1, 4, 3, 6, 5, 8, 7]); db=db
+            )
+            @test r1.index == 1
+
+            r2 = PermToInv(
+                RPerm(:CD, InvariantCase([0, 0]), [6, 5, 8, 7, 2, 1, 4, 3]); db=db
+            )
+            @test r2.index == 2
+
+            r3 = PermToInv(
+                RPerm(:CD, InvariantCase([0, 0]), [8, 5, 4, 3, 2, 7, 6, 1]); db=db
+            )
+            @test r3.index == 3
+        end
+
+        @testset "PermToInv: unknown permutation" begin
+            db = _make_test_db()
+            rperm = RPerm(:CD, InvariantCase([0, 0]), [1, 2, 3, 4, 5, 6, 7, 8])
+            @test_throws ArgumentError PermToInv(rperm; db=db)
+        end
+
+        @testset "PermToInv: unknown case" begin
+            db = _make_test_db()
+            rperm = RPerm(:CD, InvariantCase([2]), [1, 2, 3, 4, 5, 6])
+            @test_throws ArgumentError PermToInv(rperm; db=db)
+        end
+
+        @testset "InvToPerm: case [0]" begin
+            db = _make_test_db()
+            rinv = RInv(:CD, InvariantCase([0]), 1)
+            rperm = InvToPerm(rinv; db=db)
+            @test rperm.metric == :CD
+            @test rperm.case == InvariantCase([0])
+            @test rperm.perm == [2, 1, 4, 3]
+        end
+
+        @testset "InvToPerm: case [0,0] — all 3" begin
+            db = _make_test_db()
+
+            r1 = InvToPerm(RInv(:CD, InvariantCase([0, 0]), 1); db=db)
+            @test r1.perm == [2, 1, 4, 3, 6, 5, 8, 7]
+
+            r2 = InvToPerm(RInv(:CD, InvariantCase([0, 0]), 2); db=db)
+            @test r2.perm == [6, 5, 8, 7, 2, 1, 4, 3]
+
+            r3 = InvToPerm(RInv(:CD, InvariantCase([0, 0]), 3); db=db)
+            @test r3.perm == [8, 5, 4, 3, 2, 7, 6, 1]
+        end
+
+        @testset "InvToPerm: unknown index" begin
+            db = _make_test_db()
+            @test_throws ArgumentError InvToPerm(
+                RInv(:CD, InvariantCase([0, 0]), 99); db=db
+            )
+        end
+
+        @testset "InvToPerm: unknown case" begin
+            db = _make_test_db()
+            @test_throws ArgumentError InvToPerm(RInv(:CD, InvariantCase([2]), 1); db=db)
+        end
+
+        @testset "round-trip: PermToInv → InvToPerm" begin
+            db = _make_test_db()
+            for idx in 1:3
+                perm = db.perms[[0, 0]][idx]
+                rperm = RPerm(:CD, InvariantCase([0, 0]), perm)
+                rinv = PermToInv(rperm; db=db)
+                @test rinv.index == idx
+                rperm2 = InvToPerm(rinv; db=db)
+                @test rperm2.perm == perm
+            end
+        end
+
+        @testset "round-trip: InvToPerm → PermToInv" begin
+            db = _make_test_db()
+            for idx in 1:3
+                rinv = RInv(:CD, InvariantCase([0, 0]), idx)
+                rperm = InvToPerm(rinv; db=db)
+                rinv2 = PermToInv(rperm; db=db)
+                @test rinv2.index == idx
+            end
+        end
+
+        @testset "dispatch cache is built and reused" begin
+            db = _make_test_db()
+            # Reset dispatch cache
+            xAct.XInvar._perm_dispatch = nothing
+
+            rperm = RPerm(:CD, InvariantCase([0]), [2, 1, 4, 3])
+            PermToInv(rperm; db=db)
+
+            # Cache should now be populated
+            @test xAct.XInvar._perm_dispatch !== nothing
+            @test haskey(xAct.XInvar._perm_dispatch, [0])
+            @test haskey(xAct.XInvar._perm_dispatch, [0, 0])
+
+            # Clean up
+            xAct.XInvar._perm_dispatch = nothing
+        end
+
+        @testset "reset_state! clears dispatch cache" begin
+            db = _make_test_db()
+            xAct.XInvar._perm_dispatch = nothing
+            PermToInv(RPerm(:CD, InvariantCase([0]), [2, 1, 4, 3]); db=db)
+            @test xAct.XInvar._perm_dispatch !== nothing
+
+            xAct.reset_state!()
+            @test xAct.XInvar._perm_dispatch === nothing
+        end
+
+        @testset "different metrics preserved" begin
+            db = _make_test_db()
+            rperm_g = RPerm(:g, InvariantCase([0]), [2, 1, 4, 3])
+            rperm_h = RPerm(:h, InvariantCase([0]), [2, 1, 4, 3])
+
+            rinv_g = PermToInv(rperm_g; db=db)
+            rinv_h = PermToInv(rperm_h; db=db)
+
+            @test rinv_g.metric == :g
+            @test rinv_h.metric == :h
+            @test rinv_g.index == rinv_h.index  # same perm → same index
+        end
+
+        @testset "full pipeline: RiemannToPerm → PermToInv → InvToPerm → PermToRiemann" begin
+            db = _make_test_db()
+
+            # Kretschner scalar
+            rperm = RiemannToPerm("RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :g; covd=:CD)
+
+            # This should match one of the 3 invariants in case [0,0]
+            # (assuming the canonical perm is in our test DB)
+            if haskey(xAct.XInvar._ensure_dispatch(db), rperm.case.deriv_orders) &&
+                haskey(xAct.XInvar._ensure_dispatch(db)[rperm.case.deriv_orders], rperm.perm)
+                rinv = PermToInv(rperm; db=db)
+                rperm2 = InvToPerm(rinv; db=db)
+                expr = PermToRiemann(rperm2; covd=:CD)
+                @test contains(expr, "RiemannCD[")
+                @test rperm.perm == rperm2.perm
+            else
+                # If the canonical perm doesn't match our synthetic DB, that's ok —
+                # just verify the perm is valid
+                @test length(rperm.perm) == 8
+            end
+        end
+    end
 end

@@ -26,6 +26,7 @@ export InvariantCase, RPerm, RInv
 export PermDegree, MaxIndex, MaxDualIndex
 export InvarCases, InvarDualCases
 export RiemannToPerm, PermToRiemann
+export PermToInv, InvToPerm
 
 # InvarDB submodule — database loading and rule parser
 include("InvarDB.jl")
@@ -1373,6 +1374,114 @@ function _find_self_contractions(indices::Vector{String})::Vector{Tuple{Int,Int}
 end
 
 # ============================================================
+# Phase 4: Permutation-to-Invariant Lookup (PermToInv)
+# ============================================================
+
+"""
+    _build_perm_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
+
+Build a reverse lookup table: case → (permutation → invariant_index).
+Used by `PermToInv` for O(1) lookup of canonical permutations.
+"""
+function _build_perm_dispatch(db::InvarDB)::Dict{Vector{Int},Dict{Vector{Int},Int}}
+    dispatch = Dict{Vector{Int},Dict{Vector{Int},Int}}()
+    for (case_key, index_to_perm) in db.perms
+        perm_to_index = Dict{Vector{Int},Int}()
+        for (idx, perm) in index_to_perm
+            perm_to_index[perm] = idx
+        end
+        dispatch[case_key] = perm_to_index
+    end
+    dispatch
+end
+
+"""
+Global cached dispatch table. Built on first `PermToInv` call.
+"""
+_perm_dispatch::Union{Nothing,Dict{Vector{Int},Dict{Vector{Int},Int}}} = nothing
+
+"""
+    _ensure_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
+
+Return the cached dispatch table, building it from `db` if needed.
+"""
+function _ensure_dispatch(db::InvarDB)
+    global _perm_dispatch
+    if _perm_dispatch === nothing
+        _perm_dispatch = _build_perm_dispatch(db)
+    end
+    return _perm_dispatch
+end
+
+"""
+    PermToInv(rperm::RPerm; db::InvarDB) -> RInv
+
+Look up the invariant label for a canonical RPerm from the loaded database.
+
+The RPerm's permutation must already be in canonical form (as produced by
+`RiemannToPerm`). Returns the corresponding `RInv` with the database index.
+
+Throws `ArgumentError` if the permutation is not found in the database.
+"""
+function PermToInv(rperm::RPerm; db::InvarDB)::RInv
+    dispatch = _ensure_dispatch(db)
+    case_key = rperm.case.deriv_orders
+
+    if !haskey(dispatch, case_key)
+        throw(
+            ArgumentError(
+                "Case $case_key not found in database. " *
+                "Load the database with LoadInvarDB first.",
+            ),
+        )
+    end
+
+    perm_to_index = dispatch[case_key]
+    if !haskey(perm_to_index, rperm.perm)
+        throw(
+            ArgumentError(
+                "Permutation $(rperm.perm) not found in database for case $case_key. " *
+                "The permutation may not be in canonical form, or the database may be incomplete.",
+            ),
+        )
+    end
+
+    RInv(rperm.metric, rperm.case, perm_to_index[rperm.perm])
+end
+
+"""
+    InvToPerm(rinv::RInv; db::InvarDB) -> RPerm
+
+Reverse lookup: given an RInv, return the canonical RPerm from the database.
+
+Throws `ArgumentError` if the invariant index is not found.
+"""
+function InvToPerm(rinv::RInv; db::InvarDB)::RPerm
+    case_key = rinv.case.deriv_orders
+
+    if !haskey(db.perms, case_key)
+        throw(
+            ArgumentError(
+                "Case $case_key not found in database. " *
+                "Load the database with LoadInvarDB first.",
+            ),
+        )
+    end
+
+    index_to_perm = db.perms[case_key]
+    if !haskey(index_to_perm, rinv.index)
+        throw(
+            ArgumentError(
+                "Invariant index $(rinv.index) not found in database for case $case_key. " *
+                "Valid range: 1..$(length(index_to_perm)).",
+            ),
+        )
+    end
+
+    RPerm(rinv.metric, rinv.case, index_to_perm[rinv.index])
+end
+
+# ============================================================
 # Lazy Database Loading
 # ============================================================
 
@@ -1402,7 +1511,9 @@ Clear the cached InvarDB instance. Called by `reset_state!` in xAct.jl.
 """
 function _reset_invar_db!()
     global _invar_db
+    global _perm_dispatch
     _invar_db = nothing
+    _perm_dispatch = nothing
 end
 
 end # module XInvar
