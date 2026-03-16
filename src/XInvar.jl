@@ -27,7 +27,7 @@ export PermDegree, MaxIndex, MaxDualIndex
 export InvarCases, InvarDualCases
 export RiemannToPerm, PermToRiemann
 export PermToInv, InvToPerm
-export InvSimplify
+export InvSimplify, RiemannSimplify
 
 # InvarDB submodule — database loading and rule parser
 include("InvarDB.jl")
@@ -1583,6 +1583,122 @@ function _collect_inv_terms(expr::InvExpr)::InvExpr
 
     sort!(result; by=t -> (t[2].case.deriv_orders, t[2].index))
     result
+end
+
+# ============================================================
+# Phase 7: RiemannSimplify — End-to-End Pipeline
+# ============================================================
+
+"""
+    RiemannSimplify(expr, metric; covd, level, curvature_relations, db, dim) -> String
+
+Simplify a Riemann scalar expression using the Invar database.
+
+Pipeline: parse → RiemannToPerm → PermToInv → InvSimplify → InvToPerm → PermToRiemann.
+
+# Arguments
+
+  - `expr::String`: tensor expression (fully contracted scalar)
+  - `metric::Symbol`: the metric symbol
+  - `covd::Symbol=metric`: covariant derivative name (determines tensor prefixes)
+  - `level::Int=6`: InvSimplify level (1-6)
+  - `curvature_relations::Bool=false`: replace contracted Riemanns with Ricci/RicciScalar
+  - `db::InvarDB`: loaded Invar database
+  - `dim::Union{Int,Nothing}=nothing`: manifold dimension (needed for levels 5-6)
+
+# Returns
+
+A simplified tensor expression string, or `"0"` if all terms cancel.
+
+Source: Invar.m:834-839
+"""
+function RiemannSimplify(
+    expr::AbstractString,
+    metric::Symbol;
+    covd::Symbol=metric,
+    level::Int=6,
+    curvature_relations::Bool=false,
+    db::InvarDB,
+    dim::Union{Int,Nothing}=nothing,
+)::String
+    s = String(strip(expr))
+    (s == "0" || isempty(s)) && return "0"
+
+    # Convert expression to RPerm terms
+    rperm_result = RiemannToPerm(s, metric; covd=covd)
+
+    # Normalize to a list of (coefficient, RPerm)
+    rperm_terms = if rperm_result isa RPerm
+        Tuple{Rational{Int},RPerm}[(1 // 1, rperm_result)]
+    else
+        rperm_result::Vector{Tuple{Rational{Int},RPerm}}
+    end
+
+    # Convert to InvExpr via PermToInv
+    inv_terms = InvExpr()
+    for (coeff, rperm) in rperm_terms
+        rinv = PermToInv(rperm; db=db)
+        push!(inv_terms, (coeff, rinv))
+    end
+
+    # Simplify
+    simplified = InvSimplify(inv_terms, level; db=db, dim=dim)
+    isempty(simplified) && return "0"
+
+    # Convert back to tensor expression
+    _inv_expr_to_string(
+        simplified; covd=covd, curvature_relations=curvature_relations, db=db
+    )
+end
+
+"""
+    _inv_expr_to_string(expr::InvExpr; covd, curvature_relations, db) -> String
+
+Convert a simplified InvExpr back to a tensor expression string.
+"""
+function _inv_expr_to_string(
+    expr::InvExpr; covd::Symbol, curvature_relations::Bool=false, db::InvarDB
+)::String
+    isempty(expr) && return "0"
+
+    parts = String[]
+    for (i, (coeff, rinv)) in enumerate(expr)
+        rperm = InvToPerm(rinv; db=db)
+        tensor = PermToRiemann(rperm; covd=covd, curvature_relations=curvature_relations)
+
+        if i == 1
+            # First term: include sign in coefficient
+            if coeff == 1 // 1
+                push!(parts, tensor)
+            elseif coeff == -1 // 1
+                push!(parts, "-" * tensor)
+            else
+                push!(parts, _format_rational(coeff) * " " * tensor)
+            end
+        else
+            # Subsequent terms: use + or - separator
+            abs_coeff = abs(coeff)
+            sign = coeff > 0 ? " + " : " - "
+            if abs_coeff == 1 // 1
+                push!(parts, sign * tensor)
+            else
+                push!(parts, sign * _format_rational(abs_coeff) * " " * tensor)
+            end
+        end
+    end
+
+    join(parts)
+end
+
+"""
+Format a rational coefficient as a string. Integers omit the denominator.
+"""
+function _format_rational(r::Rational{Int})::String
+    if denominator(r) == 1
+        string(numerator(r))
+    else
+        string(numerator(r)) * "/" * string(denominator(r))
+    end
 end
 
 # ============================================================

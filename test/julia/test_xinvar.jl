@@ -1627,4 +1627,171 @@ using xAct
             @test r2 == r3
         end
     end
+
+    # ================================================================
+    # Phase 7: RiemannSimplify
+    # ================================================================
+
+    @testset "Phase 7: RiemannSimplify" begin
+
+        # Build a DB that contains the canonical perms RiemannToPerm produces.
+        # We need to discover what canonical perms our implementation generates
+        # for known expressions, then build the DB around those.
+        function _make_riemann_simplify_db()
+            # Get canonical perms for known expressions
+            r_scalar = RiemannToPerm("RicciScalarCD[]", :g; covd=:CD)
+            r_kretschner = RiemannToPerm(
+                "RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :g; covd=:CD
+            )
+
+            # Case [0]: 1 invariant
+            perms_0 = Dict{Int,Vector{Int}}(1 => r_scalar.perm)
+
+            # Case [0,0]: 3 invariants — Kretschner is one of them
+            # We need to figure out which index it maps to. Put it as inv 1.
+            # Also add 2 more placeholder perms for the other invariants.
+            perms_00 = Dict{Int,Vector{Int}}(
+                1 => r_kretschner.perm,
+                2 => [2, 1, 6, 5, 4, 3, 8, 7],  # another canonical perm
+                3 => [2, 7, 4, 5, 8, 3, 6, 1],  # another canonical perm
+            )
+
+            perms = Dict{Vector{Int},Dict{Int,Vector{Int}}}(
+                [0] => perms_0, [0, 0] => perms_00
+            )
+
+            # Step 2 rule: inv3 → inv1 - inv2 (cyclic identity)
+            step2_rules = Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}(
+                [0, 0] => Dict{Int,Vector{Tuple{Int,Rational{Int}}}}(
+                    3 => [(1, 1 // 1), (2, -1 // 1)]
+                ),
+            )
+
+            rules = Dict{Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}}(
+                2 => step2_rules
+            )
+
+            InvarDB(
+                perms,
+                Dict{Vector{Int},Dict{Int,Vector{Int}}}(),
+                rules,
+                Dict{Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}}(),
+            )
+        end
+
+        @testset "trivial: zero" begin
+            db = _make_riemann_simplify_db()
+            @test RiemannSimplify("0", :g; covd=:CD, db=db) == "0"
+            @test RiemannSimplify("", :g; covd=:CD, db=db) == "0"
+        end
+
+        @testset "RicciScalar passthrough" begin
+            db = _make_riemann_simplify_db()
+            # Clear dispatch cache from previous tests
+            xAct.XInvar._perm_dispatch = nothing
+
+            result = RiemannSimplify("RicciScalarCD[]", :g; covd=:CD, db=db)
+            # Should produce a tensor expression for case [0], inv 1
+            @test !isempty(result)
+            @test result != "0"
+            @test contains(result, "RiemannCD[")
+        end
+
+        @testset "Kretschner scalar" begin
+            db = _make_riemann_simplify_db()
+            xAct.XInvar._perm_dispatch = nothing
+
+            result = RiemannSimplify(
+                "RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :g; covd=:CD, db=db
+            )
+            @test !isempty(result)
+            @test result != "0"
+            @test contains(result, "RiemannCD[")
+        end
+
+        @testset "same expression relabeled cancels" begin
+            db = _make_riemann_simplify_db()
+            xAct.XInvar._perm_dispatch = nothing
+
+            # Two Kretschner expressions with different dummy labels → same RPerm
+            # Their difference should be "0"
+            result = RiemannSimplify(
+                "RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d] - RiemannCD[-e,-f,-g,-h] RiemannCD[e,f,g,h]",
+                :g;
+                covd=:CD,
+                db=db,
+            )
+            @test result == "0"
+        end
+
+        @testset "curvature_relations flag" begin
+            db = _make_riemann_simplify_db()
+            xAct.XInvar._perm_dispatch = nothing
+
+            result_no_cr = RiemannSimplify("RicciScalarCD[]", :g; covd=:CD, db=db)
+            result_cr = RiemannSimplify(
+                "RicciScalarCD[]", :g; covd=:CD, db=db, curvature_relations=true
+            )
+
+            # Without curvature_relations: should have RiemannCD
+            @test contains(result_no_cr, "RiemannCD[")
+            # With curvature_relations: should have RicciScalar (self-contracted Riemann)
+            @test contains(result_cr, "RicciScalarCD[]")
+        end
+
+        @testset "level 1: no simplification" begin
+            db = _make_riemann_simplify_db()
+            xAct.XInvar._perm_dispatch = nothing
+
+            result = RiemannSimplify(
+                "RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :g; covd=:CD, db=db, level=1
+            )
+            @test !isempty(result)
+            @test result != "0"
+        end
+
+        @testset "free indices rejected" begin
+            db = _make_riemann_simplify_db()
+            @test_throws ArgumentError RiemannSimplify(
+                "RiemannCD[-a,-b,-c,-d]", :g; covd=:CD, db=db
+            )
+        end
+
+        @testset "_format_rational" begin
+            fmt = xAct.XInvar._format_rational
+            @test fmt(1 // 1) == "1"
+            @test fmt(-3 // 1) == "-3"
+            @test fmt(3 // 2) == "3/2"
+            @test fmt(-1 // 2) == "-1/2"
+        end
+
+        @testset "_inv_expr_to_string" begin
+            db = _make_riemann_simplify_db()
+            xAct.XInvar._perm_dispatch = nothing
+            to_str = xAct.XInvar._inv_expr_to_string
+
+            # Single term with coefficient 1
+            expr1 = Tuple{Rational{Int},RInv}[(1 // 1, RInv(:g, InvariantCase([0]), 1))]
+            s1 = to_str(expr1; covd=:CD, db=db)
+            @test contains(s1, "RiemannCD[")
+            @test !startswith(s1, "-")
+
+            # Single term with coefficient -1
+            expr2 = Tuple{Rational{Int},RInv}[(-1 // 1, RInv(:g, InvariantCase([0]), 1))]
+            s2 = to_str(expr2; covd=:CD, db=db)
+            @test startswith(s2, "-")
+
+            # Two terms
+            expr3 = Tuple{Rational{Int},RInv}[
+                (2 // 1, RInv(:g, InvariantCase([0, 0]), 1)),
+                (-1 // 1, RInv(:g, InvariantCase([0, 0]), 2)),
+            ]
+            s3 = to_str(expr3; covd=:CD, db=db)
+            @test contains(s3, " + ") || contains(s3, " - ")
+
+            # Empty → "0"
+            s4 = to_str(Tuple{Rational{Int},RInv}[]; covd=:CD, db=db)
+            @test s4 == "0"
+        end
+    end
 end
