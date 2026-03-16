@@ -1,10 +1,18 @@
-# Invar — Riemann Invariant Classification & Simplification
+# sxAct — xAct Migration & Implementation
 # Copyright (C) 2026 sxAct Contributors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
     XInvar
@@ -1379,14 +1387,16 @@ end
 # ============================================================
 
 """
-    _build_perm_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
+    _build_perm_dispatch(perm_table) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
 
 Build a reverse lookup table: case → (permutation → invariant_index).
 Used by `PermToInv` for O(1) lookup of canonical permutations.
 """
-function _build_perm_dispatch(db::InvarDB)::Dict{Vector{Int},Dict{Vector{Int},Int}}
+function _build_perm_dispatch(
+    perm_table::Dict{Vector{Int},Dict{Int,Vector{Int}}}
+)::Dict{Vector{Int},Dict{Vector{Int},Int}}
     dispatch = Dict{Vector{Int},Dict{Vector{Int},Int}}()
-    for (case_key, index_to_perm) in db.perms
+    for (case_key, index_to_perm) in perm_table
         perm_to_index = Dict{Vector{Int},Int}()
         for (idx, perm) in index_to_perm
             perm_to_index[perm] = idx
@@ -1397,9 +1407,10 @@ function _build_perm_dispatch(db::InvarDB)::Dict{Vector{Int},Dict{Vector{Int},In
 end
 
 """
-Global cached dispatch table. Built on first `PermToInv` call.
+Global cached dispatch tables. Built on first `PermToInv` call.
 """
 _perm_dispatch::Union{Nothing,Dict{Vector{Int},Dict{Vector{Int},Int}}} = nothing
+_dual_perm_dispatch::Union{Nothing,Dict{Vector{Int},Dict{Vector{Int},Int}}} = nothing
 
 """
     _ensure_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
@@ -1409,9 +1420,22 @@ Return the cached dispatch table, building it from `db` if needed.
 function _ensure_dispatch(db::InvarDB)
     global _perm_dispatch
     if _perm_dispatch === nothing
-        _perm_dispatch = _build_perm_dispatch(db)
+        _perm_dispatch = _build_perm_dispatch(db.perms)
     end
     return _perm_dispatch
+end
+
+"""
+    _ensure_dual_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
+
+Return the cached dual dispatch table, building it from `db` if needed.
+"""
+function _ensure_dual_dispatch(db::InvarDB)
+    global _dual_perm_dispatch
+    if _dual_perm_dispatch === nothing
+        _dual_perm_dispatch = _build_perm_dispatch(db.dual_perms)
+    end
+    return _dual_perm_dispatch
 end
 
 """
@@ -1422,16 +1446,22 @@ Look up the invariant label for a canonical RPerm from the loaded database.
 The RPerm's permutation must already be in canonical form (as produced by
 `RiemannToPerm`). Returns the corresponding `RInv` with the database index.
 
+For dual invariants (`rperm.case.n_epsilon == 1`), looks up in the dual
+permutation tables.
+
 Throws `ArgumentError` if the permutation is not found in the database.
 """
 function PermToInv(rperm::RPerm; db::InvarDB)::RInv
-    dispatch = _ensure_dispatch(db)
     case_key = rperm.case.deriv_orders
+    is_dual = rperm.case.n_epsilon == 1
+
+    dispatch = is_dual ? _ensure_dual_dispatch(db) : _ensure_dispatch(db)
+    label = is_dual ? "dual database" : "database"
 
     if !haskey(dispatch, case_key)
         throw(
             ArgumentError(
-                "Case $case_key not found in database. " *
+                "Case $case_key not found in $label. " *
                 "Load the database with LoadInvarDB first.",
             ),
         )
@@ -1441,7 +1471,7 @@ function PermToInv(rperm::RPerm; db::InvarDB)::RInv
     if !haskey(perm_to_index, rperm.perm)
         throw(
             ArgumentError(
-                "Permutation $(rperm.perm) not found in database for case $case_key. " *
+                "Permutation $(rperm.perm) not found in $label for case $case_key. " *
                 "The permutation may not be in canonical form, or the database may be incomplete.",
             ),
         )
@@ -1455,25 +1485,32 @@ end
 
 Reverse lookup: given an RInv, return the canonical RPerm from the database.
 
+For dual invariants (`rinv.case.n_epsilon == 1`), looks up in the dual
+permutation tables.
+
 Throws `ArgumentError` if the invariant index is not found.
 """
 function InvToPerm(rinv::RInv; db::InvarDB)::RPerm
     case_key = rinv.case.deriv_orders
+    is_dual = rinv.case.n_epsilon == 1
 
-    if !haskey(db.perms, case_key)
+    perm_table = is_dual ? db.dual_perms : db.perms
+    label = is_dual ? "dual database" : "database"
+
+    if !haskey(perm_table, case_key)
         throw(
             ArgumentError(
-                "Case $case_key not found in database. " *
+                "Case $case_key not found in $label. " *
                 "Load the database with LoadInvarDB first.",
             ),
         )
     end
 
-    index_to_perm = db.perms[case_key]
+    index_to_perm = perm_table[case_key]
     if !haskey(index_to_perm, rinv.index)
         throw(
             ArgumentError(
-                "Invariant index $(rinv.index) not found in database for case $case_key. " *
+                "Invariant index $(rinv.index) not found in $label for case $case_key. " *
                 "Valid range: 1..$(length(index_to_perm)).",
             ),
         )
@@ -1516,11 +1553,28 @@ end
     InvSimplify(expr::InvExpr, level::Int=6; db::InvarDB, dim=nothing) -> InvExpr
 
 Simplify a linear combination of Riemann invariants.
+
+Dual invariants (`n_epsilon == 1`) require `dim == 4`. An `ArgumentError` is
+raised if any dual term is present and `dim` is not 4.
 """
 function InvSimplify(
     expr::InvExpr, level::Int=6; db::InvarDB, dim::Union{Int,Nothing}=nothing
 )
     isempty(expr) && return expr
+
+    # Validate: dual invariants require dim == 4
+    for (_, rinv) in expr
+        if rinv.case.n_epsilon == 1 && dim != 4
+            throw(
+                ArgumentError(
+                    "Dual invariants (n_epsilon=1) require dim=4, got dim=$dim. " *
+                    "Dual Riemann invariants involving the Levi-Civita tensor " *
+                    "are only defined in 4 dimensions.",
+                ),
+            )
+        end
+    end
+
     level <= 1 && return _collect_inv_terms(expr)
 
     result = _apply_step_rules(expr, 2, db)
@@ -1541,13 +1595,21 @@ end
 
 Apply substitution rules from database step to each term in the expression.
 Dependent invariants are replaced with linear combinations of independent ones.
+
+For dual invariants (`n_epsilon == 1`), uses `db.dual_rules` instead of `db.rules`.
 """
 function _apply_step_rules(expr::InvExpr, step::Int, db::InvarDB; dim::Int=4)
-    step_rules = get(db.rules, step, nothing)
-    isnothing(step_rules) && return expr
-
     result = InvExpr()
     for (coeff, rinv) in expr
+        is_dual = rinv.case.n_epsilon == 1
+        rule_table = is_dual ? db.dual_rules : db.rules
+        step_rules = get(rule_table, step, nothing)
+
+        if isnothing(step_rules)
+            push!(result, (coeff, rinv))
+            continue
+        end
+
         case_key = rinv.case.deriv_orders
         case_rules = get(step_rules, case_key, nothing)
 
@@ -1732,8 +1794,10 @@ Clear the cached InvarDB instance. Called by `reset_state!` in xAct.jl.
 function _reset_invar_db!()
     global _invar_db
     global _perm_dispatch
+    global _dual_perm_dispatch
     _invar_db = nothing
     _perm_dispatch = nothing
+    _dual_perm_dispatch = nothing
 end
 
 end # module XInvar

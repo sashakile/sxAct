@@ -1794,4 +1794,333 @@ using xAct
             @test s4 == "0"
         end
     end
+
+    # ================================================================
+    # Phase 10: Dual Invariant Handling
+    # ================================================================
+
+    @testset "Phase 10: Dual Invariant Handling" begin
+
+        # Build a synthetic DB with both non-dual and dual perm/rule data
+        function _make_dual_db()
+            # Non-dual: case [0] has 1 invariant, case [0,0] has 3
+            perms_0 = Dict{Int,Vector{Int}}(1 => [2, 1, 4, 3])
+            perms_00 = Dict{Int,Vector{Int}}(
+                1 => [2, 1, 4, 3, 6, 5, 8, 7],
+                2 => [6, 5, 8, 7, 2, 1, 4, 3],
+                3 => [8, 5, 4, 3, 2, 7, 6, 1],
+            )
+            perms = Dict{Vector{Int},Dict{Int,Vector{Int}}}(
+                [0] => perms_0, [0, 0] => perms_00
+            )
+
+            # Dual: case [0] has 1 invariant, case [0,0] has 4 invariants
+            # (dual invariants have different perm degree: 4*n + sum + 4*1)
+            # For case [0], n_epsilon=1: degree = 4*1 + 0 + 4*1 = 8
+            dual_perms_0 = Dict{Int,Vector{Int}}(1 => [2, 1, 4, 3, 6, 5, 8, 7])
+            # For case [0,0], n_epsilon=1: degree = 4*2 + 0 + 4*1 = 12
+            dual_perms_00 = Dict{Int,Vector{Int}}(
+                1 => [2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11],
+                2 => [6, 5, 8, 7, 2, 1, 4, 3, 10, 9, 12, 11],
+                3 => [10, 9, 4, 3, 6, 5, 8, 7, 2, 1, 12, 11],
+                4 => [12, 9, 4, 3, 6, 5, 8, 7, 2, 11, 10, 1],
+            )
+            dual_perms = Dict{Vector{Int},Dict{Int,Vector{Int}}}(
+                [0] => dual_perms_0, [0, 0] => dual_perms_00
+            )
+
+            # Non-dual rules: step 2 rule for case [0,0], inv3 → inv1 - inv2
+            step2_rules = Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}(
+                [0, 0] => Dict{Int,Vector{Tuple{Int,Rational{Int}}}}(
+                    3 => [(1, 1 // 1), (2, -1 // 1)]
+                ),
+            )
+
+            # Dual rules: step 2 rule for dual case [0,0], inv4 → inv1 + 2*inv2
+            dual_step2_rules = Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}(
+                [0, 0] => Dict{Int,Vector{Tuple{Int,Rational{Int}}}}(
+                    4 => [(1, 1 // 1), (2, 2 // 1)]
+                ),
+            )
+
+            # Dual rules: step 3 rule for dual case [0,0], inv3 → -inv1 + inv2
+            dual_step3_rules = Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}(
+                [0, 0] => Dict{Int,Vector{Tuple{Int,Rational{Int}}}}(
+                    3 => [(1, -1 // 1), (2, 1 // 1)]
+                ),
+            )
+
+            rules = Dict{Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}}(
+                2 => step2_rules
+            )
+            dual_rules = Dict{
+                Int,Dict{Vector{Int},Dict{Int,Vector{Tuple{Int,Rational{Int}}}}}
+            }(
+                2 => dual_step2_rules, 3 => dual_step3_rules
+            )
+
+            InvarDB(perms, dual_perms, rules, dual_rules)
+        end
+
+        @testset "PermToInv: dual case [0]" begin
+            db = _make_dual_db()
+            xAct.XInvar._perm_dispatch = nothing
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            dual_case = InvariantCase([0], 1)
+            rperm = RPerm(:CD, dual_case, [2, 1, 4, 3, 6, 5, 8, 7])
+            rinv = PermToInv(rperm; db=db)
+            @test rinv.metric == :CD
+            @test rinv.case == dual_case
+            @test rinv.index == 1
+        end
+
+        @testset "PermToInv: dual case [0,0] — all 4 invariants" begin
+            db = _make_dual_db()
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            dual_case = InvariantCase([0, 0], 1)
+            r1 = PermToInv(
+                RPerm(:CD, dual_case, [2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11]); db=db
+            )
+            @test r1.index == 1
+
+            r2 = PermToInv(
+                RPerm(:CD, dual_case, [6, 5, 8, 7, 2, 1, 4, 3, 10, 9, 12, 11]); db=db
+            )
+            @test r2.index == 2
+
+            r3 = PermToInv(
+                RPerm(:CD, dual_case, [10, 9, 4, 3, 6, 5, 8, 7, 2, 1, 12, 11]); db=db
+            )
+            @test r3.index == 3
+
+            r4 = PermToInv(
+                RPerm(:CD, dual_case, [12, 9, 4, 3, 6, 5, 8, 7, 2, 11, 10, 1]); db=db
+            )
+            @test r4.index == 4
+        end
+
+        @testset "PermToInv: dual unknown perm" begin
+            db = _make_dual_db()
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            dual_case = InvariantCase([0], 1)
+            rperm = RPerm(:CD, dual_case, [1, 2, 3, 4, 5, 6, 7, 8])
+            @test_throws ArgumentError PermToInv(rperm; db=db)
+        end
+
+        @testset "PermToInv: dual unknown case" begin
+            db = _make_dual_db()
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            dual_case = InvariantCase([2], 1)
+            rperm = RPerm(:CD, dual_case, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+            @test_throws ArgumentError PermToInv(rperm; db=db)
+        end
+
+        @testset "InvToPerm: dual case [0]" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0], 1)
+            rinv = RInv(:CD, dual_case, 1)
+            rperm = InvToPerm(rinv; db=db)
+            @test rperm.metric == :CD
+            @test rperm.case == dual_case
+            @test rperm.perm == [2, 1, 4, 3, 6, 5, 8, 7]
+        end
+
+        @testset "InvToPerm: dual case [0,0] — all 4" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+
+            r1 = InvToPerm(RInv(:CD, dual_case, 1); db=db)
+            @test r1.perm == [2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11]
+
+            r2 = InvToPerm(RInv(:CD, dual_case, 2); db=db)
+            @test r2.perm == [6, 5, 8, 7, 2, 1, 4, 3, 10, 9, 12, 11]
+
+            r3 = InvToPerm(RInv(:CD, dual_case, 3); db=db)
+            @test r3.perm == [10, 9, 4, 3, 6, 5, 8, 7, 2, 1, 12, 11]
+
+            r4 = InvToPerm(RInv(:CD, dual_case, 4); db=db)
+            @test r4.perm == [12, 9, 4, 3, 6, 5, 8, 7, 2, 11, 10, 1]
+        end
+
+        @testset "InvToPerm: dual unknown index" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+            @test_throws ArgumentError InvToPerm(RInv(:CD, dual_case, 99); db=db)
+        end
+
+        @testset "InvToPerm: dual unknown case" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([2], 1)
+            @test_throws ArgumentError InvToPerm(RInv(:CD, dual_case, 1); db=db)
+        end
+
+        @testset "round-trip: dual PermToInv → InvToPerm" begin
+            db = _make_dual_db()
+            xAct.XInvar._dual_perm_dispatch = nothing
+            dual_case = InvariantCase([0, 0], 1)
+
+            for idx in 1:4
+                perm = db.dual_perms[[0, 0]][idx]
+                rperm = RPerm(:CD, dual_case, perm)
+                rinv = PermToInv(rperm; db=db)
+                @test rinv.index == idx
+                rperm2 = InvToPerm(rinv; db=db)
+                @test rperm2.perm == perm
+            end
+        end
+
+        @testset "round-trip: dual InvToPerm → PermToInv" begin
+            db = _make_dual_db()
+            xAct.XInvar._dual_perm_dispatch = nothing
+            dual_case = InvariantCase([0, 0], 1)
+
+            for idx in 1:4
+                rinv = RInv(:CD, dual_case, idx)
+                rperm = InvToPerm(rinv; db=db)
+                rinv2 = PermToInv(rperm; db=db)
+                @test rinv2.index == idx
+            end
+        end
+
+        @testset "InvSimplify: dual step 2 rule" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+            # Dual inv4 → inv1 + 2*inv2 (dual step 2 rule)
+            rinv = RInv(:CD, dual_case, 4)
+            result = InvSimplify(rinv, 2; db=db, dim=4)
+            @test length(result) == 2
+            coeffs = Dict(r.index => c for (c, r) in result)
+            @test coeffs[1] == 1 // 1
+            @test coeffs[2] == 2 // 1
+            # All terms should preserve dual case
+            for (_, r) in result
+                @test r.case.n_epsilon == 1
+            end
+        end
+
+        @testset "InvSimplify: dual step 3 rule" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+            # Dual inv3 → -inv1 + inv2 (dual step 3 rule)
+            rinv = RInv(:CD, dual_case, 3)
+            result = InvSimplify(rinv, 3; db=db, dim=4)
+            @test length(result) == 2
+            coeffs = Dict(r.index => c for (c, r) in result)
+            @test coeffs[1] == -1 // 1
+            @test coeffs[2] == 1 // 1
+        end
+
+        @testset "InvSimplify: dual independent invariant unchanged" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+            rinv = RInv(:CD, dual_case, 1)
+            result = InvSimplify(rinv, 2; db=db, dim=4)
+            @test length(result) == 1
+            @test result[1] == (1 // 1, rinv)
+        end
+
+        @testset "InvSimplify: non-dual rules not applied to dual" begin
+            db = _make_dual_db()
+            # Non-dual case [0,0] inv3 has a step-2 rule (inv3 → inv1 - inv2)
+            # Dual case [0,0] inv3 has a DIFFERENT step-3 rule
+            # At level 2, the dual inv3 should NOT be touched by non-dual step-2 rules
+            dual_case = InvariantCase([0, 0], 1)
+            rinv = RInv(:CD, dual_case, 3)
+            result = InvSimplify(rinv, 2; db=db, dim=4)
+            # No dual step-2 rule for inv3, so unchanged
+            @test length(result) == 1
+            @test result[1] == (1 // 1, rinv)
+        end
+
+        @testset "InvSimplify: mixed dual and non-dual" begin
+            db = _make_dual_db()
+            # Mix a non-dual term and a dual term
+            expr = Tuple{Rational{Int},RInv}[
+                (1 // 1, RInv(:CD, InvariantCase([0, 0]), 3)),       # non-dual: → inv1 - inv2
+                (1 // 1, RInv(:CD, InvariantCase([0, 0], 1), 4)),   # dual: → inv1 + 2*inv2
+            ]
+            result = InvSimplify(expr, 2; db=db, dim=4)
+
+            # Separate non-dual and dual results
+            nondual = [(c, r) for (c, r) in result if r.case.n_epsilon == 0]
+            dual = [(c, r) for (c, r) in result if r.case.n_epsilon == 1]
+
+            # Non-dual: inv3 → inv1 - inv2
+            nd_coeffs = Dict(r.index => c for (c, r) in nondual)
+            @test nd_coeffs[1] == 1 // 1
+            @test nd_coeffs[2] == -1 // 1
+
+            # Dual: inv4 → inv1 + 2*inv2
+            d_coeffs = Dict(r.index => c for (c, r) in dual)
+            @test d_coeffs[1] == 1 // 1
+            @test d_coeffs[2] == 2 // 1
+        end
+
+        @testset "InvSimplify: dual requires dim=4" begin
+            db = _make_dual_db()
+            dual_case = InvariantCase([0, 0], 1)
+            rinv = RInv(:CD, dual_case, 1)
+
+            # dim=nothing should raise
+            @test_throws ArgumentError InvSimplify(rinv, 2; db=db, dim=nothing)
+
+            # dim=3 should raise
+            @test_throws ArgumentError InvSimplify(rinv, 2; db=db, dim=3)
+
+            # dim=5 should raise
+            @test_throws ArgumentError InvSimplify(rinv, 6; db=db, dim=5)
+
+            # dim=4 should succeed
+            result = InvSimplify(rinv, 2; db=db, dim=4)
+            @test length(result) == 1
+        end
+
+        @testset "InvSimplify: non-dual terms unaffected by dim check" begin
+            db = _make_dual_db()
+            rinv = RInv(:CD, InvariantCase([0, 0]), 3)
+            # Non-dual term with dim=nothing: should work fine
+            result = InvSimplify(rinv, 2; db=db, dim=nothing)
+            @test length(result) == 2
+        end
+
+        @testset "dispatch cache: dual separate from non-dual" begin
+            db = _make_dual_db()
+            xAct.XInvar._perm_dispatch = nothing
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            # Non-dual lookup builds _perm_dispatch but not _dual_perm_dispatch
+            rperm = RPerm(:CD, InvariantCase([0]), [2, 1, 4, 3])
+            PermToInv(rperm; db=db)
+            @test xAct.XInvar._perm_dispatch !== nothing
+            @test xAct.XInvar._dual_perm_dispatch === nothing
+
+            # Dual lookup builds _dual_perm_dispatch
+            dual_rperm = RPerm(:CD, InvariantCase([0], 1), [2, 1, 4, 3, 6, 5, 8, 7])
+            PermToInv(dual_rperm; db=db)
+            @test xAct.XInvar._dual_perm_dispatch !== nothing
+
+            # Clean up
+            xAct.XInvar._perm_dispatch = nothing
+            xAct.XInvar._dual_perm_dispatch = nothing
+        end
+
+        @testset "reset_state! clears dual dispatch cache" begin
+            db = _make_dual_db()
+            xAct.XInvar._perm_dispatch = nothing
+            xAct.XInvar._dual_perm_dispatch = nothing
+
+            PermToInv(RPerm(:CD, InvariantCase([0]), [2, 1, 4, 3]); db=db)
+            PermToInv(RPerm(:CD, InvariantCase([0], 1), [2, 1, 4, 3, 6, 5, 8, 7]); db=db)
+            @test xAct.XInvar._perm_dispatch !== nothing
+            @test xAct.XInvar._dual_perm_dispatch !== nothing
+
+            xAct.reset_state!()
+            @test xAct.XInvar._perm_dispatch === nothing
+            @test xAct.XInvar._dual_perm_dispatch === nothing
+        end
+    end
 end
