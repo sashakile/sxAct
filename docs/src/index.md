@@ -42,6 +42,8 @@ For the full table, see [Getting Started](getting-started.md#2-reference-migrati
 | **DefMetric** | `DefMetric[-1, g[-a,-b], CD]` | `def_metric!(-1, "g[-a,-b]", :CD)` | ✅ Verified |
 | **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` | ✅ Verified |
 | **Contract** | `ContractMetric[expr]` | `Contract(expr)` | ✅ Verified |
+| **RiemannSimplify** | `RiemannSimplify[expr, CD]` | `RiemannSimplify(expr, :CD)` | ✅ Verified |
+| **RiemannToPerm** | `RiemannToPerm[expr]` | `RiemannToPerm(expr)` | ✅ Verified |
 
 ## Installation
 See the [Installation Guide](installation.md) for details on setting up the Julia package. Docker and the Wolfram Oracle are only required for running the verification suite.

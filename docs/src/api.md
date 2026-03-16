@@ -7,11 +7,12 @@ xAct
 xAct.XCore
 xAct.XPerm
 xAct.XTensor
+xAct.XInvar
 ```
 
 ## Functions and Types
 
 ```@autodocs
-Modules = [xAct, xAct.XCore, xAct.XPerm, xAct.XTensor]
+Modules = [xAct, xAct.XCore, xAct.XPerm, xAct.XTensor, xAct.XInvar]
 Order = [:function, :type, :constant]
 ```

@@ -44,6 +44,8 @@ For experienced `xAct` users, this table shows the direct mappings from Wolfram 
 | **ToCanonical** | `ToCanonical[expr]` | `ToCanonical(expr)` | ✅ Verified |
 | **Contract** | `ContractMetric[expr]` | `Contract(expr)` | ✅ Verified |
 | **Simplify** | `Simplification[expr]` | `Simplify(expr)` | ✅ Verified |
+| **RiemannSimplify** | `RiemannSimplify[expr, CD]` | `RiemannSimplify(expr, :CD)` | ✅ Verified |
+| **RiemannToPerm** | `RiemannToPerm[expr]` | `RiemannToPerm(expr)` | ✅ Verified |
 | **CommuteCovDs** | `SortCovDs[expr]` | `CommuteCovDs(expr)` | ✅ Verified |
 | **IBP** | `IBP[expr, v]` | `IBP(expr, :CD)` | ✅ Verified |
 | **VarD** | `VarD[field][CD]expr` | `VarD(expr, :field, :CD)` | ✅ Verified |

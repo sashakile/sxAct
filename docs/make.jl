@@ -26,17 +26,16 @@ makedocs(;
         size_threshold=300 * 1024, # Increase to 300KiB for large API page
         inventory_version="0.2.0",
     ),
-    modules=[xAct, xAct.XCore, xAct.XPerm, xAct.XTensor],
+    modules=[xAct, xAct.XCore, xAct.XPerm, xAct.XTensor, xAct.XInvar],
     pages=[
         "Home" => "index.md",
         "Status" => "theory/STATUS.md",
         "Installation" => "installation.md",
         "Getting Started" => "getting-started.md",
-        "Tutorials" => ["Basics" => "examples/basics.md"],
+        "Tutorials" =>
+            ["Basics" => "examples/basics.md", "Riemann Invariants" => "examples/invar.md"],
         "Theory" => ["Differential Geometry Primer" => "differential-geometry-primer.md"],
-        "Advanced" => [
-            "Oracle Quirks" => "theory/oracle-quirks.md",
-        ],
+        "Advanced" => ["Oracle Quirks" => "theory/oracle-quirks.md"],
         "Architecture" => "architecture.md",
         "Reference" => [
             "Julia API" => "api.md",
