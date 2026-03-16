@@ -1,19 +1,3 @@
-# sxAct — xAct Migration & Implementation
-# Copyright (C) 2026 sxAct Contributors
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 """
     XTensor
 
@@ -66,7 +50,7 @@ export MemberQ
 export ValidateSymbolInSession, set_symbol_hooks!
 
 # Canonicalization and contraction
-export ToCanonical, Contract, CommuteCovDs, Simplify
+export ToCanonical, Contract, CommuteCovDs, SortCovDs, Simplify
 
 # Contract support
 export SignDetOfMetric
@@ -1137,6 +1121,26 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
         def_tensor!(riemann_name, slots4, manifold; symmetry_str=sym4)
     end
 
+    # Register CovD commutation as a multi-term identity (Ricci identity).
+    # ∇_a ∇_b T_c - ∇_b ∇_a T_c - R^d_{cab} T_d = 0
+    # This identity is applied algorithmically by SortCovDs, not by
+    # the coefficient-map reduction in _apply_single_identity! (which handles
+    # single-factor identities only). The registration records the identity
+    # for metadata and extensibility.
+    RegisterIdentity!(
+        covd,
+        MultiTermIdentity(
+            :RicciIdentity,   # name
+            covd,             # tensor (keyed under the CovD symbol)
+            0,                # n_slots (not a single-tensor identity)
+            Int[],            # fixed_slots
+            Int[],            # cycled_slots
+            Vector{Int}[],    # slot_perms
+            Rational{Int}[],  # coefficients
+            0,                # eliminate
+        ),
+    )
+
     # Also register Weyl tensor (curvature_invariants.toml uses WeylCID)
     weyl_name = Symbol("Weyl" * covd_str)
     if !haskey(_tensors, weyl_name)
@@ -1678,6 +1682,452 @@ function CommuteCovDs(
     length(indices) == 2 ||
         error("CommuteCovDs: expected exactly 2 indices, got $(length(indices))")
     CommuteCovDs(expr, covd_name, indices[1], indices[2])
+end
+
+# ============================================================
+# SortCovDs — sort covariant derivatives into canonical order
+# ============================================================
+
+"""
+    _extract_covd_chain(term::AbstractString, covd_str::AbstractString)
+
+Find a CovD chain in a single term string and return:
+(covd_indices, inner_tensor_name, inner_slots, prefix, suffix)
+
+where `covd_indices` is the list of CovD indices in outer-to-inner order,
+`inner_tensor_name` is the innermost tensor name (e.g. "T"),
+`inner_slots` is the list of slot strings (e.g. ["-a","-b"]),
+`prefix` is everything before the CovD chain (coefficient etc.), and
+`suffix` is everything after the CovD chain.
+
+Returns `nothing` if no CovD chain with ≥ 2 derivatives is found.
+"""
+function _extract_covd_chain(term::AbstractString, covd_str::AbstractString)
+    # Find the start of a CovD chain: COVD[idx][...]
+    # Must NOT be preceded by a word character (to avoid matching "RiemannCOVD[")
+    re_esc(s)::String = replace(s, r"([-\[\].\^$*+?{}|()])" => s"\\\1")
+    escaped_cd = re_esc(covd_str)
+
+    cd_start_pat = Regex("(?<![A-Za-z0-9_])" * escaped_cd * raw"\[")
+    m = match(cd_start_pat, term)
+    isnothing(m) && return nothing
+
+    chain_start = m.offset
+    prefix = term[1:(chain_start - 1)]
+
+    # Parse the CovD chain starting at chain_start
+    # Format: COVD[-idx][COVD[-idx][...COVD[-idx][TENSOR[slots]]...]]
+    covd_indices = String[]
+    pos = chain_start
+    cd_len = length(covd_str)
+
+    while pos <= length(term)
+        remaining = SubString(term, pos)
+        if !startswith(remaining, covd_str * "[")
+            break
+        end
+
+        # Skip past "COVD["
+        pos += cd_len + 1
+
+        # Read the index until ']'
+        idx_start = pos
+        while pos <= length(term) && term[pos] != ']'
+            pos += 1
+        end
+        pos > length(term) && break
+
+        idx = term[idx_start:(pos - 1)]
+        push!(covd_indices, idx)
+        pos += 1  # skip ']'
+
+        # Now expect '[' for the next level
+        pos > length(term) && break
+        term[pos] != '[' && break
+        pos += 1  # skip '['
+    end
+
+    length(covd_indices) < 2 && return nothing
+
+    # pos is at the start of the innermost expression: TENSOR[slots]
+    # Parse tensor name
+    tensor_start = pos
+    while pos <= length(term) && term[pos] != '['
+        pos += 1
+    end
+    pos > length(term) && return nothing
+    inner_tensor_name = term[tensor_start:(pos - 1)]
+
+    # Parse slots: everything between the first [ and the matching ]
+    pos += 1  # skip '['
+    slots_start = pos
+    bracket_depth = 1
+    while pos <= length(term) && bracket_depth > 0
+        if term[pos] == '['
+            bracket_depth += 1
+        elseif term[pos] == ']'
+            bracket_depth -= 1
+        end
+        bracket_depth > 0 && (pos += 1)
+    end
+    inner_slots_str = term[slots_start:(pos - 1)]
+    inner_slots = [strip(s) for s in split(inner_slots_str, ",")]
+
+    # Skip past the closing ']' for the tensor slots, then the chain closing brackets
+    pos += 1  # skip ']' for tensor slots
+    # Now there should be length(covd_indices) closing brackets
+    for _ in 1:length(covd_indices)
+        pos > length(term) && break
+        pos += 1  # skip each ']'
+    end
+    suffix = pos <= length(term) ? term[pos:end] : ""
+
+    (covd_indices, inner_tensor_name, inner_slots, strip(prefix), strip(suffix))
+end
+
+"""
+    _rebuild_covd_expr(covd_str, covd_indices, tensor_name, slots)
+
+Rebuild a CovD chain expression from parts:
+covd[i1][covd[i2][...covd[in][tensor[slots]]...]]
+"""
+function _rebuild_covd_expr(
+    covd_str::AbstractString,
+    covd_indices::Vector{<:AbstractString},
+    tensor_name::AbstractString,
+    slots::Vector{<:AbstractString},
+)::String
+    result = tensor_name * "[" * join(slots, ",") * "]"
+    for i in length(covd_indices):-1:1
+        result = covd_str * "[" * covd_indices[i] * "][" * result * "]"
+    end
+    result
+end
+
+"""
+    _find_unsorted_pair(covd_indices::Vector{String}) -> Union{Int, Nothing}
+
+Find the first adjacent pair of CovD indices that is out of canonical
+(lexicographic) order. Returns the index `i` such that
+`covd_indices[i] > covd_indices[i+1]`, or `nothing` if all are sorted.
+
+Comparison is on the bare index name (stripping the leading '-').
+"""
+function _find_unsorted_pair(covd_indices::Vector{String})::Union{Int,Nothing}
+    for i in 1:(length(covd_indices) - 1)
+        bare_i = lstrip(covd_indices[i], '-')
+        bare_next = lstrip(covd_indices[i + 1], '-')
+        if bare_i > bare_next
+            return i
+        end
+    end
+    nothing
+end
+
+"""
+    _split_expression_terms(expr::AbstractString) -> Vector{String}
+
+Split a tensor expression string into additive terms, preserving signs.
+Each returned term includes its leading sign ('+' or '-') if not the first term.
+Returns individual term strings that can be recombined with ' '.
+"""
+function _split_expression_terms(expr::AbstractString)::Vector{String}
+    s = strip(expr)
+    (s == "0" || isempty(s)) && return String[]
+
+    terms = String[]
+    pos = 1
+    n = length(s)
+    current_start = 1
+    bracket_depth = 0
+    paren_depth = 0
+
+    while pos <= n
+        c = s[pos]
+        if c == '['
+            bracket_depth += 1
+            pos += 1
+        elseif c == ']'
+            bracket_depth -= 1
+            pos += 1
+        elseif c == '('
+            paren_depth += 1
+            pos += 1
+        elseif c == ')'
+            paren_depth -= 1
+            pos += 1
+        elseif (c == '+' || c == '-') && pos > 1 && bracket_depth == 0 && paren_depth == 0
+            chunk = strip(s[current_start:(pos - 1)])
+            if !isempty(chunk) && chunk != "+"
+                push!(terms, chunk)
+            end
+            current_start = pos
+            pos += 1
+        else
+            pos += 1
+        end
+    end
+
+    chunk = strip(s[current_start:n])
+    if !isempty(chunk) && chunk != "+"
+        push!(terms, chunk)
+    end
+
+    terms
+end
+
+"""
+    _commute_covd_pair(covd_str, covd_indices, swap_pos, tensor_name, inner_slots, manifold_sym)
+
+Commute the adjacent CovD pair at positions `swap_pos` and `swap_pos+1` in a
+CovD chain, producing the swapped chain plus Riemann correction terms.
+
+The Riemann correction acts on ALL effective indices below the swap point:
+the CovD indices from `swap_pos+2` to end, plus the innermost tensor's slots.
+
+Returns a vector of string terms (the swapped main term + correction terms).
+"""
+function _commute_covd_pair(
+    covd_str::AbstractString,
+    covd_indices::Vector{String},
+    swap_pos::Int,
+    tensor_name::AbstractString,
+    inner_slots::Vector{<:AbstractString},
+    manifold_sym::Symbol,
+)::Vector{String}
+    idx1 = covd_indices[swap_pos]
+    idx2 = covd_indices[swap_pos + 1]
+
+    # Effective indices below the swap point: all CovD indices after the pair + tensor slots.
+    # These are the free indices of the composite expression that ∇_{idx1} ∇_{idx2} acts on.
+    # Each gets a Riemann correction term.
+    lower_covd_indices = String[string(ci) for ci in covd_indices[(swap_pos + 2):end]]
+    effective_slots = vcat(lower_covd_indices, String[string(s) for s in inner_slots])
+
+    manifold_indices = _manifolds[manifold_sym].index_labels
+    riemann_name = "Riemann" * covd_str
+
+    # Collect all used index names
+    used_idx = Set{String}()
+    for ci in covd_indices
+        push!(used_idx, lstrip(ci, '-'))
+    end
+    for s in inner_slots
+        push!(used_idx, lstrip(string(s), '-'))
+    end
+
+    # Pick fresh dummy indices
+    dummies = String[]
+    for idx_sym in manifold_indices
+        name = string(idx_sym)
+        if name ∉ used_idx
+            push!(dummies, name)
+            push!(used_idx, name)
+            length(dummies) >= length(effective_slots) && break
+        end
+    end
+    length(dummies) < length(effective_slots) &&
+        error("SortCovDs: not enough fresh indices in manifold $manifold_sym")
+
+    # Build the swapped main term: swap positions swap_pos and swap_pos+1.
+    # The FULL chain is preserved, only the two indices are swapped.
+    swapped_indices = copy(covd_indices)
+    swapped_indices[swap_pos] = idx2
+    swapped_indices[swap_pos + 1] = idx1
+    outer_indices = String[string(ci) for ci in covd_indices[1:(swap_pos - 1)]]
+
+    main_term = _rebuild_covd_expr(
+        covd_str, swapped_indices, tensor_name, String[string(s) for s in inner_slots]
+    )
+
+    parts = [main_term]
+
+    # Build correction terms for each effective slot below the swap.
+    #
+    # The correction term for each slot j of the inner composite expression is:
+    #   ±R^d_{j, idx1, idx2} * [inner_with_j_replaced_by_d]
+    #
+    # where "inner" is the CovD chain below the swap point: ∇_{a_{i+2}} ... ∇_{a_n} T[slots].
+    # The correction is wrapped by the OUTER CovDs (positions 1..swap_pos-1) if any.
+    # Importantly, the swapped pair (idx1, idx2) is NOT in the correction CovD chain —
+    # the Riemann tensor takes their place.
+    for (i, slot) in enumerate(effective_slots)
+        covariant = startswith(slot, "-")
+        index_name = lstrip(slot, '-')
+        dummy = dummies[i]
+
+        if i <= length(lower_covd_indices)
+            # This slot is a CovD index below the swap — replace it in the inner chain
+            new_lower = copy(lower_covd_indices)
+            new_lower[i] = covariant ? "-" * dummy : dummy
+            corr_inner = _rebuild_covd_expr(
+                covd_str, new_lower, tensor_name, String[string(s) for s in inner_slots]
+            )
+        else
+            # This slot is a tensor index — replace it in the tensor
+            slot_idx = i - length(lower_covd_indices)
+            new_slots = String[string(s) for s in inner_slots]
+            new_slots[slot_idx] = covariant ? "-" * dummy : dummy
+            corr_inner = _rebuild_covd_expr(
+                covd_str, lower_covd_indices, tensor_name, new_slots
+            )
+        end
+
+        # Wrap correction in outer CovDs (if any exist above the swap)
+        corr_wrapped = corr_inner
+        for oi in length(outer_indices):-1:1
+            corr_wrapped = covd_str * "[" * outer_indices[oi] * "][" * corr_wrapped * "]"
+        end
+
+        if covariant
+            riemann_args = "-" * index_name * "," * dummy * "," * idx1 * "," * idx2
+            correction = "- " * riemann_name * "[" * riemann_args * "] " * corr_wrapped
+        else
+            riemann_args = index_name * ",-" * dummy * "," * idx1 * "," * idx2
+            correction = "+ " * riemann_name * "[" * riemann_args * "] " * corr_wrapped
+        end
+        push!(parts, correction)
+    end
+
+    parts
+end
+
+"""
+    SortCovDs(expr::AbstractString, covd_name::Symbol) → String
+
+Sort all covariant derivatives in an expression into canonical (lexicographic)
+order. For each out-of-order pair of adjacent CovDs, applies the commutation
+identity to swap them (generating Riemann correction terms), then iterates
+until all CovD orderings are canonical.
+
+This is a bubble sort on CovD indices: given a chain like
+`CD[-c][CD[-a][CD[-b][T[...]]]]`, it will sort the indices to
+`CD[-a][CD[-b][CD[-c][T[...]]]]` plus curvature correction terms.
+
+Arguments:
+
+  - `expr`: String expression potentially containing CovD chains
+  - `covd_name`: Symbol name of the covariant derivative (e.g. :CVD)
+
+Returns a string expression with all CovD chains in canonical order.
+Non-CovD terms (Riemann corrections) are simplified via `ToCanonical`.
+"""
+function SortCovDs(expr::AbstractString, covd_name::Symbol)::String
+    s = strip(expr)
+    (s == "0" || isempty(s)) && return "0"
+
+    covd_str = string(covd_name)
+
+    # Verify that the CovD is registered
+    haskey(_metrics, covd_name) ||
+        error("SortCovDs: no metric registered for covd $covd_name")
+
+    metric_obj = _metrics[covd_name]
+    manifold_sym = metric_obj.manifold
+
+    # Iterative bubble sort: keep processing until no unsorted CovD chains remain.
+    max_iters = 100
+    current = s
+
+    for _ in 1:max_iters
+        terms = _split_expression_terms(current)
+        isempty(terms) && return "0"
+
+        found_unsorted = false
+
+        for (tidx, term) in enumerate(terms)
+            chain = _extract_covd_chain(term, covd_str)
+            isnothing(chain) && continue
+
+            covd_indices, inner_tensor_name, inner_slots, prefix, suffix = chain
+            swap_pos = _find_unsorted_pair(covd_indices)
+            isnothing(swap_pos) && continue
+
+            found_unsorted = true
+
+            # Commute the unsorted pair
+            new_parts = _commute_covd_pair(
+                covd_str,
+                covd_indices,
+                swap_pos,
+                inner_tensor_name,
+                inner_slots,
+                manifold_sym,
+            )
+
+            # Prepend prefix and append suffix to each part
+            rebuilt_parts = String[]
+            for (pi, part) in enumerate(new_parts)
+                p = part
+                if pi == 1 && !isempty(prefix)
+                    p = prefix * " " * p
+                end
+                if pi == 1 && !isempty(suffix)
+                    p = p * " " * suffix
+                end
+                push!(rebuilt_parts, p)
+            end
+
+            # Replace this term with the expanded terms
+            terms[tidx] = join(rebuilt_parts, " ")
+            current = join(terms, " ")
+            break
+        end
+
+        !found_unsorted && break
+    end
+
+    # Simplify the non-CovD correction terms by canonicalizing them.
+    # Split into terms that contain any CovD reference and those that don't.
+    # Only the purely non-CovD terms can be safely sent through ToCanonical.
+    terms = _split_expression_terms(current)
+    isempty(terms) && return "0"
+
+    covd_terms = String[]
+    plain_terms = String[]
+    # Detect actual CovD chain usage: look for "COVD[" that is NOT preceded by
+    # a word character (which would make it part of a tensor name like "RiemannCOVD[").
+    covd_pat = Regex(
+        "(?<![A-Za-z0-9_])" *
+        replace(covd_str, r"([-\[\].\^$*+?{}|()])" => s"\\\1") *
+        raw"\[",
+    )
+    for term in terms
+        if !isnothing(match(covd_pat, term))
+            push!(covd_terms, term)
+        else
+            push!(plain_terms, term)
+        end
+    end
+
+    # Canonicalize plain terms together
+    if !isempty(plain_terms)
+        plain_expr = join(plain_terms, " ")
+        plain_simplified = ToCanonical(plain_expr)
+        if plain_simplified != "0"
+            push!(covd_terms, plain_simplified)
+        end
+    end
+
+    isempty(covd_terms) && return "0"
+
+    # Build result, handling signs properly
+    result_parts = String[]
+    for (i, term) in enumerate(covd_terms)
+        t = strip(term)
+        isempty(t) && continue
+        if i == 1
+            push!(result_parts, t)
+        elseif startswith(t, "-") || startswith(t, "- ")
+            push!(result_parts, t)
+        elseif startswith(t, "+") || startswith(t, "+ ")
+            push!(result_parts, t)
+        else
+            push!(result_parts, "+ " * t)
+        end
+    end
+    isempty(result_parts) && return "0"
+    join(result_parts, " ")
 end
 
 """

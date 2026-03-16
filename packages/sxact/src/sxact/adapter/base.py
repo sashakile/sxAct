@@ -250,6 +250,7 @@ class TestAdapter(abc.ABC, Generic[ContextT]):
                 "Simplify",
                 "Contract",
                 "CommuteCovDs",
+                "SortCovDs",
                 "Assert",
                 "DefPerturbation",
                 "CheckMetricConsistency",

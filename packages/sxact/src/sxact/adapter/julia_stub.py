@@ -145,6 +145,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             "ToCanonical",
             "Contract",
             "CommuteCovDs",
+            "SortCovDs",
             "DefPerturbation",
             "CheckMetricConsistency",
             "Perturb",
@@ -300,6 +301,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 return self._contract(args)
             if action == "CommuteCovDs":
                 return self._commute_covds(args)
+            if action == "SortCovDs":
+                return self._sort_covds(args)
             if action == "DefPerturbation":
                 return self._def_perturbation(ctx, args)
             if action == "Perturb":
@@ -514,6 +517,13 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         result = self._jl.seval(
             f'XTensor.CommuteCovDs("{expr}", :{covd}, "{idx1}", "{idx2}")'
         )
+        raw = str(result)
+        return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
+
+    def _sort_covds(self, args: dict[str, Any]) -> Result:
+        expr = _jl_escape(str(args["expression"]))
+        covd = str(args["covd"])
+        result = self._jl.seval(f'XTensor.SortCovDs("{expr}", :{covd})')
         raw = str(result)
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 

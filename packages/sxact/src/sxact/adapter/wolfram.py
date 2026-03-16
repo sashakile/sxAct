@@ -141,6 +141,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
                 "PerturbationOrder",
                 "PerturbationAtOrder",
                 "CommuteCovDs",
+                "SortCovDs",
                 "CheckMetricConsistency",
                 "IntegrateByParts",
                 "TotalDerivativeQ",
@@ -272,6 +273,9 @@ class WolframAdapter(TestAdapter[_WolframContext]):
         if action == "CommuteCovDs":
             return f"CommuteCovDs[{args['expression']}, {args['cd1']}, {args['cd2']}]"
 
+        if action == "SortCovDs":
+            return f"SortCovDs[{args['expression']}, {args['covd']}]"
+
         if action == "CheckMetricConsistency":
             return f"CheckMetricConsistency[{args['metric']}, {args['covd']}]"
 
@@ -285,7 +289,9 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             return f"VarD[{args['variable']}][{args['expression']}]"
 
         if action == "SetBasisChange":
-            return f"SetBasisChange[{args['basis1']}, {args['basis2']}, {args['matrix']}]"
+            return (
+                f"SetBasisChange[{args['basis1']}, {args['basis2']}, {args['matrix']}]"
+            )
 
         if action == "ChangeBasis":
             return f"ChangeBasis[{args['expression']}, {args['target_basis']}]"

@@ -763,3 +763,4 @@ end
 include("julia/test_xperm.jl")
 include("julia/test_xtensor.jl")
 include("julia/test_xinvar.jl")
+include("julia/test_docs.jl")
