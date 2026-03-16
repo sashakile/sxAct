@@ -28,12 +28,12 @@ def_metric!(-1, "g[-a,-b]", :CD)
 
 # **Julia**
 expr = "RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]"
-rperm = RiemannToPerm(expr)
+rperm = RiemannToPerm(expr, :CD)
 println("Permutation form: ", rperm.perm)
 
 # **Python**
 # ```python
-# rperm = jl.xAct.RiemannToPerm("RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]")
+# rperm = jl.xAct.RiemannToPerm("RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", "CD")
 # print(f"Permutation: {rperm.perm}")
 # ```
 
