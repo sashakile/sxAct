@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from sxact.translate.wl_parser import (
+from xact.translate.wl_parser import (
     WLLeaf,
     WLNode,
     WLParseError,
     parse,
     parse_session,
 )
-from sxact.translate.wl_serializer import serialize
+from xact.translate.wl_serializer import serialize
 
 
 # ===================================================================

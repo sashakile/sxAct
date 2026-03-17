@@ -3,15 +3,15 @@
 Used by the action recognizer to extract expression arguments as strings
 that both Wolfram and Julia adapters accept.
 
-    >>> from sxact.translate.wl_parser import parse
-    >>> from sxact.translate.wl_serializer import serialize
+    >>> from xact.translate.wl_parser import parse
+    >>> from xact.translate.wl_serializer import serialize
     >>> serialize(parse("T[-a,-b] - T[-b,-a]"))
     'T[-a,-b] - T[-b,-a]'
 """
 
 from __future__ import annotations
 
-from sxact.translate.wl_parser import WLExpr, WLLeaf, WLNode
+from xact.translate.wl_parser import WLExpr, WLLeaf, WLNode
 
 
 def serialize(expr: WLExpr) -> str:

@@ -7,8 +7,8 @@ import subprocess
 
 import pytest
 
-from sxact.translate import wl_to_actions
-from sxact.translate.renderers import render, to_json, to_julia, to_python, to_toml
+from xact.translate import wl_to_actions
+from xact.translate.renderers import render, to_json, to_julia, to_python, to_toml
 
 
 # ===================================================================

@@ -15,8 +15,8 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-from sxact.translate.wl_parser import WLExpr, WLLeaf, WLNode, parse, parse_session
-from sxact.translate.wl_serializer import serialize
+from xact.translate.wl_parser import WLExpr, WLLeaf, WLNode, parse, parse_session
+from xact.translate.wl_serializer import serialize
 
 
 # ---------------------------------------------------------------------------

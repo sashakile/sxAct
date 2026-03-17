@@ -17,8 +17,8 @@ import sys
 
 
 def _cmd_translate(args: argparse.Namespace) -> int:
-    from sxact.translate.action_recognizer import wl_to_actions
-    from sxact.translate.renderers import render
+    from xact.translate.action_recognizer import wl_to_actions
+    from xact.translate.renderers import render
 
     # Read input: -e flag, file argument, or stdin
     if args.expr:

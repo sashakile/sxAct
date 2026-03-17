@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sxact.translate import wl_to_action, wl_to_actions
+from xact.translate import wl_to_action, wl_to_actions
 
 
 # ===================================================================
@@ -259,7 +259,7 @@ result == 0
         assert actions[3]["action"] == "Assert"
 
     def test_public_api_import(self) -> None:
-        from sxact.translate import wl_to_action as fn1, wl_to_actions as fn2
+        from xact.translate import wl_to_action as fn1, wl_to_actions as fn2
 
         assert callable(fn1)
         assert callable(fn2)

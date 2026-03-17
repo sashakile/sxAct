@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from sxact.translate import wl_to_actions
-from sxact.translate.renderers import to_toml
+from xact.translate import wl_to_actions
+from xact.translate.renderers import to_toml
 
 # ---------------------------------------------------------------------------
 # Skip if Julia/adapter not available

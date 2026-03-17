@@ -15,9 +15,9 @@ import argparse
 import sys
 from typing import Any
 
-from sxact.translate.action_recognizer import ActionDict, recognize
-from sxact.translate.renderers import render, to_julia
-from sxact.translate.wl_parser import WLParseError, parse_session
+from xact.translate.action_recognizer import ActionDict, recognize
+from xact.translate.renderers import render, to_julia
+from xact.translate.wl_parser import WLParseError, parse_session
 
 
 # ---------------------------------------------------------------------------
