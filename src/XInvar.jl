@@ -1071,9 +1071,13 @@ end
 Recursively apply Riemann symmetries to factors `factor..n_factors`, pruning
 branches where frozen positions are already worse than `best_perm`.
 
-A position j is "frozen" after processing factor k when both
-`slot_to_factor[j] ≤ k` and `slot_to_factor[perm[j]] ≤ k` — future
-factor symmetries cannot change frozen values.
+Uses two pruning levels:
+
+  - **Frozen**: position j where `slot_to_factor[j] ≤ k` and `slot_to_factor[perm[j]] ≤ k` —
+    value is exact, compare directly.
+  - **Bounded**: position j where `slot_to_factor[j] ≤ k` but `slot_to_factor[perm[j]] > k` —
+    value will change but is bounded to `[slot_lb[v], slot_ub[v]]`. Prune if lb > best,
+    keep if ub < best.
 """
 function _backtrack_riemann_syms!(
     perm::Vector{Int},
@@ -1083,6 +1087,8 @@ function _backtrack_riemann_syms!(
     degree::Int,
     riemann_starts::Vector{Int},
     slot_to_factor::Vector{Int},
+    slot_lb::Vector{Int},
+    slot_ub::Vector{Int},
     best_perm::Vector{Int},
     best_sign::Ref{Int},
 )
@@ -1115,15 +1121,30 @@ function _backtrack_riemann_syms!(
             _swap_slots!(perm, b, d)
         end
 
-        # Frozen-position pruning: check positions whose factor and value are both ≤ current
+        # Pruning: frozen values compared exactly, non-frozen values compared by bounds
         pruned = false
         for j in 1:degree
-            (slot_to_factor[j] > factor || slot_to_factor[perm[j]] > factor) && continue
-            if perm[j] > best_perm[j]
-                pruned = true
-                break
-            elseif perm[j] < best_perm[j]
-                break
+            slot_to_factor[j] > factor && continue
+
+            v = perm[j]
+            bv = best_perm[j]
+            if slot_to_factor[v] <= factor
+                # Frozen value: exact comparison
+                if v > bv
+                    pruned = true
+                    break
+                elseif v < bv
+                    break
+                end
+            else
+                # Non-frozen value: use precomputed bounds
+                if slot_lb[v] > bv
+                    pruned = true
+                    break
+                elseif slot_ub[v] < bv
+                    break
+                end
+                # Inconclusive: continue checking next position
             end
         end
 
@@ -1136,6 +1157,8 @@ function _backtrack_riemann_syms!(
                 degree,
                 riemann_starts,
                 slot_to_factor,
+                slot_lb,
+                slot_ub,
                 best_perm,
                 best_sign,
             )
@@ -1201,6 +1224,23 @@ function _canonicalize_contraction_perm(
         riemann_starts[i] = first(slot_ranges[i]) + case.deriv_orders[i]
     end
 
+    # Precompute per-slot bounds: Riemann slots can become any of 4 in their group,
+    # derivative slots are never swapped by Riemann symmetries (frozen).
+    slot_lb = Vector{Int}(undef, degree)
+    slot_ub = Vector{Int}(undef, degree)
+    for i in 1:n
+        rs = riemann_starts[i]
+        for j in slot_ranges[i]
+            if j >= rs
+                slot_lb[j] = rs
+                slot_ub[j] = rs + 3
+            else
+                slot_lb[j] = j
+                slot_ub[j] = j
+            end
+        end
+    end
+
     best_perm = copy(perm)
     best_sign = 1
 
@@ -1260,7 +1300,26 @@ function _canonicalize_contraction_perm(
         # Explore best-looking block perms first to maximize pruning
         sort!(block_results; by=first)
 
+        prev_bp = Int[]
         for (bp, block_sign) in block_results
+            # Skip duplicate block-permuted perms (e.g., self-contracting patterns)
+            bp == prev_bp && continue
+            prev_bp = bp
+
+            # Early rejection: if per-slot lower bounds can't beat best_perm, skip
+            dominated = false
+            for j in 1:degree
+                lb_j = slot_lb[bp[j]]
+                bv = best_perm[j]
+                if lb_j > bv
+                    dominated = true
+                    break
+                elseif lb_j < bv
+                    break
+                end
+            end
+            dominated && continue
+
             _backtrack_riemann_syms!(
                 bp,
                 block_sign,
@@ -1269,6 +1328,8 @@ function _canonicalize_contraction_perm(
                 degree,
                 riemann_starts,
                 slot_to_factor,
+                slot_lb,
+                slot_ub,
                 best_perm,
                 best_sign_ref,
             )

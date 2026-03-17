@@ -1104,6 +1104,21 @@ using xAct
             end
             riemann_starts = [first(slot_ranges[i]) + case.deriv_orders[i] for i in 1:n]
 
+            slot_lb = Vector{Int}(undef, degree)
+            slot_ub = Vector{Int}(undef, degree)
+            for i in 1:n
+                rs = riemann_starts[i]
+                for j in slot_ranges[i]
+                    if j >= rs
+                        slot_lb[j] = rs
+                        slot_ub[j] = rs + 3
+                    else
+                        slot_lb[j] = j
+                        slot_ub[j] = j
+                    end
+                end
+            end
+
             for perm in [
                 collect(degree:-1:1),
                 [5, 6, 7, 8, 1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12],
@@ -1124,6 +1139,8 @@ using xAct
                         degree,
                         riemann_starts,
                         slot_to_factor,
+                        slot_lb,
+                        slot_ub,
                         best_perm,
                         best_sign,
                     )
@@ -1180,6 +1197,37 @@ using xAct
             c2, s2 = _canonicalize_contraction_perm(perm, case)
             @test canon == c2
             @test sign == s2
+        end
+
+        @testset "n=7 performance (was impossible with brute force)" begin
+            case = InvariantCase([0, 0, 0, 0, 0, 0, 0])
+
+            # Test multiple perm patterns
+            perm_rev = collect(28:-1:1)
+            perm_self = Int[]
+            for i in 1:7
+                off = (i - 1) * 4
+                append!(perm_self, [off + 3, off + 4, off + 1, off + 2])
+            end
+
+            # Warm up
+            _canonicalize_contraction_perm(perm_rev, case)
+            _canonicalize_contraction_perm(perm_self, case)
+
+            # Both patterns should complete quickly
+            t = @elapsed begin
+                for _ in 1:10
+                    _canonicalize_contraction_perm(perm_rev, case)
+                    _canonicalize_contraction_perm(perm_self, case)
+                end
+            end
+            @test t < 5.0  # 20 canonicalizations well under 5s
+
+            # Deterministic
+            c1, s1 = _canonicalize_contraction_perm(perm_rev, case)
+            c2, s2 = _canonicalize_contraction_perm(perm_rev, case)
+            @test c1 == c2
+            @test s1 == s2
         end
     end
 
