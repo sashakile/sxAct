@@ -64,30 +64,48 @@ def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
 ToCanonical("T[-b,-a] - T[-a,-b]")
 ```
 
-## 5. Contraction and Simplification
+## 5. Contraction
 
-`Contract` evaluates metric contractions. `Simplify` iterates
-contraction → canonicalization until the expression stabilizes.
+`Contract` lowers/raises indices via the metric. Define a vector $V^a$
+and contract with the metric to get $V_b$:
 
 ```{julia}
-Simplify("RicciCD[-a,-b] * g[a,b]")
+def_tensor!(:V, ["a"], :M)
+Contract("V[a] * g[-a,-b]")
 ```
 
 ## 6. Riemann Tensor Identities
 
-The Riemann tensor has well-known symmetries. The first Bianchi identity:
+The Riemann tensor has well-known symmetries that the canonicalizer
+automatically recognizes:
+
+First Bianchi identity — $R_{abcd} + R_{acdb} + R_{adbc} = 0$:
 
 ```{julia}
 ToCanonical("RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]")
 ```
 
-## 7. Perturbation Theory
-
-Perturb the metric to first order and expand the Ricci tensor:
+Antisymmetry in the first pair — $R_{abcd} + R_{bacd} = 0$:
 
 ```{julia}
+ToCanonical("RiemannCD[-a,-b,-c,-d] + RiemannCD[-b,-a,-c,-d]")
+```
+
+Pair symmetry — $R_{abcd} = R_{cdab}$:
+
+```{julia}
+ToCanonical("RiemannCD[-a,-b,-c,-d] - RiemannCD[-c,-d,-a,-b]")
+```
+
+## 7. Perturbation Theory
+
+Define a perturbation tensor $h_{ab}$ (symmetric, same slots as the metric)
+and perturb the metric to first order:
+
+```{julia}
+def_tensor!(:h, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
 def_perturbation!(:h, :g, 1)
-perturb("RicciCD[-a,-b]", 1)
+perturb("g[-a,-b]", 1)
 ```
 
 ## Next Steps

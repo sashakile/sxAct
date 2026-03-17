@@ -64,12 +64,13 @@ result = jl.execute("ToCanonical", expr="T[-b,-a] - T[-a,-b]")
 print(result)
 ```
 
-## 5. Simplification
+## 5. Contraction
 
-Contract and simplify the Ricci scalar:
+Lower an index with the metric:
 
 ```{python}
-result = jl.execute("Simplify", expr="RicciCD[-a,-b] * g[a,b]")
+jl.execute("DefTensor", name="V", indices=["a"], manifold="M")
+result = jl.execute("Contract", expr="V[a] * g[-a,-b]")
 print(result)
 ```
 
@@ -85,11 +86,28 @@ result = jl.execute(
 print(result)
 ```
 
+Pair symmetry — $R_{abcd} = R_{cdab}$:
+
+```{python}
+result = jl.execute(
+    "ToCanonical",
+    expr="RiemannCD[-a,-b,-c,-d] - RiemannCD[-c,-d,-a,-b]",
+)
+print(result)
+```
+
 ## 7. Perturbation Theory
 
 ```{python}
+jl.execute(
+    "DefTensor",
+    name="h",
+    indices=["-a", "-b"],
+    manifold="M",
+    symmetry_str="Symmetric[{-a,-b}]",
+)
 jl.execute("DefPerturbation", tensor="h", background="g", order=1)
-result = jl.execute("Perturb", expr="RicciCD[-a,-b]", order=1)
+result = jl.execute("Perturb", expr="g[-a,-b]", order=1)
 print(result)
 ```
 

@@ -60,13 +60,16 @@ end
 
 # ╔═╡ 9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f
 md"""
-## 4. Simplification
+## 4. Contraction
 
-Contract metrics and simplify the Ricci scalar ``R = R_{ab} g^{ab}``:
+Lower an index with the metric — ``V_b = V^a g_{ab}``:
 """
 
 # ╔═╡ 0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a
-Simplify("RicciCD[-a,-b] * g[a,b]")
+begin
+    def_tensor!(:V, ["a"], :M)
+    Contract("V[a] * g[-a,-b]")
+end
 
 # ╔═╡ 1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b
 md"""
@@ -82,13 +85,14 @@ ToCanonical("RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-
 md"""
 ## 6. Perturbation Theory
 
-Perturb the Ricci tensor to first order:
+Perturb the metric to first order:
 """
 
 # ╔═╡ 4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e
 begin
+    def_tensor!(:h, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
     def_perturbation!(:h, :g, 1)
-    perturb("RicciCD[-a,-b]", 1)
+    perturb("g[-a,-b]", 1)
 end
 
 # ╔═╡ Cell order:
