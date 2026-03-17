@@ -10,7 +10,7 @@ jupyter: python3
 ## Overview
 
 This notebook walks through the same workflow as the Julia version,
-using the sxAct Python adapter. Under the hood, all computation
+using the `xact` Python package. Under the hood, all computation
 is performed by the Julia engine via `juliacall`.
 
 **Requirements:** Python 3.10+, Julia 1.12+.
@@ -19,9 +19,15 @@ is performed by the Julia engine via `juliacall`.
 
 ```{python}
 # Uncomment if running on Google Colab:
-# !pip install sxact
+# !pip install xact-py
 
-from sxact.adapter import julia_stub as jl
+from xact.xcore import get_julia
+
+jl = get_julia()
+xAct = jl.xAct
+
+# Helper: juliacall needs Julia Vector, not Python list
+jlvec = jl.seval("collect")
 ```
 
 ## 2. Define a Manifold
@@ -29,7 +35,8 @@ from sxact.adapter import julia_stub as jl
 A 4-dimensional spacetime manifold with abstract indices.
 
 ```{python}
-jl.execute("DefManifold", name="M", dim=4, indices=["a", "b", "c", "d", "e", "f"])
+xAct.reset_state_b()
+M = xAct.def_manifold_b("M", 4, jlvec(["a", "b", "c", "d", "e", "f"]))
 ```
 
 ## 3. Define a Metric
@@ -38,7 +45,7 @@ Lorentzian signature, covariant derivative CD.
 Automatically creates Riemann, Ricci, Weyl, Einstein, Christoffel.
 
 ```{python}
-jl.execute("DefMetric", signature=-1, metric_expr="g[-a,-b]", covd_name="CD")
+g = xAct.def_metric_b(-1, "g[-a,-b]", "CD")
 ```
 
 ## 4. Canonicalization
@@ -46,22 +53,14 @@ jl.execute("DefMetric", signature=-1, metric_expr="g[-a,-b]", covd_name="CD")
 Symmetric metric: $g_{ba} - g_{ab} = 0$.
 
 ```{python}
-result = jl.execute("ToCanonical", expr="g[-b,-a] - g[-a,-b]")
-print(result)
+xAct.ToCanonical("g[-b,-a] - g[-a,-b]")
 ```
 
 Define a symmetric tensor and canonicalize:
 
 ```{python}
-jl.execute(
-    "DefTensor",
-    name="T",
-    indices=["-a", "-b"],
-    manifold="M",
-    symmetry_str="Symmetric[{-a,-b}]",
-)
-result = jl.execute("ToCanonical", expr="T[-b,-a] - T[-a,-b]")
-print(result)
+xAct.def_tensor_b("T", jlvec(["-a", "-b"]), "M", symmetry_str="Symmetric[{-a,-b}]")
+xAct.ToCanonical("T[-b,-a] - T[-a,-b]")
 ```
 
 ## 5. Contraction
@@ -69,9 +68,8 @@ print(result)
 Lower an index with the metric:
 
 ```{python}
-jl.execute("DefTensor", name="V", indices=["a"], manifold="M")
-result = jl.execute("Contract", expr="V[a] * g[-a,-b]")
-print(result)
+xAct.def_tensor_b("V", jlvec(["a"]), "M")
+xAct.Contract("V[a] * g[-a,-b]")
 ```
 
 ## 6. Riemann Identities
@@ -79,36 +77,23 @@ print(result)
 First Bianchi identity:
 
 ```{python}
-result = jl.execute(
-    "ToCanonical",
-    expr="RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]",
+xAct.ToCanonical(
+    "RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]"
 )
-print(result)
 ```
 
 Pair symmetry — $R_{abcd} = R_{cdab}$:
 
 ```{python}
-result = jl.execute(
-    "ToCanonical",
-    expr="RiemannCD[-a,-b,-c,-d] - RiemannCD[-c,-d,-a,-b]",
-)
-print(result)
+xAct.ToCanonical("RiemannCD[-a,-b,-c,-d] - RiemannCD[-c,-d,-a,-b]")
 ```
 
 ## 7. Perturbation Theory
 
 ```{python}
-jl.execute(
-    "DefTensor",
-    name="h",
-    indices=["-a", "-b"],
-    manifold="M",
-    symmetry_str="Symmetric[{-a,-b}]",
-)
-jl.execute("DefPerturbation", tensor="h", background="g", order=1)
-result = jl.execute("Perturb", expr="g[-a,-b]", order=1)
-print(result)
+xAct.def_tensor_b("h", jlvec(["-a", "-b"]), "M", symmetry_str="Symmetric[{-a,-b}]")
+xAct.def_perturbation_b("h", "g", 1)
+xAct.perturb("g[-a,-b]", 1)
 ```
 
 ## Next Steps
