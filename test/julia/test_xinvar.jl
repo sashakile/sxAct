@@ -1071,6 +1071,118 @@ using xAct
         end
     end
 
+    @testset "Phase 3: _canonicalize_contraction_perm backtracking (n ≥ 5)" begin
+        _all_block_permutations = xAct.XInvar._all_block_permutations
+        _apply_block_perm_to_contraction = xAct.XInvar._apply_block_perm_to_contraction
+        _backtrack_riemann_syms! = xAct.XInvar._backtrack_riemann_syms!
+        _swap_slots! = xAct.XInvar._swap_slots!
+
+        @testset "backtracking matches brute force at n=4 boundary" begin
+            case = InvariantCase([0, 0, 0, 0])
+            degree = PermDegree(case)
+            n = 4
+
+            slot_ranges = Vector{UnitRange{Int}}(undef, n)
+            off = 0
+            for i in 1:n
+                nd = case.deriv_orders[i]
+                slot_ranges[i] = (off + 1):(off + nd + 4)
+                off += nd + 4
+            end
+
+            groups = Dict{Int,Vector{Int}}()
+            for i in 1:n
+                push!(get!(Vector{Int}, groups, case.deriv_orders[i]), i)
+            end
+            block_perms = _all_block_permutations(groups, n, slot_ranges)
+
+            slot_to_factor = zeros(Int, degree)
+            for i in 1:n
+                for j in slot_ranges[i]
+                    slot_to_factor[j] = i
+                end
+            end
+            riemann_starts = [first(slot_ranges[i]) + case.deriv_orders[i] for i in 1:n]
+
+            for perm in [
+                collect(degree:-1:1),
+                [5, 6, 7, 8, 1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12],
+            ]
+                # Brute force via main function (n=4 uses brute-force path)
+                canon_bf, sign_bf = _canonicalize_contraction_perm(perm, case)
+
+                # Backtracking via direct call
+                best_perm = copy(perm)
+                best_sign = Ref(1)
+                for (bmap, bsign) in block_perms
+                    bp = _apply_block_perm_to_contraction(perm, bmap, slot_ranges, degree)
+                    _backtrack_riemann_syms!(
+                        bp,
+                        bsign,
+                        1,
+                        n,
+                        degree,
+                        riemann_starts,
+                        slot_to_factor,
+                        best_perm,
+                        best_sign,
+                    )
+                end
+
+                @test best_perm == canon_bf
+                @test best_sign[] == sign_bf
+            end
+        end
+
+        @testset "n=5 deterministic and symmetry-consistent" begin
+            case = InvariantCase([0, 0, 0, 0, 0])
+            perm = collect(20:-1:1)
+
+            # Deterministic
+            c1, s1 = _canonicalize_contraction_perm(perm, case)
+            c2, s2 = _canonicalize_contraction_perm(perm, case)
+            @test c1 == c2
+            @test s1 == s2
+
+            # Symmetry-equivalent perms (swap first pair of factor 1)
+            perm2 = copy(perm)
+            _swap_slots!(perm2, 1, 2)
+            c3, s3 = _canonicalize_contraction_perm(perm2, case)
+            @test c1 == c3
+            @test s1 == -s3
+        end
+
+        @testset "n=5 performance" begin
+            case = InvariantCase([0, 0, 0, 0, 0])
+            perm = collect(20:-1:1)
+
+            # Warm up JIT
+            _canonicalize_contraction_perm(perm, case)
+
+            t = @elapsed begin
+                for _ in 1:100
+                    _canonicalize_contraction_perm(perm, case)
+                end
+            end
+            # 100 canonicalizations should complete well under 5 seconds
+            @test t < 5.0
+        end
+
+        @testset "n=6 completes (was infeasible with brute force)" begin
+            case = InvariantCase([0, 0, 0, 0, 0, 0])
+            perm = collect(24:-1:1)
+
+            canon, sign = _canonicalize_contraction_perm(perm, case)
+            @test length(canon) == 24
+            @test sign == 1 || sign == -1
+
+            # Deterministic
+            c2, s2 = _canonicalize_contraction_perm(perm, case)
+            @test canon == c2
+            @test sign == s2
+        end
+    end
+
     @testset "Phase 3: RiemannToPerm" begin
         @testset "RicciScalar → case [0]" begin
             rperm = RiemannToPerm("RicciScalarCD[]", :g; covd=:CD)

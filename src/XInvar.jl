@@ -1066,6 +1066,87 @@ function _all_block_permutations(
 end
 
 """
+    _backtrack_riemann_syms!(perm, sign, factor, ...)
+
+Recursively apply Riemann symmetries to factors `factor..n_factors`, pruning
+branches where frozen positions are already worse than `best_perm`.
+
+A position j is "frozen" after processing factor k when both
+`slot_to_factor[j] ≤ k` and `slot_to_factor[perm[j]] ≤ k` — future
+factor symmetries cannot change frozen values.
+"""
+function _backtrack_riemann_syms!(
+    perm::Vector{Int},
+    sign::Int,
+    factor::Int,
+    n_factors::Int,
+    degree::Int,
+    riemann_starts::Vector{Int},
+    slot_to_factor::Vector{Int},
+    best_perm::Vector{Int},
+    best_sign::Ref{Int},
+)
+    if factor > n_factors
+        if perm < best_perm
+            copyto!(best_perm, perm)
+            best_sign[] = sign
+        end
+        return nothing
+    end
+
+    saved = copy(perm)
+    for bits in 0:7
+        copyto!(perm, saved)
+        current_sign = sign
+
+        rs = riemann_starts[factor]
+        a, b, c, d = rs, rs + 1, rs + 2, rs + 3
+
+        if bits & 1 != 0
+            _swap_slots!(perm, a, b)
+            current_sign = -current_sign
+        end
+        if bits & 2 != 0
+            _swap_slots!(perm, c, d)
+            current_sign = -current_sign
+        end
+        if bits & 4 != 0
+            _swap_slots!(perm, a, c)
+            _swap_slots!(perm, b, d)
+        end
+
+        # Frozen-position pruning: check positions whose factor and value are both ≤ current
+        pruned = false
+        for j in 1:degree
+            (slot_to_factor[j] > factor || slot_to_factor[perm[j]] > factor) && continue
+            if perm[j] > best_perm[j]
+                pruned = true
+                break
+            elseif perm[j] < best_perm[j]
+                break
+            end
+        end
+
+        if !pruned
+            _backtrack_riemann_syms!(
+                perm,
+                current_sign,
+                factor + 1,
+                n_factors,
+                degree,
+                riemann_starts,
+                slot_to_factor,
+                best_perm,
+                best_sign,
+            )
+        end
+    end
+
+    copyto!(perm, saved)
+    return nothing
+end
+
+"""
     _canonicalize_contraction_perm(perm, case) -> (canonical_perm, sign)
 
 Canonicalize a contraction permutation under the symmetry group of a product
@@ -1107,52 +1188,92 @@ function _canonicalize_contraction_perm(
 
     block_perms = _all_block_permutations(groups, n, slot_ranges)
 
+    # Precompute slot-to-factor mapping and Riemann start positions
+    slot_to_factor = zeros(Int, degree)
+    for i in 1:n
+        for j in slot_ranges[i]
+            slot_to_factor[j] = i
+        end
+    end
+
+    riemann_starts = Vector{Int}(undef, n)
+    for i in 1:n
+        riemann_starts[i] = first(slot_ranges[i]) + case.deriv_orders[i]
+    end
+
     best_perm = copy(perm)
     best_sign = 1
 
-    for (block_perm_map, block_sign) in block_perms
-        bp = _apply_block_perm_to_contraction(perm, block_perm_map, slot_ranges, degree)
+    if n <= 4
+        # Brute-force: enumerate all 8^n Riemann symmetry combinations
+        for (block_perm_map, block_sign) in block_perms
+            bp = _apply_block_perm_to_contraction(perm, block_perm_map, slot_ranges, degree)
 
-        # After block perm, compute where each factor's Riemann slots ended up
-        target_riemann_starts = Vector{Int}(undef, n)
-        for i in 1:n
-            j = block_perm_map[i]
-            target_riemann_starts[j] = first(slot_ranges[j]) + case.deriv_orders[j]
-        end
+            total_configs = 8^n
+            for config in 0:(total_configs - 1)
+                current_perm = copy(bp)
+                current_sign = block_sign
 
-        # Enumerate all 8^n Riemann symmetry combinations
-        total_configs = 8^n
-        for config in 0:(total_configs - 1)
-            current_perm = copy(bp)
-            current_sign = block_sign
+                cfg = config
+                for i in 1:n
+                    bits = cfg & 7
+                    cfg >>= 3
 
-            cfg = config
-            for i in 1:n
-                bits = cfg & 7
-                cfg >>= 3
+                    rs = riemann_starts[i]
+                    a, b, c, d = rs, rs + 1, rs + 2, rs + 3
 
-                rs = target_riemann_starts[i]
-                a, b, c, d = rs, rs + 1, rs + 2, rs + 3
-
-                if bits & 1 != 0  # swap first pair (a,b)
-                    _swap_slots!(current_perm, a, b)
-                    current_sign = -current_sign
+                    if bits & 1 != 0  # swap first pair (a,b)
+                        _swap_slots!(current_perm, a, b)
+                        current_sign = -current_sign
+                    end
+                    if bits & 2 != 0  # swap second pair (c,d)
+                        _swap_slots!(current_perm, c, d)
+                        current_sign = -current_sign
+                    end
+                    if bits & 4 != 0  # exchange pairs (a,b) ↔ (c,d)
+                        _swap_slots!(current_perm, a, c)
+                        _swap_slots!(current_perm, b, d)
+                    end
                 end
-                if bits & 2 != 0  # swap second pair (c,d)
-                    _swap_slots!(current_perm, c, d)
-                    current_sign = -current_sign
-                end
-                if bits & 4 != 0  # exchange pairs (a,b) ↔ (c,d)
-                    _swap_slots!(current_perm, a, c)
-                    _swap_slots!(current_perm, b, d)
+
+                if current_perm < best_perm
+                    best_perm = current_perm
+                    best_sign = current_sign
                 end
             end
+        end
+    else
+        # Backtracking with frozen-position pruning for n ≥ 5
+        best_sign_ref = Ref(best_sign)
 
-            if current_perm < best_perm
-                best_perm = current_perm
-                best_sign = current_sign
+        # Precompute block-permuted perms and seed best_perm for tighter pruning
+        block_results = Vector{Tuple{Vector{Int},Int}}(undef, length(block_perms))
+        for (k, (bmap, bsign)) in enumerate(block_perms)
+            bp = _apply_block_perm_to_contraction(perm, bmap, slot_ranges, degree)
+            block_results[k] = (bp, bsign)
+            if bp < best_perm
+                copyto!(best_perm, bp)
+                best_sign_ref[] = bsign
             end
         end
+
+        # Explore best-looking block perms first to maximize pruning
+        sort!(block_results; by=first)
+
+        for (bp, block_sign) in block_results
+            _backtrack_riemann_syms!(
+                bp,
+                block_sign,
+                1,
+                n,
+                degree,
+                riemann_starts,
+                slot_to_factor,
+                best_perm,
+                best_sign_ref,
+            )
+        end
+        best_sign = best_sign_ref[]
     end
 
     (best_perm, best_sign)
