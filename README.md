@@ -15,6 +15,27 @@ T = def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
 ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
 ```
 
+### Python
+
+```python
+from xact.xcore import get_julia
+
+jl = get_julia()
+xAct = jl.xAct
+jlvec = jl.seval("collect")
+
+xAct.reset_state_b()
+xAct.def_manifold_b("M", 4, jlvec(["a", "b", "c", "d"]))
+xAct.def_tensor_b("T", jlvec(["-a", "-b"]), "M", symmetry_str="Symmetric[{-a,-b}]")
+xAct.ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
+```
+
+## Try It
+
+- [Julia notebook](notebooks/julia/basics.ipynb) — open in JupyterLab or Google Colab
+- [Python notebook](notebooks/python/basics.ipynb) — open in JupyterLab or Google Colab
+- Local: `just lab` to launch JupyterLab
+
 ## Components
 
 - **xAct.jl** (Julia): The computational engine — canonicalization, contraction, covariant derivatives, perturbation theory, coordinate components (xCoba), and more.

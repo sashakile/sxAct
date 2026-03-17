@@ -30,6 +30,30 @@ println(result)  # "0"
 
 For a more detailed, step-by-step walkthrough, see the [Basics Tutorial](examples/basics.md).
 
+### Python Quick Start
+
+All Julia functions are accessible from Python via the `xact` package:
+
+```python
+from xact.xcore import get_julia
+
+jl = get_julia()
+xAct = jl.xAct
+jlvec = jl.seval("collect")   # convert Python lists to Julia vectors
+
+xAct.reset_state_b()
+xAct.def_manifold_b("M", 4, jlvec(["a", "b", "c", "d"]))
+xAct.def_tensor_b("T", jlvec(["-a", "-b"]), "M", symmetry_str="Symmetric[{-a,-b}]")
+
+result = xAct.ToCanonical("T[-b,-a] - T[-a,-b]")
+print(result)  # "0"
+```
+
+!!! note "Naming convention"
+    Julia functions with `!` (mutating) are accessed with a `_b` suffix in Python: `def_manifold!` becomes `def_manifold_b`. Non-mutating functions like `ToCanonical` and `Contract` keep their original names.
+
+For a full walkthrough, see the [Python notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/python/basics.ipynb).
+
 ---
 
 ## 2. Reference: Migration Rosetta Stone

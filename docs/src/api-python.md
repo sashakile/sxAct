@@ -81,12 +81,80 @@ All exported functions (see `xact.xcore.__all__`):
 | **Configuration** | `warning_from`, `set_warning_from`, `xact_directory`, `set_xact_directory`, `xact_doc_directory`, `set_xact_doc_directory` |
 | **Misc** | `disclaimer` |
 
-!!! note "High-Level API"
-    A high-level Python API for tensor algebra (e.g., `xact.Manifold("M", 4)`) is not yet available. For research use, we recommend using `xAct.jl` directly in Julia.
+---
+
+## 2. Using xAct from Python
+
+The full Julia tensor algebra engine is accessible from Python via `juliacall`.
+This is the recommended way to use xAct from Python notebooks or scripts.
+
+### Setup
+
+```python
+from xact.xcore import get_julia
+
+jl = get_julia()       # initializes Julia + loads xAct (once per process)
+xAct = jl.xAct         # the xAct Julia module
+
+# Helper: Python lists don't auto-convert to Julia Vector
+jlvec = jl.seval("collect")
+```
+
+### Naming Convention
+
+Julia functions with `!` (mutating) are accessed with a `_b` suffix:
+
+| Julia | Python |
+| :--- | :--- |
+| `def_manifold!(:M, 4, [:a, :b])` | `xAct.def_manifold_b("M", 4, jlvec(["a", "b"]))` |
+| `def_metric!(-1, "g[-a,-b]", :CD)` | `xAct.def_metric_b(-1, "g[-a,-b]", "CD")` |
+| `def_tensor!(:T, ["-a", "-b"], :M)` | `xAct.def_tensor_b("T", jlvec(["-a", "-b"]), "M")` |
+| `ToCanonical("expr")` | `xAct.ToCanonical("expr")` |
+| `Contract("expr")` | `xAct.Contract("expr")` |
+| `Simplify("expr")` | `xAct.Simplify("expr")` |
+| `perturb("expr", 1)` | `xAct.perturb("expr", 1)` |
+
+### Complete Example
+
+```python
+from xact.xcore import get_julia
+
+jl = get_julia()
+xAct = jl.xAct
+jlvec = jl.seval("collect")
+
+# Define spacetime
+xAct.reset_state_b()
+xAct.def_manifold_b("M", 4, jlvec(["a", "b", "c", "d", "e", "f"]))
+xAct.def_metric_b(-1, "g[-a,-b]", "CD")
+
+# Canonicalize — Riemann first Bianchi identity
+result = xAct.ToCanonical(
+    "RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]"
+)
+print(result)  # "0"
+
+# Contract — lower a vector index
+xAct.def_tensor_b("V", jlvec(["a"]), "M")
+print(xAct.Contract("V[a] * g[-a,-b]"))  # "V[-b]"
+
+# Perturbation theory
+xAct.def_tensor_b("h", jlvec(["-a", "-b"]), "M",
+                   symmetry_str="Symmetric[{-a,-b}]")
+xAct.def_perturbation_b("h", "g", 1)
+print(xAct.perturb("g[-a,-b]", 1))  # "h[-a,-b]"
+```
+
+### Interactive Notebooks
+
+Pre-built Jupyter notebooks are available in the repository:
+
+- **Julia**: [`notebooks/julia/basics.ipynb`](https://github.com/sashakile/sxAct/blob/main/notebooks/julia/basics.ipynb)
+- **Python**: [`notebooks/python/basics.ipynb`](https://github.com/sashakile/sxAct/blob/main/notebooks/python/basics.ipynb)
 
 ---
 
-## 2. Verification Framework (`sxact`)
+## 3. Verification Framework (`sxact`)
 
 The `sxact` package powers the automated parity verification suite.
 
