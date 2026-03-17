@@ -6,6 +6,7 @@ on:
     paths:
       - "docs/**"
       - "src/**"
+      - "notebooks/pluto/**"
       - "*.jl"
       - "Project.toml"
       - "justfile"

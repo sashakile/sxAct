@@ -2,5 +2,7 @@
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
+Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+PlutoStaticHTML = "359b1769-a295-4c4a-a226-571bdeae4637"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 xAct = "61ed89dc-cc38-478d-be53-e1ee1d7160f1"

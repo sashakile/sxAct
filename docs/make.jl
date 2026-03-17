@@ -16,6 +16,29 @@ for file in readdir(example_dir)
     end
 end
 
+# Export Pluto notebooks to HTML fragments for inclusion in docs
+pluto_dir = joinpath(@__DIR__, "..", "notebooks", "pluto")
+pluto_output = joinpath(@__DIR__, "src", "notebooks")
+isdir(pluto_output) || mkdir(pluto_output)
+
+if isdir(pluto_dir) && !isempty(readdir(pluto_dir))
+    using PlutoStaticHTML
+    pluto_files = filter(f -> endswith(f, ".jl"), readdir(pluto_dir))
+    for file in pluto_files
+        name = replace(file, ".jl" => "")
+        @info "Exporting Pluto notebook: $file"
+        html = PlutoStaticHTML.notebook_to_html(joinpath(pluto_dir, file))
+        # Wrap in Documenter-compatible Markdown with raw HTML
+        open(joinpath(pluto_output, "$name.md"), "w") do io
+            println(io, "# $(titlecase(name)) (Pluto Notebook)")
+            println(io)
+            println(io, "```@raw html")
+            println(io, html)
+            println(io, "```")
+        end
+    end
+end
+
 makedocs(;
     sitename="xAct.jl",
     format=Documenter.HTML(;
@@ -35,6 +58,7 @@ makedocs(;
         "Migrating from Wolfram" => "wolfram-migration.md",
         "Tutorials" =>
             ["Basics" => "examples/basics.md", "Riemann Invariants" => "examples/invar.md"],
+        "Notebooks" => ["Interactive Basics (Pluto)" => "notebooks/basics.md"],
         "Theory" => ["Differential Geometry Primer" => "differential-geometry-primer.md"],
         "Advanced" => ["Oracle Quirks" => "theory/oracle-quirks.md"],
         "Architecture" => "architecture.md",

@@ -1,0 +1,104 @@
+---
+title: "sxAct — Getting Started (Python)"
+jupyter: python3
+format:
+  ipynb:
+    output-file: basics.ipynb
+---
+
+::: {.callout-note}
+Auto-generated from `notebooks/python/basics.qmd` via Quarto.
+Edit the source `.qmd` file, not the `.ipynb`.
+:::
+
+## Overview
+
+This notebook walks through the same workflow as the Julia version,
+using the sxAct Python adapter. Under the hood, all computation
+is performed by the Julia engine via `juliacall`.
+
+**Requirements:** Python 3.10+, Julia 1.12+.
+
+## 1. Setup
+
+```{python}
+# Uncomment if running on Google Colab:
+# !pip install sxact
+
+from sxact.adapter import julia_stub as jl
+```
+
+## 2. Define a Manifold
+
+A 4-dimensional spacetime manifold with abstract indices.
+
+```{python}
+jl.execute("DefManifold", name="M", dim=4, indices=["a", "b", "c", "d", "e", "f"])
+```
+
+## 3. Define a Metric
+
+Lorentzian signature, covariant derivative CD.
+Automatically creates Riemann, Ricci, Weyl, Einstein, Christoffel.
+
+```{python}
+jl.execute("DefMetric", signature=-1, metric_expr="g[-a,-b]", covd_name="CD")
+```
+
+## 4. Canonicalization
+
+Symmetric metric: $g_{ba} - g_{ab} = 0$.
+
+```{python}
+result = jl.execute("ToCanonical", expr="g[-b,-a] - g[-a,-b]")
+print(result)
+```
+
+Define a symmetric tensor and canonicalize:
+
+```{python}
+jl.execute(
+    "DefTensor",
+    name="T",
+    indices=["-a", "-b"],
+    manifold="M",
+    symmetry_str="Symmetric[{-a,-b}]",
+)
+result = jl.execute("ToCanonical", expr="T[-b,-a] - T[-a,-b]")
+print(result)
+```
+
+## 5. Simplification
+
+Contract and simplify the Ricci scalar:
+
+```{python}
+result = jl.execute("Simplify", expr="RicciCD[-a,-b] * g[a,b]")
+print(result)
+```
+
+## 6. Riemann Identities
+
+First Bianchi identity:
+
+```{python}
+result = jl.execute(
+    "ToCanonical",
+    expr="RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]",
+)
+print(result)
+```
+
+## 7. Perturbation Theory
+
+```{python}
+jl.execute("DefPerturbation", name="h", metric_expr="g[-a,-b]")
+result = jl.execute("Perturb", expr="RicciCD[-a,-b]", order=1)
+print(result)
+```
+
+## Next Steps
+
+- Full Julia API for more advanced workflows
+- Coordinate components, covariant derivative commutation
+- Documentation: [sashakile.github.io/sxAct](https://sashakile.github.io/sxAct/)
