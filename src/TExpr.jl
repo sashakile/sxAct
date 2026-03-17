@@ -100,6 +100,7 @@ Numeric scalar coefficient.
 """
 struct TScalar <: TExpr
     value::Rational{Int}
+    TScalar(value::Rational{Int}) = new(value)
 end
 
 """
@@ -124,6 +125,7 @@ Product of tensor expressions with a rational coefficient.
 struct TProd <: TExpr
     coeff::Rational{Int}
     factors::Vector{TExpr}  # TTensor, TCovD, or TScalar elements
+    TProd(coeff::Rational{Int}, factors::Vector{TExpr}) = new(coeff, factors)
 end
 
 """
@@ -131,6 +133,7 @@ Sum of tensor expressions.
 """
 struct TSum <: TExpr
     terms::Vector{TExpr}  # TTensor, TProd, TCovD, or TScalar elements
+    TSum(terms::Vector{TExpr}) = new(terms)
 end
 
 """
