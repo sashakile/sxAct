@@ -24,7 +24,8 @@
       "Bash(do:*)",
       "Bash(bd ready:*)",
       "Bash(ls tests/xperm/*.toml tests/xtensor/*.toml 2>/dev/null | wc -l && for f in tests/xperm/*.toml tests/xtensor/*.toml; do grep -c '^\\\\[\\\\[test\\\\]\\\\]' \"$f\" 2>/dev/null; done | paste -sd+ | bc)",
-      "WebFetch(domain:discourse.julialang.org)"
+      "WebFetch(domain:discourse.julialang.org)",
+      "Bash(bd search:*)"
     ]
   }
 }

@@ -153,6 +153,105 @@ xact.Perturbation(h, g, order=1)
 xact.perturb("g[-a,-b]", order=1)  # "h[-a,-b]"
 ```
 
+### Typed Expression API
+
+The `xact` package includes a typed expression layer that catches mistakes at
+expression-construction time — wrong slot counts, indices from the wrong
+manifold — rather than deep inside the engine.
+
+!!! note "Stage 1 limitation"
+    In Stage 1, engine functions accept typed expressions but still return
+    `str`. Full round-trip (typed in → typed out) is planned for Stage 2.
+
+#### Index Types
+
+```python
+# Create index objects bound to manifold M
+a, b, c, d, e, f = xact.indices(M)   # tuple of Idx objects
+
+# Manually: Idx(label, manifold_name)
+a = xact.Idx("a", "M")
+
+# Covariant (down) index via negation
+-a   # DnIdx(-a)
+```
+
+| Class | Description |
+| :--- | :--- |
+| `xact.Idx(label, manifold)` | Contravariant (up) index bound to a manifold name |
+| `xact.DnIdx(parent)` | Covariant (down) index; produced by `-idx` |
+
+#### Tensor Handles and Expressions
+
+| Class | Description |
+| :--- | :--- |
+| `xact.TensorHead(name)` | Lightweight tensor handle; use `T[-a, -b]` to apply indices |
+| `xact.AppliedTensor` | Tensor with indices; result of `T[...]` |
+| `xact.SumExpr` | Sum of expressions; result of `a + b` |
+| `xact.ProdExpr` | Product with coefficient; result of `a * b`, `2 * a`, `-a` |
+| `xact.CovDExpr` | Covariant derivative on an expression |
+
+#### Factory Functions
+
+```python
+# All index labels for a manifold (ordered as defined)
+a, b, c, d, e, f = xact.indices(M)
+
+# Look up a registered tensor by name — validates existence, caches arity
+Riem = xact.tensor("RiemannCD")
+g_h  = xact.tensor("g")
+
+# Tensor and Metric objects also support [] directly:
+g[-a, -b]     # same as xact.tensor("g")[-a, -b]
+```
+
+#### Operator Overloading
+
+```python
+import xact
+
+xact.reset()
+M  = xact.Manifold("M", 4, ["a", "b", "c", "d", "e", "f"])
+g  = xact.Metric(M, "g", signature=-1, covd="CD")
+a, b, c, d, e, f = xact.indices(M)
+
+# Apply indices to a tensor handle
+Riem = xact.tensor("RiemannCD")
+expr = Riem[-a, -b, -c, -d]           # AppliedTensor
+
+# Arithmetic
+T = xact.Tensor("T", ["-a", "-b"], M)
+th = xact.tensor("T")
+prod = th[-a, -b] * th[a, c]          # ProdExpr
+ssum = th[-a, -b] + th[-b, -a]        # SumExpr
+neg  = -th[-a, -b]                    # ProdExpr(coeff=-1)
+scl  = 2 * th[-a, -b]                 # ProdExpr(coeff=2)
+```
+
+#### Validation at Construction Time
+
+```python
+# Wrong slot count — raised immediately, not in the engine
+th[-a]                  # IndexError: T has 2 slots, got 1
+```
+
+#### Engine Integration
+
+All engine functions accept typed expressions transparently:
+
+```python
+# String API (original)
+xact.canonicalize("RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b]")
+
+# Typed API (equivalent)
+Riem = xact.tensor("RiemannCD")
+a, b, c, d, e, f = xact.indices(M)
+xact.canonicalize(Riem[-a,-b,-c,-d] + Riem[-a,-c,-d,-b])   # returns str
+```
+
+Supported: `canonicalize`, `contract`, `simplify`, `perturb`, `commute_covds`,
+`sort_covds`, `ibp`, `total_derivative_q`, `var_d`.
+
 ### Interactive Notebooks
 
 Pre-built Jupyter notebooks are available in the repository:

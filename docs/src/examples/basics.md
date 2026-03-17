@@ -151,4 +151,69 @@ Now that you've mastered the basics, check out:
 
 ---
 
+## 8. Typed Expression API
+
+The string-based API above is quick to write but does not catch mistakes
+(wrong number of indices, indices from the wrong manifold) until deep in
+the engine. The **typed expression layer** validates at construction time.
+
+!!! note "Stage 1 limitation"
+    Engine functions currently return `String` even when given a typed
+    expression. Full round-trip is planned for Stage 2.
+
+### Julia
+
+**Julia**
+
+````@example basics
+# @indices declares typed index variables bound to manifold M.
+# def_manifold! and def_metric! must have been called first (see sections 2-5).
+@indices M a b c d e f
+
+# tensor() looks up a registered tensor and returns a TensorHead handle.
+Riem = tensor(:RiemannCD)
+
+# Build the expression with [] — slot count and manifold validated immediately.
+expr = Riem[-a,-b,-c,-d] + Riem[-a,-c,-d,-b] + Riem[-a,-d,-b,-c]
+println(expr)       # "RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]"
+ToCanonical(expr)   # "0"
+````
+
+Compare with the string equivalent:
+````@example basics
+ToCanonical("RiemannCD[-a,-b,-c,-d] + RiemannCD[-a,-c,-d,-b] + RiemannCD[-a,-d,-b,-c]")
+````
+
+Wrong slot count is caught immediately:
+````@example basics
+try
+    Riem[-a]    # ERROR: RiemannCD has 4 slots, got 1
+catch e
+    println(e)
+end
+````
+
+### Python
+
+```python
+# indices() returns Idx objects for all registered labels of a manifold.
+a, b, c, d, e, f = xact.indices(M)
+
+# tensor() validates existence and caches slot count.
+Riem = xact.tensor("RiemannCD")
+
+# Operator overloading builds the expression tree.
+expr = Riem[-a,-b,-c,-d] + Riem[-a,-c,-d,-b] + Riem[-a,-d,-b,-c]
+print(expr)                 # "RiemannCD[-a,-b,-c,-d] + ..."
+xact.canonicalize(expr)     # "0"
+
+# Wrong slot count — raised at construction, not in the engine:
+try:
+    Riem[-a]
+except IndexError as e:
+    print(e)    # RiemannCD has 4 slots, got 1
+```
+
+---
+
 *This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
