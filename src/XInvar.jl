@@ -1402,55 +1402,127 @@ end
 # ============================================================
 
 """
-    _build_perm_dispatch(perm_table) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
+    _invar_perm_to_involution(σ::Vector{Int}) -> Vector{Int}
 
-Build a reverse lookup table: case → (permutation → invariant_index).
-Used by `PermToInv` for O(1) lookup of canonical permutations.
+Convert a Wolfram Invar "canonical labeling" permutation to a contraction
+involution. In the Invar convention, σ(i) gives the position of slot i in a
+canonical paired arrangement where pairs occupy consecutive positions (1,2),
+(3,4), etc. The returned involution maps each slot to the slot it contracts
+with: invol[i] = j means slot i and slot j share the same dummy index.
 """
-function _build_perm_dispatch(
-    perm_table::Dict{Vector{Int},Dict{Int,Vector{Int}}}
-)::Dict{Vector{Int},Dict{Vector{Int},Int}}
-    dispatch = Dict{Vector{Int},Dict{Vector{Int},Int}}()
-    for (case_key, index_to_perm) in perm_table
-        perm_to_index = Dict{Vector{Int},Int}()
-        for (idx, perm) in index_to_perm
-            perm_to_index[perm] = idx
+function _invar_perm_to_involution(σ::Vector{Int})::Vector{Int}
+    d = length(σ)
+    invol = zeros(Int, d)
+    # Group slots by which pair they belong to (pair k = positions 2k-1, 2k)
+    pairs = Dict{Int,Vector{Int}}()
+    for i in 1:d
+        pair_idx = (σ[i] + 1) ÷ 2
+        slots = get!(pairs, pair_idx, Int[])
+        push!(slots, i)
+    end
+    for (_, slots) in pairs
+        length(slots) == 2 ||
+            error("Invalid Invar permutation: pair has $(length(slots)) slots (expected 2)")
+        invol[slots[1]] = slots[2]
+        invol[slots[2]] = slots[1]
+    end
+    invol
+end
+
+"""
+    _involution_to_invar_perm(invol::Vector{Int}) -> Vector{Int}
+
+Convert a contraction involution back to the Wolfram Invar "canonical labeling"
+convention. Contracted pairs are assigned consecutive positions (1,2), (3,4), etc.
+in the order they appear (scanning slots left to right).
+"""
+function _involution_to_invar_perm(invol::Vector{Int})::Vector{Int}
+    d = length(invol)
+    σ = zeros(Int, d)
+    pair_idx = 0
+    assigned = falses(d)
+    for i in 1:d
+        assigned[i] && continue
+        j = invol[i]
+        pair_idx += 1
+        σ[i] = 2 * pair_idx - 1
+        σ[j] = 2 * pair_idx
+        assigned[i] = true
+        assigned[j] = true
+    end
+    σ
+end
+
+"""
+    _build_case_dispatch(index_to_perm, case) -> Dict{Vector{Int}, Int}
+
+Build a reverse lookup for a single case: canonical involution → invariant index.
+DB permutations are converted from Invar labeling convention to contraction
+involutions and canonicalized to match the output of `_canonicalize_contraction_perm`.
+"""
+function _build_case_dispatch(
+    index_to_perm::Dict{Int,Vector{Int}}, case::InvariantCase
+)::Dict{Vector{Int},Int}
+    perm_to_index = Dict{Vector{Int},Int}()
+    for (idx, db_perm) in index_to_perm
+        invol = _invar_perm_to_involution(db_perm)
+        canon, _ = _canonicalize_contraction_perm(invol, case)
+        perm_to_index[canon] = idx
+    end
+    perm_to_index
+end
+
+"""
+Global cached dispatch tables. Built lazily per case on first `PermToInv` call.
+"""
+_perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
+    Vector{Int},Dict{Vector{Int},Int}
+}()
+_dual_perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
+    Vector{Int},Dict{Vector{Int},Int}
+}()
+
+"""
+    _build_case_dispatch_raw(index_to_perm) -> Dict{Vector{Int}, Int}
+
+Build a reverse lookup for a single case using raw DB permutations (no conversion).
+Used for dual cases where the epsilon tensor slots complicate canonicalization.
+"""
+function _build_case_dispatch_raw(
+    index_to_perm::Dict{Int,Vector{Int}}
+)::Dict{Vector{Int},Int}
+    perm_to_index = Dict{Vector{Int},Int}()
+    for (idx, perm) in index_to_perm
+        perm_to_index[perm] = idx
+    end
+    perm_to_index
+end
+
+"""
+    _ensure_case_dispatch(db::InvarDB, case_key::Vector{Int}, is_dual::Bool) -> Dict{Vector{Int}, Int}
+
+Return the cached dispatch table for a specific case, building it lazily if needed.
+Non-dual cases convert from Invar labeling to canonical involutions.
+Dual cases use raw DB perms (looked up via `_involution_to_invar_perm` conversion).
+"""
+function _ensure_case_dispatch(
+    db::InvarDB, case_key::Vector{Int}, is_dual::Bool
+)::Dict{Vector{Int},Int}
+    dispatch = is_dual ? _dual_perm_dispatch : _perm_dispatch
+    perm_table = is_dual ? db.dual_perms : db.perms
+
+    if !haskey(dispatch, case_key)
+        if !haskey(perm_table, case_key)
+            return Dict{Vector{Int},Int}()
         end
-        dispatch[case_key] = perm_to_index
+        if is_dual
+            dispatch[case_key] = _build_case_dispatch_raw(perm_table[case_key])
+        else
+            case = InvariantCase(case_key)
+            dispatch[case_key] = _build_case_dispatch(perm_table[case_key], case)
+        end
     end
-    dispatch
-end
-
-"""
-Global cached dispatch tables. Built on first `PermToInv` call.
-"""
-_perm_dispatch::Union{Nothing,Dict{Vector{Int},Dict{Vector{Int},Int}}} = nothing
-_dual_perm_dispatch::Union{Nothing,Dict{Vector{Int},Dict{Vector{Int},Int}}} = nothing
-
-"""
-    _ensure_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
-
-Return the cached dispatch table, building it from `db` if needed.
-"""
-function _ensure_dispatch(db::InvarDB)
-    global _perm_dispatch
-    if _perm_dispatch === nothing
-        _perm_dispatch = _build_perm_dispatch(db.perms)
-    end
-    return _perm_dispatch
-end
-
-"""
-    _ensure_dual_dispatch(db::InvarDB) -> Dict{Vector{Int}, Dict{Vector{Int}, Int}}
-
-Return the cached dual dispatch table, building it from `db` if needed.
-"""
-function _ensure_dual_dispatch(db::InvarDB)
-    global _dual_perm_dispatch
-    if _dual_perm_dispatch === nothing
-        _dual_perm_dispatch = _build_perm_dispatch(db.dual_perms)
-    end
-    return _dual_perm_dispatch
+    dispatch[case_key]
 end
 
 """
@@ -1469,11 +1541,11 @@ Throws `ArgumentError` if the permutation is not found in the database.
 function PermToInv(rperm::RPerm; db::InvarDB)::RInv
     case_key = rperm.case.deriv_orders
     is_dual = rperm.case.n_epsilon == 1
-
-    dispatch = is_dual ? _ensure_dual_dispatch(db) : _ensure_dispatch(db)
     label = is_dual ? "dual database" : "database"
 
-    if isnothing(dispatch) || !haskey(dispatch, case_key)
+    perm_to_index = _ensure_case_dispatch(db, case_key, is_dual)
+
+    if isempty(perm_to_index)
         throw(
             ArgumentError(
                 "Case $case_key not found in $label. " *
@@ -1482,8 +1554,11 @@ function PermToInv(rperm::RPerm; db::InvarDB)::RInv
         )
     end
 
-    perm_to_index = dispatch[case_key]
-    if !haskey(perm_to_index, rperm.perm)
+    # For non-dual: dispatch contains canonical involutions, input is already canonical
+    # For dual: dispatch contains raw perms from DB, input used directly
+    lookup_key = rperm.perm
+
+    if !haskey(perm_to_index, lookup_key)
         throw(
             ArgumentError(
                 "Permutation $(rperm.perm) not found in $label for case $case_key. " *
@@ -1492,7 +1567,7 @@ function PermToInv(rperm::RPerm; db::InvarDB)::RInv
         )
     end
 
-    RInv(rperm.metric, rperm.case, perm_to_index[rperm.perm])
+    RInv(rperm.metric, rperm.case, perm_to_index[lookup_key])
 end
 
 """
@@ -1531,7 +1606,16 @@ function InvToPerm(rinv::RInv; db::InvarDB)::RPerm
         )
     end
 
-    RPerm(rinv.metric, rinv.case, index_to_perm[rinv.index])
+    db_perm = index_to_perm[rinv.index]
+    if is_dual
+        # Dual perms stored as-is (involutions); return directly
+        RPerm(rinv.metric, rinv.case, db_perm)
+    else
+        # Non-dual: convert from Invar labeling to involution and canonicalize
+        invol = _invar_perm_to_involution(db_perm)
+        canon, _ = _canonicalize_contraction_perm(invol, rinv.case)
+        RPerm(rinv.metric, rinv.case, canon)
+    end
 end
 
 # ============================================================
@@ -1725,8 +1809,11 @@ function RiemannSimplify(
     # Convert to InvExpr via PermToInv
     inv_terms = InvExpr()
     for (coeff, rperm) in rperm_terms
-        rinv = PermToInv(rperm; db=_db)
-        push!(inv_terms, (coeff, rinv))
+        # DB lookup REQUIRES canonical form
+        cp, cs = _canonicalize_contraction_perm(rperm.perm, rperm.case)
+        _rperm = RPerm(rperm.metric, rperm.case, cp)
+        rinv = PermToInv(_rperm; db=_db)
+        push!(inv_terms, (coeff * cs, rinv))
     end
 
     # Simplify
@@ -1789,7 +1876,7 @@ function _format_rational(r::Rational{Int})::String
     if denominator(r) == 1
         string(numerator(r))
     else
-        string(numerator(r)) * "/" * string(denominator(r))
+        "(" * string(numerator(r)) * "/" * string(denominator(r)) * ")"
     end
 end
 
@@ -1832,8 +1919,8 @@ function _reset_invar_db!()
     global _perm_dispatch
     global _dual_perm_dispatch
     _invar_db = nothing
-    _perm_dispatch = nothing
-    _dual_perm_dispatch = nothing
+    empty!(_perm_dispatch)
+    empty!(_dual_perm_dispatch)
 end
 
 end # module XInvar

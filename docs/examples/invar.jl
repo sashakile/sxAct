@@ -27,13 +27,13 @@ def_metric!(-1, "g[-a,-b]", :CD)
 # canonical permutation representation.
 
 # **Julia**
-expr = "RiemannCD[-a, -b, a, b]"
+expr = "RiemannCD[-a, -b, b, a]"
 rperm = RiemannToPerm(expr, :CD)
 println("Permutation form: ", rperm.perm)
 
 # **Python**
 # ```python
-# rperm = jl.xAct.RiemannToPerm("RiemannCD[-a, -b, a, b]", "CD")
+# rperm = jl.xAct.RiemannToPerm("RiemannCD[-a, -b, b, a]", "CD")
 # print(f"Permutation: {rperm.perm}")
 # ```
 
@@ -90,7 +90,7 @@ println("Level 3: ", s3)
 
 # **Julia**
 # Dual invariants are only supported if dim=4.
-result = RiemannSimplify("RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]", :CD; level=6, dim=4)
+result = RiemannSimplify("RiemannCD[-a, -b, b, a]", :CD; level=6, dim=4)
 println("Level 6 (4D) result: ", result)
 
 # ## 6. Summary
