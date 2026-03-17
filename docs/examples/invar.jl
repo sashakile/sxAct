@@ -28,7 +28,9 @@ def_metric!(-1, "g[-a,-b]", :CD)
 
 # **Julia**
 expr = "RiemannCD[-a, -b, b, a]"
-rperm = RiemannToPerm(expr, :CD)
+res = RiemannToPerm(expr, :CD)
+# RiemannToPerm may return a single RPerm or a vector of (coeff, RPerm)
+rperm = res isa RPerm ? res : res[1][2]
 println("Permutation form: ", rperm.perm)
 
 # **Python**
@@ -74,7 +76,7 @@ println("Difference simplified: ", result)  # "0"
 # 6. Dual invariants (4D only)
 
 # **Julia**
-expr = "RiemannCD[-a,-b,-c,-d] RiemannCD[a,c,b,d] + 1/2 RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]"
+expr = "2 RiemannCD[-a,-b,-c,-d] RiemannCD[a,c,b,d] + RiemannCD[-a,-b,-c,-d] RiemannCD[a,b,c,d]"
 # Level 2 (Cyclic)
 s2 = RiemannSimplify(expr, :CD; level=2)
 println("Level 2: ", s2)
