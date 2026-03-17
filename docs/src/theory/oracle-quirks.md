@@ -191,4 +191,3 @@ The solution uses `ToExpression` to delay parsing:
 Begin["xAct`xTensor`"];
 With[{result$$ = ToExpression["expr"]}, End[]; result$$]
 ```
-

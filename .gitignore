@@ -41,6 +41,10 @@ docs/build/
 # CondaPkg (auto-generated)
 docs/.CondaPkg/
 
+# Vale (downloaded style packages, but keep project vocabulary)
+.vale/styles/*/
+!.vale/styles/config/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db

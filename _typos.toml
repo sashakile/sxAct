@@ -1,0 +1,50 @@
+[files]
+extend-exclude = [
+    "*.lock",
+    "*.svg",
+    "Manifest.toml",
+    "data/",
+    # Research/specs contain quoted Mathematica/journal references
+    "research/",
+    "specs/",
+    # Debates are historical transcripts
+    "debates/",
+    # Plans/handoffs have domain-heavy shorthand
+    "plans/",
+    "handoffs/",
+    # Beads issue tracker (auto-generated)
+    ".beads/",
+]
+
+[default.extend-words]
+# Tensor index names (single-letter and multi-letter abstract indices)
+ba = "ba"
+nd = "nd"
+abd = "abd"
+cna = "cna"
+ded = "ded"
+ede = "ede"
+ue = "ue"
+pn = "pn"
+ser = "ser"
+# Case variants
+BA = "BA"
+Cna = "Cna"
+PN = "PN"
+DED = "DED"
+ERRO = "ERRO"
+# Journal abbreviations
+Comput = "Comput"
+Commun = "Commun"
+Mena = "Mena"
+# Valid English
+canonicalizations = "canonicalizations"
+# Physics terms
+Ket = "Ket"
+ket = "ket"
+bra = "bra"
+Bra = "Bra"
+
+[default.extend-identifiers]
+# Julia/Python identifiers that look like typos
+PermDegree = "PermDegree"

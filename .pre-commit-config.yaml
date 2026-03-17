@@ -36,6 +36,23 @@ repos:
         pass_filenames: true
         types_or: [julia]
 
+  # ── Spell-checking: typos ──────────────────────────────────────────────────
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.32.0
+    hooks:
+      - id: typos
+
+  # ── Prose linting: vale ───────────────────────────────────────────────────
+  # Uses system vale (brew install vale) — the upstream repo hook requires Go + C++.
+  - repo: local
+    hooks:
+      - id: vale
+        name: vale
+        language: system
+        entry: vale --no-exit
+        pass_filenames: true
+        types_or: [markdown]
+
   # ── Trailing whitespace / EOF ──────────────────────────────────────────────
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
