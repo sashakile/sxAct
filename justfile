@@ -6,7 +6,7 @@ docs:
 
 # Serve docs with live reload — watches docs/src/ and rebuilds on change
 serve-docs:
-    julia --project=docs/ -e 'using LiveServer; servedocs(literate_dir="docs/examples", skip_dirs=["docs/src/examples"])'
+    julia --project=docs/ -e 'using LiveServer; servedocs(literate_dir="docs/examples", skip_dirs=["docs/src/examples", "docs/src/notebooks"])'
 
 # Run all Julia unit tests and quality checks
 test-julia:
