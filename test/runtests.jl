@@ -738,6 +738,20 @@ end
 end
 
 @testset "JET static analysis" begin
+    # Purge stale pkgimage caches for xAct before running JET.
+    # Multiple valid-but-outdated .ji files accumulate over development sessions;
+    # Revise (used internally by JET) may pick a broken one that is missing the
+    # source-text section, causing a false "not stored in source-text cache" error.
+    let xact_id = Base.PkgId(xAct),
+        candidates = Base.find_all_in_cache_path(xact_id),
+        newest = isempty(candidates) ? nothing : first(sort(candidates; by=mtime, rev=true))
+
+        for c in candidates
+            c == newest && continue
+            rm(c; force=true)
+            rm(replace(c, ".ji" => ".so"); force=true)
+        end
+    end
     JET.test_package(xAct; target_modules=(xAct,))
 end
 
