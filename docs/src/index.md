@@ -16,10 +16,21 @@ Get started in 60 seconds. Open your Julia REPL and run:
 
 ```julia
 using xAct
-M = def_manifold!(:M, 4, [:a, :b, :c, :d])
-T = def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
-ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
+
+reset_state!()
+def_manifold!(:M, 4, [:a, :b, :c, :d])
+def_tensor!(:T, ["-a", "-b"], :M; symmetry_str="Symmetric[{-a,-b}]")
+
+@indices M a b c d     # typed index variables
+T_h = tensor(:T)       # tensor handle
+
+ToCanonical(T_h[-b,-a] - T_h[-a,-b])  # returns "0"
 ```
+
+The `@indices` / `tensor()` syntax is the **typed API** — it validates slot counts
+and manifold membership at construction time. See [Typed Expressions (TExpr)](guide/TExpr.md)
+for the full guide. The string API (`ToCanonical("T[-b,-a] - T[-a,-b]")`) also works
+everywhere and can be mixed freely.
 
 ## Project Overview
 
@@ -31,7 +42,7 @@ The `xAct.jl` project (hosted in the `sxAct` repository) provides the native, hi
 
 ## Migration Rosetta Stone
 
-For the full table, see [Getting Started](getting-started.md#2-reference-migration-rosetta-stone).
+For the full table, see [Getting Started](getting-started.md#4-reference-migration-rosetta-stone).
 
 | Operation | Wolfram (xAct) | Julia (xAct.jl) | Status |
 | :--- | :--- | :--- | :--- |

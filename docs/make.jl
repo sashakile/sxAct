@@ -75,6 +75,7 @@ makedocs(;
         "Status" => "theory/STATUS.md",
         "Installation" => "installation.md",
         "Getting Started" => "getting-started.md",
+        "Guide" => ["Typed Expressions (TExpr)" => "guide/TExpr.md"],
         "Key Concepts" => "concepts.md",
         "Migrating from Wolfram" => "wolfram-migration.md",
         "Tutorials" =>
