@@ -186,7 +186,7 @@ bd close bd-42 --reason "Completed" --json
 
 1. **Check ready work**: `bd ready` shows unblocked issues
 2. **Claim your task atomically**: `bd update <id> --claim`
-3. **Work on it**: Implement, test, document
+3. **Work on it**: **CRITICAL: follow TDD and Tidy First** (write tests before code, clean up related code before adding functionality)
 4. **Discover new work?** Create linked issue:
    - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
 5. **Complete**: `bd close <id> --reason "Done"`
@@ -202,6 +202,7 @@ bd automatically syncs via Dolt:
 ### Important Rules
 
 - ✅ Use bd for ALL task tracking
+- ✅ **CRITICAL: follow TDD and Tidy First** for all implementations
 - ✅ Always use `--json` flag for programmatic use
 - ✅ Link discovered work with `discovered-from` dependencies
 - ✅ Check `bd ready` before asking "what should I work on?"
