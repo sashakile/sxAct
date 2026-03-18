@@ -4561,7 +4561,12 @@ function FromBasis(tensor::Symbol, bases::Vector{Symbol})::String
 end
 
 function FromBasis(tensor::AbstractString, bases::Vector)::String
-    FromBasis(Symbol(tensor), Symbol[Symbol(b) for b in bases])
+    invoke(
+        FromBasis,
+        Tuple{Symbol,Vector{Symbol}},
+        Symbol(tensor),
+        Symbol[Symbol(b) for b in bases],
+    )
 end
 
 """
