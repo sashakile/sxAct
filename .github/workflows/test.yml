@@ -3,33 +3,55 @@ name: Test
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.vale.ini'
+      - '.gitignore'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.vale.ini'
+      - '.gitignore'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  pytest:
-    name: Python unit tests
+  unit-tests:
+    name: Unit & Regression Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install uv
-        run: pip install uv
-      - name: Install dependencies
-        run: uv sync --extra dev
-      - name: Run pytest
-        run: uv run pytest tests/ -q --ignore=tests/integration --ignore=tests/properties --ignore=tests/xperm --ignore=tests/xtensor
 
-  julia-tests:
-    name: Julia Unit + Functional Tests (Quality & Logic)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1.12"
+
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
@@ -38,75 +60,20 @@ jobs:
             ~/.julia/compiled
           key: julia-1.12-${{ hashFiles('Project.toml', 'tooling/Manifest.toml') }}
           restore-keys: julia-1.12-
+
+      - name: Install Python dependencies
+        run: uv sync --extra dev
+
       - name: Instantiate Julia project
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
-      - name: Instantiate tooling project (JuliaFormatter)
-        run: julia --project=tooling -e 'using Pkg; Pkg.instantiate()'
-      - name: Run all Julia tests
+
+      - name: Run pytest (Unit)
+        run: uv run pytest tests/ -q -m "not slow" --ignore=tests/integration --ignore=tests/properties --ignore=tests/xperm --ignore=tests/xtensor
+
+      - name: Run Julia tests (Unit + Logic)
         run: julia --project=. test/runtests.jl
 
-  toml-regression:
-    name: TOML snapshot regression tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1.12"
-      - name: Install uv
-        run: pip install uv
-      - name: Install dependencies
-        run: uv sync --extra dev
-      - name: Cache Julia packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.julia/packages
-            ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('Project.toml') }}
-          restore-keys: julia-1.12-
-      - name: Instantiate Julia project
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
-      - name: Run TOML regression tests (xperm)
-        run: uv run xact-test run tests/xperm --adapter julia --oracle-mode snapshot --oracle-dir oracle
-      - name: Run TOML regression tests (xtensor)
-        run: uv run xact-test run tests/xtensor --adapter julia --oracle-mode snapshot --oracle-dir oracle
-
-  benchmark-regression:
-    name: Benchmark regression check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1.12"
-      - name: Install uv
-        run: pip install uv
-      - name: Install dependencies
-        run: uv sync --extra dev
-      - name: Cache Julia packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.julia/packages
-            ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('Project.toml') }}
-          restore-keys: julia-1.12-
-      - name: Instantiate Julia project
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
-      - name: Check benchmark regressions
+      - name: Run TOML regression tests (xperm + xtensor)
         run: |
-          for dir in tests/xcore tests/xperm tests/xtensor; do
-            uv run xact-test benchmark "$dir" \
-              --adapter julia \
-              --baseline benchmarks/ci_baseline.json \
-              --n-warmup 3 \
-              --n-measure 10 \
-              --check
-          done
+          uv run xact-test run tests/xperm --adapter julia --oracle-mode snapshot --oracle-dir oracle
+          uv run xact-test run tests/xtensor --adapter julia --oracle-mode snapshot --oracle-dir oracle

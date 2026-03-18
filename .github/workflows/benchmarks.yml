@@ -1,0 +1,67 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sundays at midnight
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-regression:
+    name: Benchmark regression check
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'release' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-benchmarks'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.12"
+
+      - name: Cache Julia packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.julia/packages
+            ~/.julia/compiled
+          key: julia-1.12-${{ hashFiles('Project.toml') }}
+          restore-keys: julia-1.12-
+
+      - name: Install Python dependencies
+        run: uv sync --extra dev
+
+      - name: Instantiate Julia project
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Check benchmark regressions
+        run: |
+          for dir in tests/xcore tests/xperm tests/xtensor; do
+            uv run xact-test benchmark "$dir" \
+              --adapter julia \
+              --baseline benchmarks/ci_baseline.json \
+              --n-warmup 3 \
+              --n-measure 10 \
+              --check
+          done
