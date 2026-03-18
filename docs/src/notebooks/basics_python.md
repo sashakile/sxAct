@@ -17,8 +17,8 @@ is performed by the Julia engine — but the API is fully Pythonic.
 ## 1. Setup
 
 ```python
-# Uncomment if running on Google Colab:
-# !pip install xact-py
+# Uncomment if running on Google Colab (not yet on PyPI, install from GitHub):
+# !pip install "git+https://github.com/sashakile/sxAct.git#subdirectory=packages/xact-py"
 
 import xact
 

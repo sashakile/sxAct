@@ -24,7 +24,6 @@ Pkg.add(url="https://github.com/sashakile/sxAct")
     `xAct.jl` is not yet registered in the Julia General Registry (planned for a future release).
     Until then, install via the GitHub URL above.
 
-Once registered you will be able to use `Pkg.add("xAct")` instead.
 
 For Python installation, see [Installation Guide](installation.md).
 
