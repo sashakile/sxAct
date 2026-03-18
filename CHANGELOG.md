@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-18
+
+### Highlights
+
+- **TExpr typed expression layer** — every engine function returns typed `TTensor`, `Idx`, `TensorHead`, `CovDHead` values
+- **Python public API** — `xact.api` with zero juliacall exposure; `Manifold`, `Metric`, `Tensor`, `Perturbation`, `CTensor`, `Basis`, `Chart` classes
+- **xact CLI** — `xact translate` replaces `xact-test translate`; Wolfram Language → Julia/TOML/JSON/Python
+- **xCoba completion** — `CTensor`, `Basis`/`Chart` handles, `SetComponents`/`GetComponents`/`ComponentValue`, `BasisChange`/`GetJacobian`
+- **Docs overhaul** — Diátaxis structure, Quarto notebooks, TExpr guide, AI-readable architecture
+- **819 Python tests passing**, 417 XTensor + 91 XPerm + 782 XInvar Julia tests passing
+
+### Added
+
+#### TExpr — Typed Expression Layer (Stage 1 + Stage 2)
+- **`Idx`** — typed index with name, position (up/dn), and manifold binding
+- **`TensorHead`** — tensor descriptor carrying symmetry, rank, and slot types
+- **`TTensor`** — concrete typed tensor expression with index lists
+- **`CovDHead` / `covd()`** — covariant derivative factory returning typed output
+- **Round-tripping** — `ToCanonical`, `Contract`, `Simplify`, `CommuteCovDs`, `SortCovDs`, `RiemannSimplify` all return `TTensor`
+- **xTras overloads** — `CollectTensors`, `AllContractions` return typed output
+- **xCoba overloads** — `ToBasis`, `FromBasis`, `TraceBasisDummy` return typed output
+
+#### Python Public API (`xact.api`)
+- **`Manifold`**, **`Metric`**, **`Tensor`**, **`Perturbation`** handle classes
+- **`CTensor`** — component tensor handle for xCoba workflows
+- **`Basis`** / **`Chart`** — frame and coordinate chart handles
+- Top-level functions: `canonicalize`, `contract`, `simplify`, `perturb`, `commute_covds`, `sort_covds`, `ibp`, `var_d`, `riemann_simplify`, `reset`, `dimension`
+- Zero juliacall exposure; fully typed (mypy strict)
+
+#### xact CLI
+- `xact translate` subcommand (moved from `xact-test`)
+- Interactive REPL with `--no-eval` mode and session export
+
+#### xCoba Completion
+- `SetComponents` / `GetComponents` / `ComponentValue`
+- `CTensorQ`, `BasisChangeQ`
+- `BasisChange`, `GetJacobian`
+
+### Fixed
+- juliacall `FromBasis` `AbstractString` overload using `invoke` to fix JET false positive
+- `commute_covds` and `sort_covds` passing covd as Julia Symbol
+- stale xAct pkgimage cache purged before JET test
+- mypy strict mode enforced across all packages
+
+### Infrastructure
+- Self-hosted CI runners (no GitHub Actions minute limits)
+- Pre-push hooks gate on relevant file changes only
+- `bd export` snapshot committed to `.beads/issues.jsonl`
+
+### Documentation
+- Diátaxis-aligned structure (tutorials / how-tos / reference / explanation)
+- Quarto notebooks with Pluto demos (`just lab` for local JupyterLab)
+- TExpr guide and Getting Started updated for typed API
+- Elegua integration guide and tensor domain specifications
+
+---
+
 ## [0.4.0] - 2026-03-17
 
 ### Highlights
