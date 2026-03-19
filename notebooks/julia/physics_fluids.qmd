@@ -29,18 +29,18 @@ ENV["GKSwstype"] = "100"
 
 ```{julia}
 reset_state!()
-M = def_manifold!(:M4, 4, [:a, :b, :c, :d, :e, :f])
-@indices M4 a b c d e f
+M = def_manifold!(:M4, 4, [:alpha, :beta, :gamma, :delta, :mu, :nu])
+@indices M4 alpha beta gamma delta mu nu
 
 # General metric g_ab
-g = def_metric!(-1, "g[-a,-b]", :CD)
+g = def_metric!(-1, "g[-mu,-nu]", :CD)
 ```
 
 ## 3. The Perfect Fluid Energy-Momentum Tensor
 
 A perfect fluid is characterized by its **energy density** $\rho$,
-**pressure** $p$, and **4-velocity** $u^a$. The energy-momentum tensor is:
-$T_{ab} = (\rho + p) u_a u_b + p g_{ab}$
+**pressure** $p$, and **4-velocity** $u^\mu$. The energy-momentum tensor is:
+$T_{\mu\nu} = (\rho + p) u_\mu u_\nu + p g_{\mu\nu}$
 
 ```{julia}
 # Define scalar fields rho and p
@@ -49,15 +49,15 @@ def_tensor!(:p, String[], :M4)
 rho = tensor(:rho)
 p_tensor = tensor(:p)
 
-# Define 4-velocity vector u^a
-def_tensor!(:u, ["a"], :M4)
+# Define 4-velocity vector u^mu
+def_tensor!(:u, ["mu"], :M4)
 u = tensor(:u)
 
-# Define T_ab
-# T_ab = (rho + p) u_a u_b + p g_ab
-T_expr = ToCanonical((rho[] + p_tensor[]) * u[-a] * u[-b] + p_tensor[] * tensor(:g)[-a, -b])
+# Define T_mu_nu
+# T_mu_nu = (rho + p) u_mu u_nu + p g_mu_nu
+T_expr = ToCanonical((rho[] + p_tensor[]) * u[-mu] * u[-nu] + p_tensor[] * tensor(:g)[-mu, -nu])
 
-println("Energy-Momentum Tensor T_{ab}:")
+println("Energy-Momentum Tensor T_{μν}:")
 T_expr
 ```
 
@@ -65,34 +65,33 @@ T_expr
 
 The physical evolution of the fluid is governed by the conservation of
 energy and momentum:
-$\nabla_a T^{ab} = 0$
+$\nabla_\mu T^{\mu\nu} = 0$
 
 ```{julia}
-# Compute the divergence: g^{ac} \nabla_a T_{cb}
-div_T = ToCanonical(Contract(tensor(:g)[a, c] * covd(:CD)[-a](T_expr)))
+# Compute the divergence: g^{αμ} \nabla_α T_{μν}
+div_T = ToCanonical(Contract(tensor(:g)[alpha, mu] * covd(:CD)[-alpha](T_expr)))
 
-println("Divergence of T_{ab} (Conservation Law):")
+println("Divergence of T_{μν} (Conservation Law):")
 div_T
 ```
 
 ## 5. Deriving Continuity and Euler Equations
 
-The conservation equations $\nabla_a T^{ab} = 0$ contain both the energy
+The conservation equations $\nabla_\mu T^{\mu\nu} = 0$ contain both the energy
 conservation (continuity) and momentum conservation (Euler) equations.
 
 ### Energy Conservation
-Projecting along the 4-velocity ($u_b \nabla_a T^{ab} = 0$) yields the
+Projecting along the 4-velocity ($u_\nu \nabla_\mu T^{\mu\nu} = 0$) yields the
 continuity equation:
-$u^a \nabla_a \rho + (\rho + p) \nabla_a u^a = 0$
+$u^\mu \nabla_\mu \rho + (\rho + p) \nabla_\mu u^\mu = 0$
 
 ```{julia}
-# Project divergence onto u^b
-energy_cons = ToCanonical(Contract(u[b] * div_T))
+# Project divergence onto u^nu
+energy_cons = ToCanonical(Contract(u[nu] * div_T))
 
-println("Energy Conservation Equation (u_b \nabla_a T^{ab}):")
+println("Energy Conservation Equation (u_ν \nabla_μ T^{μν}):")
 energy_cons
 ```
-
 ## 6. Summary
 
 This tutorial demonstrated:

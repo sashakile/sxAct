@@ -32,66 +32,65 @@ We start with a general 4D manifold and metric.
 
 ```{julia}
 reset_state!()
-M = def_manifold!(:M4, 4, [:a, :b, :c, :d, :e, :f])
-@indices M4 a b c d e f
+M = def_manifold!(:M4, 4, [:alpha, :beta, :gamma, :delta, :mu, :nu])
+@indices M4 alpha beta gamma delta mu nu
 
 # General metric g_ab
-g = def_metric!(-1, "g[-a,-b]", :CD)
+g = def_metric!(-1, "g[-mu,-nu]", :CD)
 ```
 
 ## 3. The Faraday Tensor
 
-The electromagnetic field is described by the **vector potential** $A_a$.
-The **Faraday tensor** (or field strength tensor) $F_{ab}$ is defined as the
+The electromagnetic field is described by the **vector potential** $A_\mu$.
+The **Faraday tensor** (or field strength tensor) $F_{\mu\nu}$ is defined as the
 exterior derivative of the potential:
-$F_{ab} = \nabla_a A_b - \nabla_b A_a$
+$F_{\mu\nu} = \nabla_\mu A_\nu - \nabla_\nu A_\mu$
 
 ```{julia}
-# Define the vector potential A_a
-def_tensor!(:A, ["-a"], :M4)
+# Define the vector potential A_mu
+def_tensor!(:A, ["-mu"], :M4)
 A = tensor(:A)
 
-# Define the Faraday tensor F_ab abstractly
-# F_ab = CD_a A_b - CD_b A_a
-F_expr = ToCanonical(covd(:CD)[-a](A[-b]) - covd(:CD)[-b](A[-a]))
+# Define the Faraday tensor F_mu_nu abstractly
+# F_mu_nu = CD_mu A_nu - CD_nu A_mu
+F_expr = ToCanonical(covd(:CD)[-mu](A[-nu]) - covd(:CD)[-nu](A[-mu]))
 
-println("Faraday tensor F_{ab}:")
+println("Faraday tensor F_{μν}:")
 F_expr
 ```
 
 ## 4. Maxwell's Equations
 
-In vacuum (or with a source current $J^a$), the inhomogeneous Maxwell equations are:
-$\nabla_a F^{ab} = J^b$
+In vacuum (or with a source current $J^\mu$), the inhomogeneous Maxwell equations are:
+$\nabla_\mu F^{\mu\nu} = J^\nu$
 
 Let's compute the divergence of the Faraday tensor symbolically.
 
 ```{julia}
-# Compute the divergence: g^{ac} \nabla_a F_{cb}
-div_F = ToCanonical(Contract(tensor(:g)[a, c] * covd(:CD)[-a](F_expr)))
+# Compute the divergence: g^{αμ} \nabla_α F_{μν}
+div_F = ToCanonical(Contract(tensor(:g)[alpha, mu] * covd(:CD)[-alpha](F_expr)))
 
-println("Divergence of F_{ab}:")
+println("Divergence of F_{μν}:")
 div_F
 ```
 
 ## 5. Wave Equation in the Lorenz Gauge
 
-In the **Lorenz gauge** ($\nabla_a A^a = 0$), the Maxwell equations reduce to a
+In the **Lorenz gauge** ($\nabla_\mu A^\mu = 0$), the Maxwell equations reduce to a
 wave equation for the potential. However, in curved spacetime, a coupling
 term to the Ricci tensor appears:
-$\square A_a - R_a{}^b A_b = -J_a$
+$\square A_\mu - R_\mu{}^\nu A_\nu = -J_\mu$
 
 Let's see if we can derive this relation.
 
 ```{julia}
-# Maxwell equation: \nabla^a (\nabla_a A_b - \nabla_b A_a)
+# Maxwell equation: \nabla^\alpha (\nabla_\alpha A_\mu - \nabla_\mu A_\alpha)
 # Let's expand this and use the Lorenz gauge condition.
-maxwell_lhs = ToCanonical(Contract(tensor(:g)[a, c] * covd(:CD)[-a](covd(:CD)[-c](A[-b]) - covd(:CD)[-b](A[-c]))))
+maxwell_lhs = ToCanonical(Contract(tensor(:g)[alpha, beta] * covd(:CD)[-alpha](covd(:CD)[-beta](A[-mu]) - covd(:CD)[-mu](A[-beta]))))
 
 println("Maxwell Equation LHS (expanded):")
 maxwell_lhs
 ```
-
 Notice the term involving the commutation of covariant derivatives, which
 results in the curvature coupling.
 

@@ -373,10 +373,331 @@ function _to_string(c::TCovD)::String
 end
 
 # ---------------------------------------------------------------------------
+# Rich Display (Unicode and LaTeX)
+# ---------------------------------------------------------------------------
+
+const _GREEK_MAP = Dict(
+    :alpha => ("α", "\\alpha"),
+    :beta => ("β", "\\beta"),
+    :gamma => ("γ", "\\gamma"),
+    :delta => ("δ", "\\delta"),
+    :epsilon => ("ϵ", "\\epsilon"),
+    :zeta => ("ζ", "\\zeta"),
+    :eta => ("η", "\\eta"),
+    :theta => ("θ", "\\theta"),
+    :iota => ("ι", "\\iota"),
+    :kappa => ("κ", "\\kappa"),
+    :lambda => ("λ", "\\lambda"),
+    :mu => ("μ", "\\mu"),
+    :nu => ("ν", "\\nu"),
+    :xi => ("ξ", "\\xi"),
+    :pi => ("π", "\\pi"),
+    :rho => ("ρ", "\\rho"),
+    :sigma => ("σ", "\\sigma"),
+    :tau => ("τ", "\\tau"),
+    :phi => ("ϕ", "\\phi"),
+    :chi => ("χ", "\\chi"),
+    :psi => ("ψ", "\\psi"),
+    :omega => ("ω", "\\omega"),
+    # Uppercase
+    :Gamma => ("Γ", "\\Gamma"),
+    :Delta => ("Δ", "\\Delta"),
+    :Theta => ("Θ", "\\Theta"),
+    :Lambda => ("Λ", "\\Lambda"),
+    :Xi => ("Ξ", "\\Xi"),
+    :Pi => ("Π", "\\Pi"),
+    :Sigma => ("Σ", "\\Sigma"),
+    :Phi => ("Φ", "\\Phi"),
+    :Psi => ("Ψ", "\\Psi"),
+    :Omega => ("Ω", "\\Omega"),
+    # Curvature / Physics
+    :Riemann => ("R", "R"),
+    :Ricci => ("R", "R"),
+    :RicciScalar => ("R", "R"),
+    :Weyl => ("C", "C"),
+    :Einstein => ("G", "G"),
+    :eta => ("η", "\\eta"),
+    :delta => ("δ", "\\delta"),
+)
+
+const _SUPERSCRIPTS = Dict(
+    'a' => 'ᵃ',
+    'b' => 'ᵇ',
+    'c' => 'ᶜ',
+    'd' => 'ᵈ',
+    'e' => 'ᵉ',
+    'f' => 'ᶠ',
+    'g' => 'ᵍ',
+    'h' => 'ʰ',
+    'i' => 'ⁱ',
+    'j' => 'ʲ',
+    'k' => 'ᵏ',
+    'l' => 'ˡ',
+    'm' => 'ᵐ',
+    'n' => 'ⁿ',
+    'o' => 'ᵒ',
+    'p' => 'ᵖ',
+    'r' => 'ʳ',
+    's' => 'ˢ',
+    't' => 'ᵗ',
+    'u' => 'ᵘ',
+    'v' => 'ᵛ',
+    'w' => 'ʷ',
+    'x' => 'ˣ',
+    'y' => 'ʸ',
+    'z' => 'ᶻ',
+    'α' => 'ᵅ',
+    'β' => 'ᵝ',
+    'γ' => 'ᵞ',
+    'δ' => 'ᵟ',
+    'ϵ' => 'ᵋ',
+    'θ' => 'ᶿ',
+    'ι' => 'ᶥ',
+    'λ' => 'ᶝ',
+    'μ' => 'ᵝ',
+    'ν' => 'ᵛ',
+    'ρ' => 'ᵨ',
+    'σ' => 'ᵟ',
+    'τ' => 'ᵜ',
+    'ϕ' => 'ᵠ',
+    'χ' => 'ᵡ',
+    'ψ' => 'ᵝ',
+    'ω' => 'ᵜ',
+)
+
+const _SUBSCRIPTS = Dict(
+    'a' => 'ₐ',
+    'e' => 'ₑ',
+    'h' => 'ₕ',
+    'i' => 'ᵢ',
+    'j' => 'ⱼ',
+    'k' => 'ₖ',
+    'l' => 'ₗ',
+    'm' => 'ₘ',
+    'n' => 'ₙ',
+    'o' => 'ₒ',
+    'p' => 'ₚ',
+    'r' => 'ᵣ',
+    's' => 'ₛ',
+    't' => 'ₜ',
+    'u' => 'ᵤ',
+    'v' => 'ᵥ',
+    'x' => 'ₓ',
+    'α' => 'ₐ',
+    'β' => 'ᵦ',
+    'γ' => 'ᵧ',
+    'ρ' => 'ᵨ',
+    'σ' => 'ₛ',
+    'χ' => 'ᵪ',
+    'ψ' => 'ᵦ',
+)
+
+function _label_to_unicode(s::Symbol)::String
+    name = string(s)
+    # Try exact match
+    haskey(_GREEK_MAP, s) && return _GREEK_MAP[s][1]
+    # Try stripping CD/PD prefixes
+    for prefix in ["Riemann", "RicciScalar", "Ricci", "Weyl", "Einstein", "Christoffel"]
+        if startswith(name, prefix)
+            psym = Symbol(prefix)
+            haskey(_GREEK_MAP, psym) && return _GREEK_MAP[psym][1]
+        end
+    end
+    get(_GREEK_MAP, s, (name, ""))[1]
+end
+
+function _label_to_latex(s::Symbol)::String
+    name = string(s)
+    # Try exact match
+    haskey(_GREEK_MAP, s) && return _GREEK_MAP[s][2]
+    # Try stripping CD/PD prefixes
+    for prefix in ["Riemann", "RicciScalar", "Ricci", "Weyl", "Einstein", "Christoffel"]
+        if startswith(name, prefix)
+            psym = Symbol(prefix)
+            haskey(_GREEK_MAP, psym) && return _GREEK_MAP[psym][2]
+        end
+    end
+    get(_GREEK_MAP, s, ("", "\\" * name))[2]
+end
+
+function _to_unicode(i::Idx)::String
+    lbl = _label_to_unicode(i.label)
+    # If lbl has multiple chars or no superscript mapping, use ^(...)
+    if length(lbl) > 1 || any(c -> !haskey(_SUPERSCRIPTS, c), lbl)
+        return "^" * lbl
+    end
+    join([_SUPERSCRIPTS[c] for c in lbl])
+end
+
+function _to_unicode(i::DnIdx)::String
+    lbl = _label_to_unicode(i.parent.label)
+    # If lbl has multiple chars or no subscript mapping, use _(...)
+    if length(lbl) > 1 || any(c -> !haskey(_SUBSCRIPTS, c), lbl)
+        return "_" * lbl
+    end
+    join([_SUBSCRIPTS[c] for c in lbl])
+end
+
+function _to_latex(i::Idx)::String
+    "^{" * _label_to_latex(i.label) * "}"
+end
+
+function _to_latex(i::DnIdx)::String
+    "_{" * _label_to_latex(i.parent.label) * "}"
+end
+
+function _to_unicode(t::TTensor)::String
+    name = _label_to_unicode(t.head.name)
+    if isempty(t.indices)
+        name
+    else
+        name * join([_to_unicode(i) for i in t.indices])
+    end
+end
+
+function _to_latex(t::TTensor)::String
+    name = _label_to_latex(t.head.name)
+    if isempty(t.indices)
+        name
+    else
+        name * join([_to_latex(i) for i in t.indices])
+    end
+end
+
+function _to_unicode(s::TScalar)::String
+    s.value.den == 1 ? string(s.value.num) : "($(s.value.num)/$(s.value.den))"
+end
+
+function _to_latex(s::TScalar)::String
+    if s.value.den == 1
+        string(s.value.num)
+    else
+        "\\frac{$(s.value.num)}{$(s.value.den)}"
+    end
+end
+
+function _to_unicode(p::TProd)::String
+    parts = [f isa TSum ? "(" * _to_unicode(f) * ")" : _to_unicode(f) for f in p.factors]
+    body = join(parts, " ")
+    if p.coeff == 1//1
+        body
+    elseif p.coeff == -1//1
+        "-" * body
+    elseif p.coeff.den == 1
+        "$(p.coeff.num) $body"
+    else
+        "($(p.coeff.num)/$(p.coeff.den)) $body"
+    end
+end
+
+function _to_latex(p::TProd)::String
+    parts = [f isa TSum ? "(" * _to_latex(f) * ")" : _to_latex(f) for f in p.factors]
+    body = join(parts, " ")
+    if p.coeff == 1//1
+        body
+    elseif p.coeff == -1//1
+        "-" * body
+    elseif p.coeff.den == 1
+        "$(p.coeff.num) " * body
+    else
+        "\\frac{$(p.coeff.num)}{$(p.coeff.den)} " * body
+    end
+end
+
+function _to_unicode(s::TSum)::String
+    isempty(s.terms) && return "0"
+    buf = IOBuffer()
+    for (i, term) in enumerate(s.terms)
+        str = _to_unicode(term)
+        if i == 1
+            print(buf, str)
+        else
+            if startswith(str, "-")
+                print(buf, " - ", str[2:end])
+            else
+                print(buf, " + ", str)
+            end
+        end
+    end
+    String(take!(buf))
+end
+
+function _to_latex(s::TSum)::String
+    isempty(s.terms) && return "0"
+    buf = IOBuffer()
+    for (i, term) in enumerate(s.terms)
+        str = _to_latex(term)
+        if i == 1
+            print(buf, str)
+        else
+            if startswith(str, "-")
+                print(buf, " - ", str[2:end])
+            else
+                print(buf, " + ", str)
+            end
+        end
+    end
+    String(take!(buf))
+end
+
+function _to_unicode(c::TCovD)::String
+    idx = _to_unicode(c.index)
+    op = c.operand isa TSum ? "(" * _to_unicode(c.operand) * ")" : _to_unicode(c.operand)
+    "∇" * idx * op
+end
+
+function _to_latex(c::TCovD)::String
+    idx = _to_latex(c.index)
+    op = c.operand isa TSum ? "(" * _to_latex(c.operand) * ")" : _to_latex(c.operand)
+    "\\nabla" * idx * op
+end
+
+function _to_unicode(s::TSymbol)::String
+    _label_to_unicode(s.name)
+end
+
+function _to_latex(s::TSymbol)::String
+    _label_to_latex(s.name)
+end
+
+# ---------------------------------------------------------------------------
 # Display (show)
 # ---------------------------------------------------------------------------
 
+# REPL / text/plain
+function Base.show(io::IO, ::MIME"text/plain", e::TExpr)
+    print(io, _to_unicode(e))
+end
+
+# Default fallback (serialization)
 Base.show(io::IO, e::TExpr) = print(io, _to_string(e))
+
+# LaTeX for Jupyter / Documenter
+function Base.show(io::IO, ::MIME"text/latex", e::TExpr)
+    print(io, "\$", _to_latex(e), "\$")
+end
+
+# HTML for notebooks
+function Base.show(io::IO, ::MIME"text/html", e::TExpr)
+    print(io, "<span class=\"tex\">\\(", _to_latex(e), "\\)</span>")
+end
+
+# REPL / text/plain for index objects
+function Base.show(io::IO, ::MIME"text/plain", i::Idx)
+    print(io, _to_unicode(i))
+end
+function Base.show(io::IO, ::MIME"text/plain", i::DnIdx)
+    print(io, _to_unicode(i))
+end
+
+# LaTeX for index objects
+function Base.show(io::IO, ::MIME"text/latex", i::Idx)
+    print(io, "\$", _to_latex(i), "\$")
+end
+function Base.show(io::IO, ::MIME"text/latex", i::DnIdx)
+    print(io, "\$", _to_latex(i), "\$")
+end
+
 Base.show(io::IO, i::Idx) = print(io, i.label)
 Base.show(io::IO, i::DnIdx) = print(io, "-", i.parent.label)
 Base.show(io::IO, t::TensorHead) = print(io, "TensorHead(:", t.name, ")")
