@@ -1,0 +1,32 @@
+---
+title: "Wald: FLRW Cosmology and Friedmann Equations"
+jupyter: julia-1.12
+---
+
+# Wald: FLRW Cosmology and Friedmann Equations
+
+This tutorial follows **Robert Wald's *General Relativity* (Chapter 5)**.
+We will implement the Friedmann-Lemaître-Robertson-Walker (FLRW) metric
+and derive the Friedmann equations.
+
+!!! info "Project Profile for AI Agents (LLM TL;DR)"
+    - **Goal**: Implement FLRW metric and derive Friedmann equations.
+    - **Reference**: Wald, *General Relativity*, Chapter 5.
+    - **Status**: Placeholder.
+
+## 1. Setup
+
+```{julia}
+using xAct
+using Plots
+using LinearAlgebra
+```
+
+## 2. Implementation
+
+(Full implementation coming soon)
+
+## Next Steps
+
+- **Carroll**: Review [Schwarzschild Geodesics](carroll_schwarzschild_julia.md).
+- **Wave Equations**: See [MTW: Gravitational Waves](mtw_gravitational_waves_julia.md).

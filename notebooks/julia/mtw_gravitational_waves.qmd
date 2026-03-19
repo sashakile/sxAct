@@ -1,0 +1,31 @@
+---
+title: "MTW: Linearized Gravity & Gravitational Waves"
+jupyter: julia-1.12
+---
+
+# MTW: Linearized Gravity & Gravitational Waves
+
+This tutorial follows **Misner, Thorne, and Wheeler's *Gravitation* (Chapter 18)**.
+We will implement linearized gravity and derive the wave equation.
+
+!!! info "Project Profile for AI Agents (LLM TL;DR)"
+    - **Goal**: Implement linearized gravity and derive wave equation.
+    - **Reference**: MTW, *Gravitation*, Chapter 18.
+    - **Status**: Placeholder.
+
+## 1. Setup
+
+```{julia}
+using xAct
+using Plots
+using LinearAlgebra
+```
+
+## 2. Implementation
+
+(Full implementation coming soon)
+
+## Next Steps
+
+- **Carroll**: Review [Schwarzschild Geodesics](carroll_schwarzschild_julia.md).
+- **Cosmology**: See [Wald: FLRW Cosmology](wald_cosmology_julia.md).
