@@ -47,6 +47,12 @@ for (subdir, lang_label) in [("julia", "Julia"), ("python", "Python")]
         md = replace(src, r"^---\n.*?^---\n*"ms => "")
         # Convert ```{julia} / ```{python} to plain fenced blocks
         md = replace(md, r"```\{(\w+)\}" => s"```\1")
+        # Rewrite links: ../../docs/src/ -> ../
+        md = replace(md, "../../docs/src/" => "../")
+        # Rewrite .qmd links: name.qmd -> name_julia.md (or python)
+        md = replace(
+            md, r"([\w\d_-]+)\.qmd" => SubstitutionString("\\1_$(lowercase(lang_label)).md")
+        )
         # Add a note linking to the .ipynb
         header = """
 !!! tip "Run this notebook"

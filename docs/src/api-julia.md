@@ -15,7 +15,7 @@ xAct.TExprLayer
 
 ```@autodocs
 Modules = [xAct, xAct.XCore, xAct.XPerm, xAct.XTensor, xAct.XInvar, xAct.TExprLayer]
-Order = [:function, :type, :constant]
+Order = [:function, :type, :constant, :macro]
 ```
 
 ---

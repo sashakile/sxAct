@@ -1,7 +1,11 @@
-# TExprLayer — Typed expression layer for xAct.
-# Provides Idx, DnIdx, TensorHead, CovDHead, TTensor, TProd, TSum, TScalar,
-# TCovD, the @indices macro, tensor() / covd() lookups, _to_string()
-# serialisation, and TExpr overloads for all engine functions.
+"""
+    TExprLayer
+
+Typed expression layer for xAct.
+Provides Idx, DnIdx, TensorHead, CovDHead, TTensor, TProd, TSum, TScalar,
+TSymbol, TCovD, the @indices macro, tensor() / covd() lookups, _to_string()
+serialisation, and TExpr overloads for all engine functions.
+"""
 module TExprLayer
 
 using ..XTensor: _manifolds, _tensors, _metrics
