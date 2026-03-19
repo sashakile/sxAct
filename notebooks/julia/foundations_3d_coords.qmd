@@ -125,7 +125,6 @@ Phi = tensor(:Phi)
 # Divergence: Contract(CD[-a](V[a]))
 # Laplacian: Contract(g[a,b] * CD[-a](CD[-b](Phi[])))
 ```
-
 ## 7. Volume Element
 
 The 3D volume element in spherical coordinates is $dV = \sqrt{|g|} dr d\theta d\phi = r^2 \sin\theta dr d\theta d\phi$.
@@ -137,6 +136,33 @@ textbook_val = r_val^2 * sin(th_val)
 println("Metric volume factor: ", sqrt_det_g)
 println("Textbook value (r^2 sin θ): ", textbook_val)
 ```
+
+## 8. Symbolic Identities: Ricci and Riemann
+
+In 3 Dimensions, the Riemann tensor is entirely determined by the Ricci tensor.
+While we can't show the full 3D-specific vanishing of the Weyl tensor here without
+coordinate expansion, we can show how `xAct.jl` manages the abstract relations
+between these tensors.
+
+For example, let's verify that the trace of the Ricci tensor is indeed the Ricci Scalar.
+
+```{julia}
+Ric = tensor(:RicciCD)
+RS  = tensor(:RicciScalarCD)
+g   = tensor(:g)
+
+# Verify the definition: g^{ab} R_{ab} - R = 0
+identity = Simplify(Contract(g[a, b] * Ric[-a, -b]) - RS[])
+
+println("Identity check (g^{ab} R_{ab} - R):")
+identity
+```
+
+Using these abstract tools, we can manipulate high-rank tensor equations
+(like the decomposition of the Riemann tensor into Ricci and Weyl parts)
+with complete mathematical rigor.
+
+## 9. Summary
 
 ## Key Takeaways: 3D Curvilinear Systems
 

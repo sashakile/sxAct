@@ -86,7 +86,6 @@ end
 
 plot_sphere(R_val)
 ```
-
 ## 5. Intrinsic Curvature
 
 The Riemann tensor $R^a{}_{bcd}$ measures the intrinsic curvature of the
@@ -104,6 +103,35 @@ RS   = tensor(:RicciScalarCD)
 val = Contract(RS[])
 println("Ricci Scalar (expected 2.0): ", val)
 ```
+
+## 6. Symbolic Algebra: Leveraging the Engine
+
+The real power of `xAct.jl` lies in its ability to manipulate tensor expressions
+abstractly. Instead of just calculating numbers, we can verify geometric identities
+that must hold for *any* metric.
+
+For example, the **Einstein tensor** $G_{ab}$ is defined as:
+$G_{ab} = R_{ab} - \frac{1}{2} g_{ab} R$
+
+Let's use the engine to verify that the trace of the Einstein tensor in 2D
+is exactly $-R$ (which implies $R_{aa} = 0$ in 2D, a unique property of surface geometry).
+
+```{julia}
+G = tensor(:EinsteinCD)
+g = tensor(:g)
+
+# Compute the trace: g^{ab} G_{ab}
+# In 2D, this should simplify based on the definition.
+trace_G = Contract(g[a, b] * G[-a, -b])
+
+println("Trace of Einstein tensor (g^{ab} G_{ab}):")
+trace_G
+```
+
+By leveraging `ToCanonical` and `Contract`, we can prove complex identities
+without ever choosing a coordinate system.
+
+## 7. Summary
 
 ## Key Takeaways: Intrinsic Geometry
 

@@ -51,16 +51,24 @@ h = tensor(:h)
 def_perturbation!(:h, :eta, 1)
 ```
 
-In the weak-field limit, the Einstein Field Equations linearize to:
-$\square \bar{h}_{ab} = -16\pi G T_{ab}$
+In the weak-field limit, we can derive the linearized curvature tensors
+symbolically using `perturb_curvature`.
 
-where $\bar{h}_{ab} = h_{ab} - \frac{1}{2}\eta_{ab} h$ is the trace-reversed
-perturbation. In a vacuum ($T_{ab}=0$) and using the Lorenz gauge, this
-reduces to the wave equation:
-$\square \bar{h}_{ab} = 0$
+```{julia}
+# Compute first-order perturbations of curvature tensors
+pert_results = perturb_curvature(:PD, :h)
+
+println("Linearized Riemann tensor (first order in h):")
+println(pert_results["Riemann1"])
+
+println("\nLinearized Ricci tensor:")
+pert_results["Ricci1"]
+```
+
+Using the Lorenz gauge and vacuum conditions, these equations reduce to the
+standard gravitational wave equation $\square \bar{h}_{ab} = 0$.
 
 ## 4. Visualization: Gravitational Wave Polarizations
-
 A gravitational wave propagating in the $z$-direction has two independent
 polarization modes: **Plus (+)** and **Cross ($\times$)**.
 
