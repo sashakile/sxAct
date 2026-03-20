@@ -25,16 +25,19 @@ from sxact.adapter.base import (
 )
 from sxact.normalize import normalize as _normalize
 from sxact.oracle.result import Result
+from xact._bridge import (
+    jl_call,
+    jl_int,
+    jl_str,
+    jl_sym,
+    jl_sym_list,
+    validate_ident,
+)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _jl_escape(s: str) -> str:
-    """Escape backslashes and double-quotes for Julia string literals."""
-    return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
 _Symmetry = _Literal["Symmetric", "Antisymmetric"]
@@ -339,16 +342,23 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     def _def_manifold(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
         from sxact.compare.tensor_objects import Manifold
 
-        name = str(args["name"])
+        name = validate_ident(str(args["name"]), "manifold name")
         dim = int(args["dimension"])
         indices = list(args["indices"])
-        idxs = "[" + ", ".join(f":{i}" for i in indices) + "]"
-        self._jl.seval(f"XTensor.def_manifold!(:{name}, {dim}, {idxs})")
+        jl_call(
+            self._jl,
+            "XTensor.def_manifold!",
+            jl_sym(name, "manifold name"),
+            jl_int(dim),
+            jl_sym_list(indices, "manifold indices"),
+        )
         # Bind in Main scope as Symbols for Assert conditions:
         #   Dimension(Bm4) → Dimension(:Bm4); ManifoldQ(Bm4) → ManifoldQ(:Bm4)
+        tangent_name = validate_ident(f"Tangent{name}", "tangent bundle name")
         self._jl.seval(f"Main.eval(:(global {name} = :{name}))")
-        self._jl.seval(f"Main.eval(:(global Tangent{name} = :Tangent{name}))")
+        self._jl.seval(f"Main.eval(:(global {tangent_name} = :{tangent_name}))")
         for idx in indices:
+            idx = validate_ident(idx, "manifold index")
             self._jl.seval(f"Main.eval(:(global {idx} = :{idx}))")
         ctx._manifolds.append(Manifold(name=name, dimension=dim))
         return Result(status="ok", type="Handle", repr=name, normalized=name)
@@ -356,27 +366,37 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     def _def_tensor(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
         from sxact.compare.tensor_objects import TensorField
 
-        name = str(args["name"])
+        name = validate_ident(str(args["name"]), "tensor name")
         indices = args["indices"]
         sym_str = args.get("symmetry") or ""
-        idx_jl = "[" + ", ".join(f'"{_jl_escape(i)}"' for i in indices) + "]"
-        sym_arg = f', symmetry_str="{_jl_escape(sym_str)}"' if sym_str else ""
+        idx_jl = "[" + ", ".join(jl_str(i) for i in indices) + "]"
+        sym_arg = f", symmetry_str={jl_str(sym_str)}" if sym_str else ""
 
         # Support both "manifold" (single) and "manifolds" (list, multi-index-set)
         raw_manifolds = args.get("manifolds")
         if raw_manifolds is not None:
             # Multi-index-set: pass a Vector of Symbols to Julia
-            manifold_names = [str(m) for m in raw_manifolds]
+            manifold_names = [
+                validate_ident(str(m), "manifold name") for m in raw_manifolds
+            ]
             jl_manifolds = "Symbol[" + ", ".join(f":{m}" for m in manifold_names) + "]"
-            self._jl.seval(
-                f"XTensor.def_tensor!(:{name}, {idx_jl}, {jl_manifolds}{sym_arg})"
+            jl_call(
+                self._jl,
+                "XTensor.def_tensor!",
+                jl_sym(name, "tensor name"),
+                idx_jl,
+                jl_manifolds + sym_arg,
             )
             # Primary manifold for TensorContext = first in list
             primary_manifold_name = manifold_names[0] if manifold_names else None
         else:
-            manifold = str(args["manifold"])
-            self._jl.seval(
-                f"XTensor.def_tensor!(:{name}, {idx_jl}, :{manifold}{sym_arg})"
+            manifold = validate_ident(str(args["manifold"]), "manifold name")
+            jl_call(
+                self._jl,
+                "XTensor.def_tensor!",
+                jl_sym(name, "tensor name"),
+                idx_jl,
+                jl_sym(manifold, "manifold name") + sym_arg,
             )
             primary_manifold_name = manifold
 
@@ -406,19 +426,25 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
 
         signdet = int(args["signdet"])
         metric_raw = str(args["metric"])
-        metric_str = _jl_escape(metric_raw)
-        covd = str(args["covd"])
-        self._jl.seval(f'XTensor.def_metric!({signdet}, "{metric_str}", :{covd})')
+        covd = validate_ident(str(args["covd"]), "covariant derivative name")
+        jl_call(
+            self._jl,
+            "XTensor.def_metric!",
+            jl_int(signdet),
+            jl_str(metric_raw),
+            jl_sym(covd, "covd name"),
+        )
         # Bind the covd name in Main as a Symbol (for CovDQ assertions)
         self._jl.seval(f"Main.eval(:(global {covd} = :{covd}))")
         # Bind the metric tensor name in Main as a Symbol (for SignDetOfMetric assertions)
         m_name_match = _re.match(r"^(\w+)", metric_raw)
         metric_name = m_name_match.group(1) if m_name_match else None
         if metric_name:
+            metric_name = validate_ident(metric_name, "metric name")
             self._jl.seval(f"Main.eval(:(global {metric_name} = :{metric_name}))")
         # Bind auto-created curvature tensor names in Main as Symbols
         for prefix in ("Riemann", "Ricci", "RicciScalar", "Einstein", "Weyl"):
-            auto_name = f"{prefix}{covd}"
+            auto_name = validate_ident(f"{prefix}{covd}", "curvature tensor name")
             self._jl.seval(
                 f"if XTensor.TensorQ(:{auto_name})\n"
                 f"    Main.eval(:(global {auto_name} = :{auto_name}))\n"
@@ -439,7 +465,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     def _def_basis(self, args: dict[str, Any]) -> Result:
         import xact.api as _api  # noqa: PLC0415
 
-        name = str(args["name"])
+        name = validate_ident(str(args["name"]), "basis name")
         _api.def_basis(name, str(args["vbundle"]), list(args["cnumbers"]))
         self._jl.seval(f"Main.eval(:(global {name} = :{name}))")
         return Result(status="ok", type="Handle", repr=name, normalized=name)
@@ -447,11 +473,12 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     def _def_chart(self, args: dict[str, Any]) -> Result:
         import xact.api as _api  # noqa: PLC0415
 
-        name = str(args["name"])
+        name = validate_ident(str(args["name"]), "chart name")
         scalars = list(args["scalars"])
         _api.def_chart(name, str(args["manifold"]), list(args["cnumbers"]), scalars)
         self._jl.seval(f"Main.eval(:(global {name} = :{name}))")
         for sc in scalars:
+            sc = validate_ident(sc, "chart scalar")
             self._jl.seval(f"Main.eval(:(global {sc} = :{sc}))")
         return Result(status="ok", type="Handle", repr=name, normalized=name)
 
@@ -491,10 +518,16 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 
     def _def_perturbation(self, ctx: _JuliaContext, args: dict[str, Any]) -> Result:
-        tensor = str(args["tensor"])
-        background = str(args["background"])
+        tensor = validate_ident(str(args["tensor"]), "perturbation tensor")
+        background = validate_ident(str(args["background"]), "background tensor")
         order = int(args["order"])
-        self._jl.seval(f"XTensor.def_perturbation!(:{tensor}, :{background}, {order})")
+        jl_call(
+            self._jl,
+            "XTensor.def_perturbation!",
+            jl_sym(tensor, "tensor"),
+            jl_sym(background, "background"),
+            jl_int(order),
+        )
         # Bind the perturbation tensor name in Main as a Symbol (for PerturbationQ assertions)
         self._jl.seval(f"Main.eval(:(global {tensor} = :{tensor}))")
         return Result(status="ok", type="Handle", repr=tensor, normalized=tensor)
@@ -712,6 +745,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         _bind_fresh_symbols(self._jl, julia_expr)
         _bind_wl_atoms(self._jl, julia_expr)
         try:
+            # NOTE: seval with translator output — safety relies on _wl_to_jl
+            # producing well-formed Julia. Will be addressed when translator is hardened.
             val = self._jl.seval(julia_expr)
             # PythonCall adds "Julia: " prefix for custom types inside containers.
             # Strip it to get clean WL-compatible repr.
@@ -776,6 +811,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         _bind_fresh_symbols(self._jl, julia_cond)
         _bind_wl_atoms(self._jl, julia_cond)
         try:
+            # NOTE: seval with translator output — safety relies on _wl_to_jl
+            # producing well-formed Julia. Will be addressed when translator is hardened.
             val = self._jl.seval(julia_cond)
             passed = val is True or str(val).lower() == "true"
             if passed:
@@ -942,7 +979,7 @@ def _try_tensor_q(condition: str, jl: Any) -> tuple[bool, str, str] | None:
         return None
     tensor_name = m.group(1)
     try:
-        val = jl.seval(f"XTensor.TensorQ(:{tensor_name})")
+        val = jl_call(jl, "XTensor.TensorQ", jl_sym(tensor_name, "tensor name"))
         if val is True or str(val).lower() == "true":
             return (True, "True", "True")
         return (False, "False", "True")
@@ -980,8 +1017,7 @@ def _try_single_to_canonical_comparison(
 
     # Call XTensor.ToCanonical on the tensor expression
     try:
-        escaped = _jl_escape(tensor_expr)
-        result = str(jl.seval(f'XTensor.ToCanonical("{escaped}")'))
+        result = str(jl_call(jl, "XTensor.ToCanonical", jl_str(tensor_expr)))
     except Exception:
         return None
 
@@ -1029,7 +1065,7 @@ def _preprocess_xperm_calls(jl: Any, expr: str) -> str:
             inner_processed = _preprocess_xperm_calls(jl, inner)
             try:
                 result = str(
-                    jl.seval(f'XTensor.{func_name}("{_jl_escape(inner_processed)}")')
+                    jl_call(jl, f"XTensor.{func_name}", jl_str(inner_processed))
                 )
             except Exception:
                 # If preprocessing fails, leave the call in place
@@ -1071,7 +1107,7 @@ def _try_numerical_tolerance_via_canonical(jl: Any, wolfram_expr: str) -> Result
 
     # Apply ToCanonical to the whole difference
     try:
-        result = str(jl.seval(f'XTensor.ToCanonical("{_jl_escape(preprocessed)}")'))
+        result = str(jl_call(jl, "XTensor.ToCanonical", jl_str(preprocessed)))
     except Exception:
         return None
 
