@@ -1665,6 +1665,7 @@ end
 
 """
 Global cached dispatch tables. Built lazily per case on first `PermToInv` call.
+Perm→index mapping is dimension-independent (structural, not rule-dependent).
 """
 _perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
     Vector{Int},Dict{Vector{Int},Int}
@@ -1844,7 +1845,8 @@ function InvSimplify(
 )
     (1 <= level <= 6) ||
         throw(ArgumentError("InvSimplify: level must be in 1..6, got $level"))
-    _db = (db === nothing ? _ensure_invar_db() : db)::InvarDB
+    d = dim === nothing ? 4 : dim
+    _db = (db === nothing ? _ensure_invar_db(; dim=d) : db)::InvarDB
     return InvSimplify(Tuple{Rational{Int},RInv}[(1 // 1, rinv)], level; db=_db, dim=dim)
 end
 
@@ -1868,7 +1870,8 @@ function InvSimplify(
     level >= 5 &&
         dim === nothing &&
         throw(ArgumentError("InvSimplify: dim parameter required for level >= 5"))
-    _db = (db === nothing ? _ensure_invar_db() : db)::InvarDB
+    d = dim === nothing ? 4 : dim
+    _db = (db === nothing ? _ensure_invar_db(; dim=d) : db)::InvarDB
 
     # Validate: dual invariants require dim == 4
     for (_, rinv) in expr
@@ -1993,7 +1996,8 @@ function RiemannSimplify(
 )::String
     (1 <= level <= 6) ||
         throw(ArgumentError("RiemannSimplify: level must be in 1..6, got $level"))
-    _db = (db === nothing ? _ensure_invar_db() : db)::InvarDB
+    d = dim === nothing ? 4 : dim
+    _db = (db === nothing ? _ensure_invar_db(; dim=d) : db)::InvarDB
     s = String(strip(expr))
     (s == "0" || isempty(s)) && return "0"
 
@@ -2086,40 +2090,37 @@ end
 # ============================================================
 
 """
-Global cached InvarDB instance. Loaded on first access via `_ensure_db_loaded`.
+Global cached InvarDB instances, keyed by dimension.
+Different dimensions load different step-5 rules.
 """
-_invar_db::Union{Nothing,InvarDB} = nothing
+_invar_db_cache::Dict{Int,InvarDB} = Dict{Int,InvarDB}()
 
 """
     _ensure_invar_db(; dbdir::String="", dim::Int=4) -> InvarDB
 
-Load the Invar database if not already cached. Returns the cached instance.
-If `dbdir` is empty, searches standard resource paths.
+Load the Invar database for the given dimension if not already cached.
+Returns the cached instance. If `dbdir` is empty, searches standard resource paths.
 """
 function _ensure_invar_db(dbdir::String=""; dim::Int=4)::InvarDB
-    global _invar_db
-    if _invar_db === nothing
+    if !haskey(_invar_db_cache, dim)
         path = if isempty(dbdir)
-            # Default to resources/xAct/Invar relative to project root
             joinpath(@__DIR__, "..", "resources", "xAct", "Invar")
         else
             dbdir
         end
-        _invar_db = LoadInvarDB(path; dim=dim)
+        _invar_db_cache[dim] = LoadInvarDB(path; dim=dim)
     end
-    return _invar_db::InvarDB
+    return _invar_db_cache[dim]
 end
 
 """
     _reset_invar_db!()
 
-Clear the cached InvarDB instance. Called by `reset_state!` in xAct.jl.
+Clear all cached InvarDB instances and dispatch tables.
+Called by `reset_state!` in xAct.jl.
 """
 function _reset_invar_db!()
-    global _invar_db
-    global _perm_dispatch
-    global _dual_perm_dispatch
-    _invar_db = nothing
+    empty!(_invar_db_cache)
     empty!(_perm_dispatch)
     empty!(_dual_perm_dispatch)
 end

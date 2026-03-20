@@ -794,7 +794,7 @@ using xAct
         @testset "lazy loading" begin
             # Reset should clear the cached DB
             xAct.XInvar._reset_invar_db!()
-            @test xAct.XInvar._invar_db === nothing
+            @test isempty(xAct.XInvar._invar_db_cache)
 
             # _ensure_invar_db with a temp dir containing a Riemann subdirectory
             tmpdir = mktempdir()
@@ -802,8 +802,8 @@ using xAct
                 mkpath(joinpath(tmpdir, "Riemann"))
                 db = xAct.XInvar._ensure_invar_db(tmpdir)
                 @test db isa InvarDB
-                @test xAct.XInvar._invar_db !== nothing
-                @test xAct.XInvar._invar_db === db
+                @test haskey(xAct.XInvar._invar_db_cache, 4)
+                @test xAct.XInvar._invar_db_cache[4] === db
 
                 # Calling again returns the same cached instance
                 db2 = xAct.XInvar._ensure_invar_db(tmpdir)
@@ -811,7 +811,7 @@ using xAct
 
                 # Reset clears it
                 xAct.XInvar._reset_invar_db!()
-                @test xAct.XInvar._invar_db === nothing
+                @test isempty(xAct.XInvar._invar_db_cache)
             finally
                 rm(tmpdir; recursive=true)
             end
@@ -827,11 +827,11 @@ using xAct
             mkpath(joinpath(tmpdir, "Riemann"))
             xAct.XInvar._ensure_invar_db(tmpdir)
             rm(tmpdir; recursive=true)
-            @test xAct.XInvar._invar_db !== nothing
+            @test !isempty(xAct.XInvar._invar_db_cache)
 
             # reset_state! should clear it
             xAct.reset_state!()
-            @test xAct.XInvar._invar_db === nothing
+            @test isempty(xAct.XInvar._invar_db_cache)
         end
 
         @testset "RiemannSimplify input validation" begin
@@ -2594,5 +2594,36 @@ using xAct
         end
     else
         @info "Skipping Phase 11 real-DB tests: Invar database not found at $(_INVAR_DB_DIR)"
+    end
+
+    # ================================================================
+    # Dimension-aware InvarDB cache
+    # ================================================================
+
+    @testset "Dimension-aware InvarDB cache" begin
+        if isdir(_INVAR_DB_DIR)
+            # Reset to clear any cached state
+            xAct.XInvar._reset_invar_db!()
+
+            # Load dim=4, then dim=3 — must get different instances
+            db4 = xAct.XInvar._ensure_invar_db(dim=4)
+            db3 = xAct.XInvar._ensure_invar_db(dim=3)
+            @test db4 !== db3  # different DB objects
+
+            # Second call with dim=4 returns cached instance
+            db4b = xAct.XInvar._ensure_invar_db(dim=4)
+            @test db4 === db4b  # same cached instance
+
+            # Second call with dim=3 returns cached instance
+            db3b = xAct.XInvar._ensure_invar_db(dim=3)
+            @test db3 === db3b
+
+            # After reset, cache is empty
+            xAct.XInvar._reset_invar_db!()
+            db4c = xAct.XInvar._ensure_invar_db(dim=4)
+            @test db4c !== db4  # fresh instance after reset
+        else
+            @info "Skipping dim-aware cache tests: DB not found"
+        end
     end
 end
