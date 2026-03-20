@@ -345,4 +345,21 @@ using xAct.XPerm
         @test Cycles([1, 2, 3]) == [2, 3, 1]
         @test Cycles([1, 2], [3, 4]) == [2, 1, 4, 3]
     end
+
+    @testset "StablePoints" begin
+        # Single permutation
+        @test StablePoints([1, 3, 2]) == [1]  # point 1 is fixed
+        @test StablePoints([1, 2, 3]) == [1, 2, 3]  # identity
+        @test StablePoints([2, 1, 3]) == [3]
+
+        # Generator set: gen1 swaps 1↔2 (fixes 3,4); gen2 swaps 3↔4 (fixes 1,2)
+        # Only points stable under ALL generators: none
+        @test StablePoints([[2, 1, 3, 4], [1, 2, 4, 3]]) == Int[]
+        # Single generator fixes points 3,4
+        @test StablePoints([[2, 1, 3, 4]]) == [3, 4]
+
+        # StrongGenSet
+        sgs = schreier_sims([1, 2, 3], [[2, 1, 3]], 3)
+        @test 3 in StablePoints(sgs)  # point 3 is stable under (1 2) swap
+    end
 end

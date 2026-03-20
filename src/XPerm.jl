@@ -1421,7 +1421,7 @@ function StablePoints(gs::Vector{Vector{Int}})
 end
 
 function StablePoints(sgs::StrongGenSet)
-    StablePoints(sgs.sgs)
+    StablePoints(sgs.GS)
 end
 
 export StablePoints
