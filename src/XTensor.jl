@@ -11,10 +11,10 @@ Reference: specs/2026-03-06-xperm-xtensor-design.md
 """
 module XTensor
 
-using ..validate_identifier: validate_identifier
-using ..validate_order: validate_order
-using ..validate_perm: validate_perm
-using ..validate_disjoint_cycles: validate_disjoint_cycles
+#! format: off
+import ..validate_identifier, ..validate_order
+import ..validate_perm, ..validate_disjoint_cycles
+#! format: on
 
 include("XPerm.jl")
 using .XPerm

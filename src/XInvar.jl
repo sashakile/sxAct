@@ -26,7 +26,9 @@ Wolfram source: resources/xAct/Invar/Invar.m
 """
 module XInvar
 
+#! format: off
 import ..validate_deriv_orders
+#! format: on
 
 # ============================================================
 # Exports
