@@ -31,6 +31,9 @@ References:
 """
 module XPerm
 
+using ...validate_perm: validate_perm
+using ...validate_disjoint_cycles: validate_disjoint_cycles
+
 export StrongGenSet, SchreierVector
 
 # Permutation utilities
@@ -1151,6 +1154,8 @@ function Cycles(cycles::AbstractVector{<:Integer}...)
             error("Cycles: duplicate elements in cycle: $(unique(dups))")
         end
     end
+    # Validate disjointness across cycles
+    validate_disjoint_cycles(nonempty)
     img = collect(1:n)
     for cyc in nonempty
         k = length(cyc)

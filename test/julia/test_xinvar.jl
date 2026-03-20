@@ -26,12 +26,12 @@ using xAct
         a = InvariantCase([0, 2])
         b = InvariantCase([0, 2])
         c = InvariantCase([0, 2], 1)
-        d = InvariantCase([2, 0])
+        d = InvariantCase([0, 4])
 
         @test a == b
         @test hash(a) == hash(b)
         @test a != c   # different n_epsilon
-        @test a != d   # different order of elements
+        @test a != d   # different deriv_orders
 
         # Usable as Dict key
         dict = Dict(a => 42)

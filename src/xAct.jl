@@ -24,6 +24,7 @@ module xAct
 
 using Reexport
 
+include("Validation.jl")
 include("XCore.jl")
 include("XTensor.jl") # XTensor includes XPerm
 include("XInvar.jl")

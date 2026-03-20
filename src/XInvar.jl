@@ -26,6 +26,8 @@ Wolfram source: resources/xAct/Invar/Invar.m
 """
 module XInvar
 
+import ..validate_deriv_orders
+
 # ============================================================
 # Exports
 # ============================================================
@@ -58,6 +60,11 @@ The derivative order of an invariant case is `2 * degree + sum(deriv_orders)`.
 struct InvariantCase
     deriv_orders::Vector{Int}
     n_epsilon::Int
+
+    function InvariantCase(deriv_orders::Vector{Int}, n_epsilon::Int)
+        validate_deriv_orders(deriv_orders)
+        new(deriv_orders, n_epsilon)
+    end
 end
 
 InvariantCase(deriv_orders::Vector{Int}) = InvariantCase(deriv_orders, 0)

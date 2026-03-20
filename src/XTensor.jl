@@ -16,6 +16,9 @@ using .XPerm
 
 using LinearAlgebra: det, inv
 
+using ..validate_identifier: validate_identifier
+using ..validate_order: validate_order
+
 # ============================================================
 # Exports
 # ============================================================
@@ -741,6 +744,7 @@ end
 Define a new abstract manifold.
 """
 function def_manifold!(name::Symbol, dim::Int, index_labels::Vector{Symbol})::ManifoldObj
+    validate_identifier(name; context="manifold name")
     _validate_symbol_hook[](name)
     ValidateSymbolInSession(name)
 
@@ -781,6 +785,7 @@ function def_tensor!(
     _skip_validation::Bool=false,
 )::TensorObj
     if !_skip_validation
+        validate_identifier(name; context="tensor name")
         _validate_symbol_hook[](name)
         ValidateSymbolInSession(name)
     end
@@ -918,6 +923,7 @@ function def_metric!(
     signdet::Int, metric_expr::AbstractString, covd_name::Symbol
 )::MetricObj
     # Validate covd name against xAct registry and session
+    validate_identifier(covd_name; context="covariant derivative name")
     _validate_symbol_hook[](covd_name)
     ValidateSymbolInSession(covd_name)
 
@@ -2643,7 +2649,7 @@ Raises an error if either tensor is unknown, `order < 1`, or the perturbation
 is already defined.
 """
 function def_perturbation!(tensor::Symbol, background::Symbol, order::Int)::PerturbationObj
-    order < 1 && throw(ArgumentError("def_perturbation!: order must be ≥ 1, got $order"))
+    validate_order(order; context="def_perturbation! order")
     PerturbationQ(tensor) &&
         throw(ArgumentError("def_perturbation!: perturbation $tensor already defined"))
     haskey(_tensors, tensor) || throw(
@@ -2797,6 +2803,7 @@ perturbation order.  Returns the perturbation tensor name as a String, or
 throws an error if no such perturbation is registered.
 """
 function perturb(tensor_name::Symbol, order::Int)::String
+    validate_order(order)
     for (pname, p) in _perturbations
         if p.background == tensor_name && p.order == order
             return String(pname)
@@ -2830,6 +2837,7 @@ the given order.
   - Factor with no registered perturbation — treated as background (variation = 0).
 """
 function perturb(expr::AbstractString, order::Int)::String
+    validate_order(order)
     s = strip(expr)
 
     # ── 1. Sum / difference (split on " + " and " - ") ──────────────────────
