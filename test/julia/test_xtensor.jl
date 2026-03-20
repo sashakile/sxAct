@@ -226,6 +226,20 @@ using xAct
         @test ToCanonical(
             Contract("CIg[cxa,cxb] EinsteinCxD[-cxa,-cxb]") * " + RicciScalarCxD[]"
         ) == "0"
+
+        # Einstein trace in 3D (odd dimension): g^{ab} G_{ab} = (1 - 3/2)*R = -1/2 R
+        reset_state!()
+        def_manifold!(:M3t, 3, [:t3a, :t3b, :t3c, :t3d, :t3e, :t3f])
+        def_metric!(-1, "gM3t[-t3a,-t3b]", :CD3t)
+        @test Contract("gM3t[t3a,t3b] EinsteinCD3t[-t3a,-t3b]") ==
+            "-(1/2) RicciScalarCD3t[]"
+
+        # Einstein trace in 5D: g^{ab} G_{ab} = (1 - 5/2)*R = -3/2 R
+        reset_state!()
+        def_manifold!(:M5t, 5, [:t5a, :t5b, :t5c, :t5d, :t5e, :t5f, :t5g, :t5h])
+        def_metric!(-1, "gM5t[-t5a,-t5b]", :CD5t)
+        @test Contract("gM5t[t5a,t5b] EinsteinCD5t[-t5a,-t5b]") ==
+            "-(3/2) RicciScalarCD5t[]"
     end
 
     # ============================================================
@@ -943,6 +957,20 @@ using xAct
         @test bc.jacobian ≈ -2.0
         # Inverse
         @test bc.inverse ≈ inv(Float64.(M))
+    end
+
+    @testset "BasisChangeObj type parameterization" begin
+        reset_state!()
+        def_manifold!(:Btp, 2, [:bpa, :bpb])
+        def_chart!(:BtpA, :Btp, [1, 2], [:bpx, :bpy])
+        def_chart!(:BtpB, :Btp, [1, 2], [:bpq, :bpr])
+
+        # Float64 matrix preserves element type
+        Mf = Float64[1.0 0.5; 0.0 2.0]
+        bc = set_basis_change!(:BtpA, :BtpB, Mf)
+        @test eltype(bc.matrix) == Float64
+        @test eltype(bc.inverse) == Float64
+        @test bc.jacobian isa Float64
     end
 
     @testset "set_basis_change! 4x4" begin

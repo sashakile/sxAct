@@ -11,13 +11,15 @@ Reference: specs/2026-03-06-xperm-xtensor-design.md
 """
 module XTensor
 
+using ..validate_identifier: validate_identifier
+using ..validate_order: validate_order
+using ..validate_perm: validate_perm
+using ..validate_disjoint_cycles: validate_disjoint_cycles
+
 include("XPerm.jl")
 using .XPerm
 
 using LinearAlgebra: det, inv
-
-using ..validate_identifier: validate_identifier
-using ..validate_order: validate_order
 
 # ============================================================
 # Exports
@@ -180,22 +182,36 @@ end
 """
 A coordinate transformation between two bases (stored as matrix + inverse + jacobian).
 """
-struct BasisChangeObj
+struct BasisChangeObj{T<:Number}
     from_basis::Symbol      # source basis name
     to_basis::Symbol        # target basis name
-    matrix::Matrix{Any}     # transformation matrix (n×n)
-    inverse::Matrix{Any}    # inverse matrix
-    jacobian::Any           # determinant of matrix (cached)
+    matrix::Matrix{T}       # transformation matrix (n×n)
+    inverse::Matrix{T}      # inverse matrix
+    jacobian::T             # determinant of matrix (cached)
 end
 
 """
 A component tensor: stores explicit numerical values of a tensor in a given basis.
 """
-struct CTensorObj
+struct CTensorObj{T<:Number,N}
     tensor::Symbol          # which abstract tensor this represents (e.g. :g)
-    array::Array            # N-dimensional array of component values
+    array::Array{T,N}       # N-dimensional array of component values
     bases::Vector{Symbol}   # basis for each slot (length == ndims(array))
     weight::Int             # density weight (usually 0)
+end
+
+"""
+Convert an array to a concrete numeric array, promoting Any elements.
+"""
+function _to_numeric_array(a::AbstractArray{T}) where {T<:Number}
+    return Array(a)
+end
+function _to_numeric_array(a::AbstractArray)
+    # Promote Any arrays: infer numeric type from elements without full copy
+    isempty(a) && return Array{Float64}(a)
+    T = mapreduce(typeof, promote_type, a)
+    T <: Number || error("set_components!: array contains non-numeric elements of type $T")
+    return Array{T}(a)
 end
 
 """
@@ -245,8 +261,8 @@ const _metrics = Dict{Symbol,MetricObj}()
 const _perturbations = Dict{Symbol,PerturbationObj}()
 const _bases = Dict{Symbol,BasisObj}()
 const _charts = Dict{Symbol,ChartObj}()
-const _basis_changes = Dict{Tuple{Symbol,Symbol},BasisChangeObj}()
-const _ctensors = Dict{Tuple{Symbol,Vararg{Symbol}},CTensorObj}()
+const _basis_changes = Dict{Tuple{Symbol,Symbol},BasisChangeObj{<:Number}}()
+const _ctensors = Dict{Tuple{Symbol,Vararg{Symbol}},CTensorObj{<:Number}}()
 
 const Manifolds = Symbol[]   # ordered list
 const Tensors = Symbol[]
@@ -260,7 +276,7 @@ const Charts = Symbol[]
 const _traceless_tensors = Set{Symbol}()
 # Trace rules: trace_of_tensor → (scalar_tensor_name, Int_coefficient)
 # e.g. EinsteinXXX → (:RicciScalarXXX, -1)  meaning tr(G) = -1 * R
-const _trace_scalars = Dict{Symbol,Tuple{Symbol,Int}}()
+const _trace_scalars = Dict{Symbol,Tuple{Symbol,Rational{Int}}}()
 
 # Einstein expansion rules: EinsteinXXX → (RicciXXX, metricXXX, RicciScalarXXX)
 # Allows ToCanonical to substitute G_{ab} = R_{ab} - (1/2) g_{ab} R
@@ -1201,7 +1217,7 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
     # the curvature invariant tests use 4D manifolds.
     # The coefficient is (1 - dim/2).  For dim=4: coeff = -1.
     n = m.dimension
-    coeff_int = 1 - div(n, 2)  # integer only for even dimensions
+    coeff_int = 1 - n // 2  # Rational — correct for all dimensions
     if !haskey(_trace_scalars, einstein_name)
         _trace_scalars[einstein_name] = (ricci_scalar_name, coeff_int)
     end
@@ -3900,17 +3916,17 @@ function set_basis_change!(
     (n == m == dim) ||
         error("set_basis_change!: matrix size ($n×$m) does not match basis dimension $dim")
 
-    # Convert to Matrix{Any} for storage
-    mat = Matrix{Any}(matrix)
-    jac = det(Float64.(matrix))
+    # Convert to Float64 for numeric operations (det, inv)
+    fmat = Matrix{Float64}(matrix)
+    jac = det(fmat)
     abs(jac) < 1e-15 && error("set_basis_change!: matrix is singular (det ≈ 0)")
-    inv_mat = Matrix{Any}(inv(Float64.(matrix)))
+    inv_mat = inv(fmat)
 
-    bc = BasisChangeObj(from_basis, to_basis, mat, inv_mat, jac)
+    bc = BasisChangeObj(from_basis, to_basis, fmat, inv_mat, jac)
     _basis_changes[(from_basis, to_basis)] = bc
 
     # Store inverse direction
-    bc_inv = BasisChangeObj(to_basis, from_basis, inv_mat, mat, 1.0 / jac)
+    bc_inv = BasisChangeObj(to_basis, from_basis, inv_mat, fmat, 1.0 / jac)
     _basis_changes[(to_basis, from_basis)] = bc_inv
 
     bc
@@ -4104,7 +4120,7 @@ function set_components!(
     end
 
     key = (tensor, bases...)
-    ct = CTensorObj(tensor, Array(array), collect(bases), weight)
+    ct = CTensorObj(tensor, _to_numeric_array(array), collect(bases), weight)
     _ctensors[key] = ct
     ct
 end

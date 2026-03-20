@@ -31,8 +31,8 @@ References:
 """
 module XPerm
 
-using ...validate_perm: validate_perm
-using ...validate_disjoint_cycles: validate_disjoint_cycles
+using ..validate_perm: validate_perm
+using ..validate_disjoint_cycles: validate_disjoint_cycles
 
 export StrongGenSet, SchreierVector
 
