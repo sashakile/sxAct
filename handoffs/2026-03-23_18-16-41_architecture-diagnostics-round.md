@@ -1,6 +1,6 @@
 ---
-date: 2026-03-23T18:16:41-03:00
-git_commit: 0bff8eb
+date: 2026-03-23T18:38:55-03:00
+git_commit: f7010e1
 branch: main
 directory: /var/home/sasha/para/areas/dev/gh/sk/sxAct
 status: handoff
@@ -17,6 +17,7 @@ Ran five diagnostic analyses across the entire sxAct codebase (8 Julia source fi
 3. **Composability** — pipeline type mismatches, missed endomorphisms, algebraic properties
 4. **Mutability** — shared mutable state, side effect entanglement, temporal coupling
 5. **Test friction** — setup bloat, private function testing, missing seams
+6. **Test abstraction mining** — lazy test clusters, parameterization, property test candidates
 
 Each analysis was reviewed with Rule of 5, corrected for false positives, and translated into beads tickets. All findings cross-referenced against existing tickets to avoid duplicates.
 
@@ -28,7 +29,8 @@ Each analysis was reviewed with Rule of 5, corrected for false positives, and tr
 - [x] Composability diagnostic — 7 findings, 3 actionable, 4 no-action/ceiling
 - [x] Mutability diagnostic — 6 findings, all map to existing tickets
 - [x] Test friction diagnostic — 6 signals, root cause is shared mutable state (F1/F3 → sxAct-mbzz)
-- [x] Rule of 5 reviews applied to performance, rigidity, and composability diagnostics
+- [x] Test abstraction mining — 6 lazy clusters (45+ parameterizable tests, ~260 lines saveable), 6 property candidates (idempotency, round-trip, metamorphic)
+- [x] Rule of 5 reviews applied to performance, rigidity, composability, and test abstraction diagnostics
 - [x] Issue tracker reviews applied to both batches of new tickets
 - [x] All tickets created, duplicates closed, dependencies set
 
@@ -79,6 +81,17 @@ Each analysis was reviewed with Rule of 5, corrected for false positives, and tr
 ### Mutability & Test Friction
 No new tickets — all findings map to existing sxAct-mbzz (Session struct), sxAct-dduy (thread safety epic), sxAct-ew7y (partial init), sxAct-nhty (XInvar split).
 
+### Test Abstraction Mining (5 new tickets, 1 existing updated)
+
+| ID | Title | P | Status |
+|---|---|---|---|
+| sxAct-8hwa | parameterize MaxIndex/MaxDualIndex spot-checks | P3 | open |
+| sxAct-lm3q | parameterize Python export existence checks | P3 | open |
+| sxAct-9bi7 | round-trip property tests (TExpr + XInvar) | P3 | open |
+| sxAct-7ngd | parameterize XInvar parser spot-checks | P3 | blocked by nhty |
+| sxAct-2bik | move shared Python fixtures to conftest.py | P4 | open |
+| sxAct-96ry | property-based tests for XTensor invariants | P2 | open (updated: Contract NOT idempotent, added round-trip properties, PBT library notes) |
+
 ## Key Learnings
 
 1. **The codebase has a natural FC/IS boundary that was never formalized**
@@ -111,12 +124,21 @@ No new tickets — all findings map to existing sxAct-mbzz (Session struct), sxA
    - sxAct-ew7y tracks the real bug: _jl set but _xcore None after partial failure
    - Thread safety itself is less critical than init atomicity
 
+## Key Learnings (continued)
+
+7. **Contract is NOT idempotent** — Contract can require multiple passes with multiple metrics; Simplify exists for this reason. Remove Contract from idempotency property test candidates. Only ToCanonical and Simplify are idempotent.
+
+8. **~100 lines saveable from XInvar parser spot-checks alone** — but defer parameterization until sxAct-nhty (XInvar split) decides which `_private` parsers become public APIs.
+
+9. **No PBT library installed** — install PropCheck.jl (Julia) and hypothesis (Python) before implementing sxAct-96ry. Table-driven parameterized tests capture 80% of the value without framework overhead.
+
 ## Dependencies Set
 
 ```
 sxAct-li8t → sxAct-kldq    (sort keys after coeff_map key change)
 sxAct-k8wd → sxAct-mbzz    (XTensor split after Session struct)
 sxAct-5hpg → sxAct-jqzm    (name registry after dispatch dict)
+sxAct-7ngd → sxAct-nhty    (parser parameterization after XInvar split)
 ```
 
 ## Recommended Work Order
@@ -126,6 +148,8 @@ sxAct-5hpg → sxAct-jqzm    (name registry after dispatch dict)
 2. sxAct-nc07 — extract strip_variance to XCore (30 min)
 3. sxAct-op6e — add TExpr round-trip to commute_covds/sort_covds (10 min)
 4. sxAct-045b — IOBuffer in InvarDB parser (15 min)
+5. sxAct-lm3q — parameterize Python export checks (15 min)
+6. sxAct-2bik — move shared fixtures to conftest.py (15 min)
 
 ### Medium effort (next):
 5. sxAct-jqzm — action dispatch dict (1-2 hr)
@@ -133,11 +157,16 @@ sxAct-5hpg → sxAct-jqzm    (name registry after dispatch dict)
 7. sxAct-4t8y — pre-compile Regex (1-2 hr)
 8. sxAct-xvav — trace-rule data-driven dispatch (1-2 hr)
 
+### Medium-effort test improvements (after quick wins):
+9. sxAct-8hwa — parameterize MaxIndex/MaxDualIndex spot-checks (30 min)
+10. sxAct-9bi7 — round-trip property tests for TExpr + XInvar (1-2 hr)
+
 ### Gated / deferred:
 - sxAct-k8wd, sxAct-nhty — structural splits, wait for sxAct-mbzz
 - sxAct-y5f1, sxAct-5hpg — Python adapter, wait for TExpr migration decision
 - sxAct-49y9, sxAct-ae73 — parametric types, profile before committing
+- sxAct-7ngd — parser parameterization, wait for sxAct-nhty
 
 ## Artifacts
 
-**No files created or modified** — all diagnostics were advisory only (read-only analysis). The only artifacts are the 21 beads tickets documented above.
+**No source files created or modified** — all diagnostics were advisory only (read-only analysis). The only artifacts are the 26 beads tickets documented above (21 from first 5 diagnostics + 5 from test abstraction mining) plus 3 existing tickets updated with new framing.
