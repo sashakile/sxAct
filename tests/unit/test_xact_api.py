@@ -172,6 +172,109 @@ class TestPerturbationValidation:
             xact.Perturbation(h, metric, order=0)
 
 
+class TestCommuteCovDs:
+    def test_returns_string(self, manifold, metric):
+        xact.Tensor("V", ["a"], manifold)
+        result = xact.commute_covds("CD[-a][CD[-b][V[c]]]", "CD", "-a", "-b")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+class TestSortCovDs:
+    def test_returns_string(self, manifold, metric):
+        xact.Tensor("phi", [], manifold)
+        result = xact.sort_covds("CD[-b][CD[-a][phi[]]]", "CD")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+class TestIBP:
+    def test_pure_divergence_is_zero(self, manifold, metric):
+        xact.Tensor("V", ["a"], manifold)
+        result = xact.ibp("CD[-a][V[a]]", "CD")
+        assert result == "0"
+
+
+class TestTotalDerivativeQ:
+    def test_divergence_is_total(self, manifold, metric):
+        xact.Tensor("V", ["a"], manifold)
+        assert xact.total_derivative_q("CD[-a][V[a]]", "CD") is True
+
+    def test_product_is_not_total(self, manifold, metric):
+        xact.Tensor("phi", [], manifold)
+        xact.Tensor("V", ["a"], manifold)
+        assert xact.total_derivative_q("phi[] CD[-a][V[a]]", "CD") is False
+
+
+class TestVarD:
+    def test_variation_of_square(self, manifold, metric):
+        xact.Tensor("phi", [], manifold)
+        result = xact.var_d("phi[] phi[]", "phi", "CD")
+        assert "phi" in result
+
+    def test_no_field_gives_zero(self, manifold, metric):
+        result = xact.var_d("RicciScalarCD[]", "phi", "CD")
+        assert result == "0"
+
+
+class TestCollectTensors:
+    def test_returns_string(self, manifold, metric):
+        result = xact.collect_tensors("RicciScalarCD[] + RicciScalarCD[]")
+        assert isinstance(result, str)
+
+
+class TestAllContractions:
+    def test_returns_list(self, manifold, metric):
+        result = xact.all_contractions("RiemannCD[-a,-b,-c,-d]", "g")
+        assert isinstance(result, list)
+
+
+class TestSymmetryOf:
+    def test_returns_string(self, manifold, metric):
+        xact.Tensor("S", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
+        result = xact.symmetry_of("S[-a,-b]")
+        assert isinstance(result, str)
+
+
+class TestMakeTraceFree:
+    def test_returns_string(self, manifold, metric):
+        xact.Tensor("S", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
+        result = xact.make_trace_free("S[-a,-b]", "g")
+        assert isinstance(result, str)
+
+
+class TestCheckMetricConsistency:
+    def test_consistent_metric(self, manifold, metric):
+        result = xact.check_metric_consistency("g")
+        assert result is True
+
+
+class TestPerturbCurvature:
+    def test_returns_dict(self, manifold, metric):
+        h = xact.Tensor("h", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
+        xact.Perturbation(h, metric, order=1)
+        result = xact.perturb_curvature("CD", "h", order=1)
+        assert isinstance(result, dict)
+        assert "Ricci1" in result or len(result) > 0
+
+
+class TestPerturbationOrder:
+    def test_returns_int(self, manifold, metric):
+        h = xact.Tensor("h", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
+        xact.Perturbation(h, metric, order=1)
+        result = xact.perturbation_order("h")
+        assert result == 1
+
+
+class TestPerturbationAtOrder:
+    def test_returns_string(self, manifold, metric):
+        h = xact.Tensor("h", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
+        xact.Perturbation(h, metric, order=1)
+        result = xact.perturbation_at_order("g", 1)
+        assert isinstance(result, str)
+        assert "h" in result
+
+
 class TestReset:
     def test_reset_clears_state(self):
         xact.Manifold("M", 4, ["a", "b", "c", "d"])
