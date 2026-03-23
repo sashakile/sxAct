@@ -2400,7 +2400,7 @@ end
 """
 Return the bare index label (strip leading '-').
 """
-_bare(s::AbstractString) = startswith(s, "-") ? s[2:end] : string(s)
+_bare(s::AbstractString)::String = startswith(s, "-") ? String(s[2:end]) : String(s)
 
 """
 True if index is covariant (has leading '-').

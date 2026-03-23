@@ -463,9 +463,10 @@ const _FRESH_INDEX_POOL = [
 """
     _bare_index(idx::String) -> String
 
-Strip the leading '-' from a covariant index. E.g., "-a" → "a", "a" → "a".
+Strip the leading '-' from a covariant index.
 """
-_bare_index(idx::AbstractString) = startswith(idx, "-") ? String(idx[2:end]) : String(idx)
+_bare_index(idx::AbstractString)::String =
+    startswith(idx, "-") ? String(idx[2:end]) : String(idx)
 
 """
     _is_covariant_idx(idx::String) -> Bool

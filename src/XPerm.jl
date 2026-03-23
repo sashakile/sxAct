@@ -848,9 +848,9 @@ end
 """
     _bare_label(s) → String
 
-Strip leading '-' from an index label for comparison purposes.
+Strip leading '-' from an index label.
 """
-_bare_label(s::AbstractString) = startswith(s, "-") ? s[2:end] : string(s)
+_bare_label(s::AbstractString)::String = startswith(s, "-") ? String(s[2:end]) : String(s)
 
 """
     _canonicalize_symmetric(indices, slots) → (Vector{String}, Int)

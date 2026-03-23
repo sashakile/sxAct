@@ -49,7 +49,10 @@ export SymbolJoin, NoPattern, AtomQ, SymbolName
 export DaggerCharacter, HasDaggerCharacterQ, MakeDaggerSymbol
 export LinkCharacter, LinkSymbols, UnlinkSymbol
 
-# 5. xUpvalues
+# 5. Index utilities
+export strip_variance
+
+# 6. xUpvalues
 export SubHead, xUpSet!, xUpSetDelayed!, xUpAppendTo!, xUpDeleteCasesTo!
 
 # 6. Tag assignment
@@ -250,6 +253,15 @@ AtomQ(x) = true
 Return the string name of a symbol (analogous to Mathematica `SymbolName`).
 """
 SymbolName(s::Symbol) = string(s)
+
+"""
+    strip_variance(s) -> String
+
+Strip the leading "-" (covariant marker) from an index string.
+Returns the bare index label. E.g. `strip_variance("-a")` → `"a"`, `strip_variance("a")` → `"a"`.
+"""
+strip_variance(s::AbstractString)::String =
+    startswith(s, "-") ? String(s[2:end]) : String(s)
 
 # Allow Symbol + Symbol (and Symbol + Expr) to build symbolic expressions.
 # This enables xCore property tests that construct expressions like `$a + $b`
