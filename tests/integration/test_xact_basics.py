@@ -45,7 +45,7 @@ class TestDefineManifold:
     def test_define_manifold_returns_manifold_info(self, oracle: OracleClient) -> None:
         result = xact_evaluate(oracle, "DefManifold[M1, 4, {a1,b1,c1,d1}]; M1")
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "M1" in result.repr or result.repr != ""
+        assert "M1" in result.repr, f"Expected M1 in repr, got: {result.repr}"
 
     def test_manifold_dimension(self, oracle: OracleClient) -> None:
         result = xact_evaluate(
@@ -104,7 +104,10 @@ class TestToCanonical:
         """
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "T5" in result.repr
+        # ToCanonical reorders indices; result must contain T5 with two index slots
+        assert result.repr.startswith("T5[") or result.repr.startswith("-T5["), (
+            f"Expected T5[...] expression, got: {result.repr}"
+        )
 
 
 @pytest.mark.oracle
@@ -121,7 +124,10 @@ class TestMetricContraction:
         """
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "V6" in result.repr
+        # Metric contraction raises the index; result must be V6 with one index slot
+        assert result.repr.startswith("V6["), (
+            f"Expected V6[...] expression, got: {result.repr}"
+        )
 
 
 @pytest.mark.oracle
@@ -137,7 +143,9 @@ class TestRiemannTensor:
         """
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "Riemann" in result.repr or result.repr != ""
+        assert "Riemann" in result.repr, (
+            f"Expected Riemann tensor in repr, got: {result.repr}"
+        )
 
 
 @pytest.mark.oracle

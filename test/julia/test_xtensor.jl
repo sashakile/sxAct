@@ -607,17 +607,17 @@ using xAct
         @test TotalDerivativeQ("IBD[-ia][IBV[ia]]", "IBD") == true
         @test TotalDerivativeQ("IBphi[] IBD[-ia][IBV[ia]]", "IBD") == false
 
-        # IBP: phi * div(V) → -(grad phi) . V (non-zero, non-trivial)
+        # IBP: phi * div(V) → -(grad phi) . V
         ibp_result = IBP("IBphi[] IBD[-ia][IBV[ia]]", "IBD")
-        @test !isempty(ibp_result) && ibp_result != "0"
+        @test ibp_result == "-IBD[-ia][IBphi[]] IBV[ia]"
 
         # IBP: no CovD present → simplified form returned unchanged
         no_covd = IBP("IBphi[] RicciScalarIBD[]", "IBD")
         @test no_covd == Simplify("IBphi[] RicciScalarIBD[]")
 
-        # IBP: V^a ∂_a phi (covd applied to phi, partner is V) → non-zero result
+        # IBP: V^a ∂_a phi (covd applied to phi, partner is V) → -(div V) phi
         ibp_grad = IBP("IBV[ia] IBD[-ia][IBphi[]]", "IBD")
-        @test !isempty(ibp_grad) && ibp_grad != "0"
+        @test ibp_grad == "-IBD[-ia][IBV[ia]] IBphi[]"
 
         # VarD tests
         # δ(phi * R) / δφ = R
@@ -625,16 +625,10 @@ using xAct
             Simplify("RicciScalarIBD[]")
 
         # δ(phi * div V) / δφ = div V
-        # Note: VarD returns CovD expressions as-is (Simplify cannot handle CovD factors)
-        let vard_div = VarD("IBphi[] IBD[-ia][IBV[ia]]", "IBphi", "IBD")
-            @test !isempty(vard_div) && vard_div != "0"
-            # Should contain IBD and IBV
-            @test occursin("IBD", vard_div) && occursin("IBV", vard_div)
-        end
+        @test VarD("IBphi[] IBD[-ia][IBV[ia]]", "IBphi", "IBD") == "IBD[-ia][IBV[ia]]"
 
         # δ(V^a ∂_a φ) / δφ = -∂_a V^a  (IBP moves derivative off φ)
-        vard_grad = VarD("IBV[ia] IBD[-ia][IBphi[]]", "IBphi", "IBD")
-        @test !isempty(vard_grad)
+        @test VarD("IBV[ia] IBD[-ia][IBphi[]]", "IBphi", "IBD") == "-IBD[-ia][IBV[ia]]"
 
         # δ(φ²) / δφ = 2φ
         @test VarD("IBphi[] IBphi[]", "IBphi", "IBD") == Simplify("2 IBphi[]")

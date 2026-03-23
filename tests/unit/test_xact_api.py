@@ -92,13 +92,13 @@ class TestContract:
     def test_lower_index(self, manifold, metric):
         xact.Tensor("V", ["a"], manifold)
         result = xact.contract("V[a] * g[-a,-b]")
-        assert "V" in result
+        assert result == "V[a]"
 
 
 class TestSimplify:
     def test_simplify_returns_string(self, manifold, metric):
         result = xact.simplify("g[-a,-b]")
-        assert isinstance(result, str)
+        assert result == "g[-a,-b]"
 
 
 class TestPerturbation:
