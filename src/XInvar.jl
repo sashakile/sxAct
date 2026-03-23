@@ -794,14 +794,14 @@ function _ricci_to_riemann(expr::AbstractString, covd::Symbol)::String
     used = _collect_used_indices(expr)
     result = expr
 
+    # Pre-compile patterns (stable within this call)
+    _re_esc(s) = replace(s, r"([.*+?^${}()|\\])" => s"\\\1")
+    scalar_pat = Regex(_re_esc(ricci_scalar_name) * "\\[\\s*\\]")
+    ricci_pat = Regex(_re_esc(ricci_name) * "\\[([^\\]]*)\\]")
+
     # Replace RicciScalar first (longer name avoids partial Ricci match)
     while true
-        m = match(
-            Regex(
-                replace(ricci_scalar_name, r"([.*+?^${}()|\\])" => s"\\\1") * "\\[\\s*\\]"
-            ),
-            result,
-        )
+        m = match(scalar_pat, result)
         isnothing(m) && break
         fresh = _fresh_indices(2, used)
         replacement = "$(riemann_name)[$(fresh[1]),$(fresh[2]),-$(fresh[1]),-$(fresh[2])]"
@@ -810,10 +810,7 @@ function _ricci_to_riemann(expr::AbstractString, covd::Symbol)::String
 
     # Replace Ricci tensors
     while true
-        m = match(
-            Regex(replace(ricci_name, r"([.*+?^${}()|\\])" => s"\\\1") * "\\[([^\\]]*)\\]"),
-            result,
-        )
+        m = match(ricci_pat, result)
         isnothing(m) && break
         cap = m.captures[1]
         isnothing(cap) && break
@@ -1667,10 +1664,10 @@ end
 Global cached dispatch tables. Built lazily per case on first `PermToInv` call.
 Perm→index mapping is dimension-independent (structural, not rule-dependent).
 """
-_perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
+const _perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
     Vector{Int},Dict{Vector{Int},Int}
 }()
-_dual_perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
+const _dual_perm_dispatch::Dict{Vector{Int},Dict{Vector{Int},Int}} = Dict{
     Vector{Int},Dict{Vector{Int},Int}
 }()
 
@@ -2093,7 +2090,7 @@ end
 Global cached InvarDB instances, keyed by dimension.
 Different dimensions load different step-5 rules.
 """
-_invar_db_cache::Dict{Int,InvarDB} = Dict{Int,InvarDB}()
+const _invar_db_cache::Dict{Int,InvarDB} = Dict{Int,InvarDB}()
 
 """
     _ensure_invar_db(; dbdir::String="", dim::Int=4) -> InvarDB

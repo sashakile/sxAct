@@ -1772,13 +1772,17 @@ where `covd_indices` is the list of CovD indices in outer-to-inner order,
 
 Returns `nothing` if no CovD chain with ≥ 2 derivatives is found.
 """
-function _extract_covd_chain(term::AbstractString, covd_str::AbstractString)
+function _extract_covd_chain(
+    term::AbstractString,
+    covd_str::AbstractString;
+    cd_start_pat::Union{Regex,Nothing}=nothing,
+)
     # Find the start of a CovD chain: COVD[idx][...]
     # Must NOT be preceded by a word character (to avoid matching "RiemannCOVD[")
-    re_esc(s)::String = replace(s, r"([-\[\].\^$*+?{}|()])" => s"\\\1")
-    escaped_cd = re_esc(covd_str)
-
-    cd_start_pat = Regex("(?<![A-Za-z0-9_])" * escaped_cd * raw"\[")
+    if cd_start_pat === nothing
+        re_esc(s)::String = replace(s, r"([-\[\].\^$*+?{}|()])" => s"\\\1")
+        cd_start_pat = Regex("(?<![A-Za-z0-9_])" * re_esc(covd_str) * raw"\[")
+    end
     m = match(cd_start_pat, term)
     isnothing(m) && return nothing
 
@@ -2095,6 +2099,10 @@ function SortCovDs(expr::AbstractString, covd_name::Symbol)::String
     metric_obj = _metrics[covd_name]
     manifold_sym = metric_obj.manifold
 
+    # Pre-compile the CovD-start pattern (used in _extract_covd_chain + cleanup)
+    _re_esc(s)::String = replace(s, r"([-\[\].\^$*+?{}|()])" => s"\\\1")
+    covd_start_pat = Regex("(?<![A-Za-z0-9_])" * _re_esc(covd_str) * raw"\[")
+
     # Iterative bubble sort: keep processing until no unsorted CovD chains remain.
     max_iters = 100
     current = s
@@ -2106,7 +2114,7 @@ function SortCovDs(expr::AbstractString, covd_name::Symbol)::String
         found_unsorted = false
 
         for (tidx, term) in enumerate(terms)
-            chain = _extract_covd_chain(term, covd_str)
+            chain = _extract_covd_chain(term, covd_str; cd_start_pat=covd_start_pat)
             isnothing(chain) && continue
 
             covd_indices, inner_tensor_name, inner_slots, prefix, suffix = chain
@@ -2155,15 +2163,9 @@ function SortCovDs(expr::AbstractString, covd_name::Symbol)::String
 
     covd_terms = String[]
     plain_terms = String[]
-    # Detect actual CovD chain usage: look for "COVD[" that is NOT preceded by
-    # a word character (which would make it part of a tensor name like "RiemannCOVD[").
-    covd_pat = Regex(
-        "(?<![A-Za-z0-9_])" *
-        replace(covd_str, r"([-\[\].\^$*+?{}|()])" => s"\\\1") *
-        raw"\[",
-    )
+    # Reuse pre-compiled covd_start_pat (same pattern as _extract_covd_chain)
     for term in terms
-        if !isnothing(match(covd_pat, term))
+        if !isnothing(match(covd_start_pat, term))
             push!(covd_terms, term)
         else
             push!(plain_terms, term)
@@ -4913,6 +4915,11 @@ Swap two index labels in an expression string, handling both covariant
 function _swap_indices(
     expr::AbstractString, label_a::AbstractString, label_b::AbstractString
 )::String
+    # Pre-compile the 3 replacement patterns (stable across all brackets)
+    pat_a = _label_pattern(label_a)
+    pat_b = _label_pattern(label_b)
+    pat_tmp = _label_pattern("__TMP__")
+
     # Only substitute inside bracket groups [...], leaving tensor names untouched
     result = IOBuffer()
     i = 1
@@ -4921,9 +4928,9 @@ function _swap_indices(
             j = findnext(']', expr, i)
             isnothing(j) && error("_swap_indices: unmatched '[' in expression")
             bracket = SubString(expr, i, j)
-            bracket = _replace_label(bracket, label_a, "__TMP__")
-            bracket = _replace_label(bracket, label_b, label_a)
-            bracket = _replace_label(bracket, "__TMP__", label_b)
+            bracket = replace(bracket, pat_a => "__TMP__")
+            bracket = replace(bracket, pat_b => label_a)
+            bracket = replace(bracket, pat_tmp => label_b)
             write(result, bracket)
             i = j + 1
         else
@@ -4932,6 +4939,13 @@ function _swap_indices(
         end
     end
     String(take!(result))
+end
+
+"""
+Build a label-boundary regex for _swap_indices (cached per label string).
+"""
+function _label_pattern(label::AbstractString)::Regex
+    Regex("(?<=[\\[,\\s-]|^)" * _regex_escape(label) * "(?=[\\],\\s-]|\$)")
 end
 
 """

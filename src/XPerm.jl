@@ -113,9 +113,13 @@ Return the composition p∘q: (p∘q)[i] = p[q[i]].
 (Apply q first, then p.)
 """
 function compose(p::Vector{Int}, q::Vector{Int})
-    length(p) == length(q) ||
-        error("compose: mismatched degrees $(length(p)) vs $(length(q))")
-    [p[q[i]] for i in 1:length(p)]
+    n = length(p)
+    n == length(q) || error("compose: mismatched degrees $n vs $(length(q))")
+    result = similar(p)
+    @inbounds for i in 1:n
+        result[i] = p[q[i]]
+    end
+    result
 end
 
 """
@@ -304,7 +308,7 @@ end
 """
     _sift_with_cache(p, base, level_GS, sv_cache, n) → (residual, depth)
 
-Like `_sift` but uses a shared `sv_cache::Vector{Any}` of SchreierVectors
+Like `_sift` but uses a shared `sv_cache` of SchreierVectors
 (entries are `nothing` when invalidated). Recomputes and stores missing entries.
 This avoids redundant BFS inside the tight Schreier-Sims loop.
 """
@@ -312,7 +316,7 @@ function _sift_with_cache(
     p::Vector{Int},
     base::Vector{Int},
     level_GS::Vector{Vector{Vector{Int}}},
-    sv_cache::Vector{Any},
+    sv_cache::Vector{Union{Nothing,SchreierVector}},
     n::Int,
 )
     cur = copy(p)
@@ -369,7 +373,7 @@ function schreier_sims(
     base = copy(initbase)
     level_GS = Vector{Vector{Vector{Int}}}()  # generators per level
     level_seen = Vector{Set{Vector{Int}}}()      # dedup sets per level
-    sv_cache = Vector{Any}()                   # cached SchreierVector (or nothing)
+    sv_cache = Vector{Union{Nothing,SchreierVector}}()  # cached SchreierVector per level
 
     # Add generator g to level k with deduplication.
     # Invalidates the cached SV for level k if g is new.
