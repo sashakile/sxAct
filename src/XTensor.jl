@@ -4575,6 +4575,8 @@ end
     _einsum_eval(factor_arrays, factor_labels, dummy_labels, assignment, dim) → Float64
 
 Recursively sum over dummy indices, then evaluate the product of all factors.
+Uses a pre-allocated index buffer per factor and a flat assignment vector
+(keyed by label ordinal) to avoid Dict/Array allocation in the inner loop.
 """
 function _einsum_eval(
     factor_arrays::Vector{<:AbstractArray},
@@ -4584,29 +4586,67 @@ function _einsum_eval(
     dim::Int,
     dummy_idx::Int=1,
 )::Float64
-    if dummy_idx > length(dummy_labels)
+    # On first call, build mapping and pre-allocate buffers, then delegate
+    if dummy_idx == 1
+        # Map label → ordinal in a flat assignment vector
+        all_labels = union(keys(assignment), dummy_labels)
+        label_to_ord = Dict{Symbol,Int}()
+        for (i, lbl) in enumerate(all_labels)
+            label_to_ord[lbl] = i
+        end
+        # Flat assignment: ordinal → value
+        flat = zeros(Int, length(all_labels))
+        for (lbl, v) in assignment
+            flat[label_to_ord[lbl]] = v
+        end
+        # Pre-compute ordinal indices for each factor (avoid repeated Dict lookup)
+        factor_ords = [Int[label_to_ord[l] for l in labels] for labels in factor_labels]
+        # Pre-allocate index buffer per factor
+        factor_buf = [Vector{Int}(undef, length(labels)) for labels in factor_labels]
+        # Dummy label ordinals
+        dummy_ords = Int[label_to_ord[l] for l in dummy_labels]
+        return _einsum_inner(
+            factor_arrays, factor_ords, factor_buf, dummy_ords, flat, dim, 1
+        )
+    end
+    # Fallback (should not be reached with the new path)
+    error("_einsum_eval: unexpected dummy_idx > 1 in top-level call")
+end
+
+function _einsum_inner(
+    factor_arrays::Vector{<:AbstractArray},
+    factor_ords::Vector{Vector{Int}},
+    factor_buf::Vector{Vector{Int}},
+    dummy_ords::Vector{Int},
+    flat::Vector{Int},
+    dim::Int,
+    dummy_idx::Int,
+)::Float64
+    if dummy_idx > length(dummy_ords)
         # All indices assigned — evaluate the product
         prod_val = 1.0
         for (fi, arr) in enumerate(factor_arrays)
-            labels = factor_labels[fi]
-            if isempty(labels)
-                # Scalar tensor
+            ords = factor_ords[fi]
+            if isempty(ords)
                 prod_val *= Float64(arr[])
             else
-                indices = Int[assignment[l] for l in labels]
-                prod_val *= Float64(arr[indices...])
+                buf = factor_buf[fi]
+                @inbounds for k in eachindex(ords)
+                    buf[k] = flat[ords[k]]
+                end
+                prod_val *= Float64(arr[buf...])
             end
         end
         return prod_val
     end
 
     # Sum over current dummy label
-    lbl = dummy_labels[dummy_idx]
+    ord = dummy_ords[dummy_idx]
     total = 0.0
     for v in 1:dim
-        assignment[lbl] = v
-        total += _einsum_eval(
-            factor_arrays, factor_labels, dummy_labels, assignment, dim, dummy_idx + 1
+        @inbounds flat[ord] = v
+        total += _einsum_inner(
+            factor_arrays, factor_ords, factor_buf, dummy_ords, flat, dim, dummy_idx + 1
         )
     end
     total
