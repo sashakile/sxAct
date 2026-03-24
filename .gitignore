@@ -6,8 +6,7 @@ __pycache__/
 *.so
 .Python
 
-# uv package manager
-uv.lock
+# uv package manager — lock file committed for reproducible builds
 
 # Wolfram
 *.nb~
