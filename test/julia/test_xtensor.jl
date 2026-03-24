@@ -2417,3 +2417,53 @@ end
         end
     end
 end
+
+# ============================================================
+# Low-dimensional manifold tests (sxAct-246l)
+# ============================================================
+@testset "Low-dim manifolds" begin
+    @testset "1D manifold: no curvature tensors" begin
+        reset_state!()
+        def_manifold!(:M1d, 1, [:xa, :xb])
+        def_metric!(1, "g1d[-xa,-xb]", :D1d)
+        # 1D: Ricci exists (2 indices), but Riemann does not (needs 4)
+        @test TensorQ(:RicciD1d)
+        @test TensorQ(:RicciScalarD1d)
+        @test !TensorQ(:RiemannD1d)
+        @test !TensorQ(:WeylD1d)
+        # Christoffel exists (2D+ labels)
+        @test TensorQ(:ChristoffelD1d)
+    end
+
+    @testset "2D manifold: curvature and Christoffel" begin
+        reset_state!()
+        def_manifold!(:M2d, 2, [:ya, :yb, :yc, :yd])
+        def_metric!(-1, "g2d[-ya,-yb]", :D2d)
+        @test TensorQ(:RiemannD2d)
+        @test TensorQ(:RicciD2d)
+        @test TensorQ(:EinsteinD2d)
+        @test TensorQ(:WeylD2d)
+        @test TensorQ(:ChristoffelD2d)
+
+        # Riemann antisymmetry holds in 2D
+        result = ToCanonical("RiemannD2d[-ya,-yb,-yc,-yd] + RiemannD2d[-yb,-ya,-yc,-yd]")
+        @test result == "0"
+    end
+
+    @testset "3D manifold: Einstein trace" begin
+        reset_state!()
+        def_manifold!(:M3d, 3, [:za, :zb, :zc, :zd, :ze, :zf])
+        def_metric!(1, "g3d[-za,-zb]", :D3d)
+        # Einstein trace: G^a_a = (1 - n/2) R = (1 - 3/2) R = -1/2 R
+        result = Contract("EinsteinD3d[za,-za]")
+        @test occursin("RicciScalarD3d", result)
+    end
+
+    @testset "perturb order 0 throws" begin
+        reset_state!()
+        def_manifold!(:Mp, 4, [:pa, :pb, :pc, :pd])
+        def_metric!(-1, "gp[-pa,-pb]", :Dp)
+        def_tensor!(:Tp, ["-pa", "-pb"], :Mp)
+        @test_throws ArgumentError perturb("Tp[-pa,-pb]", 0)
+    end
+end
