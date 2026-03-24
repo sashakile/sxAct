@@ -30,7 +30,7 @@ export ManifoldObj, VBundleObj, TensorObj, MetricObj, IndexSpec, SymmetrySpec
 export BasisObj, ChartObj
 
 # State management
-export reset_state!
+export reset_state!, Session, reset_session!
 
 # Global registry collections (mutable; exported for MemberQ use in conditions)
 export Manifolds, Tensors, VBundles, Perturbations, Bases, Charts
@@ -251,6 +251,123 @@ struct MultiTermIdentity
 end
 
 # ============================================================
+# Session struct
+# ============================================================
+
+"""
+    Session
+
+Holds all mutable state for one xAct session. Replaces 22 global containers.
+Enables concurrent sessions, proper reset semantics, and structural thread safety.
+
+The default session shares its dict objects with the module-level globals, so
+existing code that reads/writes globals implicitly uses the default session.
+"""
+mutable struct Session
+    generation::Int
+
+    # Primary registries
+    manifolds::Dict{Symbol,ManifoldObj}
+    vbundles::Dict{Symbol,VBundleObj}
+    tensors::Dict{Symbol,TensorObj}
+    metrics::Dict{Symbol,MetricObj}
+    perturbations::Dict{Symbol,PerturbationObj}
+    bases::Dict{Symbol,BasisObj}
+    charts::Dict{Symbol,ChartObj}
+    basis_changes::Dict{Tuple{Symbol,Symbol},BasisChangeObj{<:Number}}
+    ctensors::Dict{Tuple{Symbol,Vararg{Symbol}},CTensorObj{<:Number}}
+
+    # Reverse-lookup indices
+    metric_name_index::Dict{Symbol,Symbol}
+    parallel_deriv_index::Dict{Symbol,Symbol}
+
+    # Ordered lists (insertion order)
+    manifold_list::Vector{Symbol}
+    tensor_list::Vector{Symbol}
+    vbundle_list::Vector{Symbol}
+    perturbation_list::Vector{Symbol}
+    basis_list::Vector{Symbol}
+    chart_list::Vector{Symbol}
+
+    # Contract support
+    traceless_tensors::Set{Symbol}
+    trace_scalars::Dict{Symbol,Tuple{Symbol,Rational{Int}}}
+    einstein_expansion::Dict{Symbol,Tuple{Symbol,Symbol,Symbol}}
+
+    # Multi-term identities
+    identity_registry::Dict{Symbol,Vector{MultiTermIdentity}}
+
+    # Symbol validation hooks
+    validate_symbol_hook::Function
+    register_symbol_hook::Function
+end
+
+"""
+    Session()
+
+Create a new empty Session with generation 0 and no-op symbol hooks.
+"""
+function Session()
+    Session(
+        0,
+        Dict{Symbol,ManifoldObj}(),
+        Dict{Symbol,VBundleObj}(),
+        Dict{Symbol,TensorObj}(),
+        Dict{Symbol,MetricObj}(),
+        Dict{Symbol,PerturbationObj}(),
+        Dict{Symbol,BasisObj}(),
+        Dict{Symbol,ChartObj}(),
+        Dict{Tuple{Symbol,Symbol},BasisChangeObj{<:Number}}(),
+        Dict{Tuple{Symbol,Vararg{Symbol}},CTensorObj{<:Number}}(),
+        Dict{Symbol,Symbol}(),
+        Dict{Symbol,Symbol}(),
+        Symbol[],
+        Symbol[],
+        Symbol[],
+        Symbol[],
+        Symbol[],
+        Symbol[],
+        Set{Symbol}(),
+        Dict{Symbol,Tuple{Symbol,Rational{Int}}}(),
+        Dict{Symbol,Tuple{Symbol,Symbol,Symbol}}(),
+        Dict{Symbol,Vector{MultiTermIdentity}}(),
+        (_) -> nothing,
+        (_, _) -> nothing,
+    )
+end
+
+"""
+    reset_session!(s::Session)
+
+Clear all state in session `s` and increment its generation counter.
+"""
+function reset_session!(s::Session)
+    s.generation += 1
+    empty!(s.manifolds)
+    empty!(s.vbundles)
+    empty!(s.tensors)
+    empty!(s.metrics)
+    empty!(s.perturbations)
+    empty!(s.bases)
+    empty!(s.charts)
+    empty!(s.basis_changes)
+    empty!(s.ctensors)
+    empty!(s.metric_name_index)
+    empty!(s.parallel_deriv_index)
+    empty!(s.manifold_list)
+    empty!(s.tensor_list)
+    empty!(s.vbundle_list)
+    empty!(s.perturbation_list)
+    empty!(s.basis_list)
+    empty!(s.chart_list)
+    empty!(s.traceless_tensors)
+    empty!(s.trace_scalars)
+    empty!(s.einstein_expansion)
+    empty!(s.identity_registry)
+    nothing
+end
+
+# ============================================================
 # Global state
 # ============================================================
 
@@ -301,6 +418,37 @@ const _identity_registry = Dict{Symbol,Vector{MultiTermIdentity}}()
 const _validate_symbol_hook = Ref{Function}((_) -> nothing)
 const _register_symbol_hook = Ref{Function}((_, _) -> nothing)
 
+# Default session: fields SHARE the same Dict objects as the globals above.
+# Any code that reads/writes _manifolds also reads/writes _default_session[].manifolds.
+const _default_session = Ref{Session}(
+    Session(
+        0,
+        _manifolds,
+        _vbundles,
+        _tensors,
+        _metrics,
+        _perturbations,
+        _bases,
+        _charts,
+        _basis_changes,
+        _ctensors,
+        _metric_name_index,
+        _parallel_deriv_index,
+        Manifolds,
+        Tensors,
+        VBundles,
+        Perturbations,
+        Bases,
+        Charts,
+        _traceless_tensors,
+        _trace_scalars,
+        _einstein_expansion,
+        _identity_registry,
+        _validate_symbol_hook[],
+        _register_symbol_hook[],
+    ),
+)
+
 """
     set_symbol_hooks!(validate, register)
 
@@ -313,6 +461,8 @@ Called by xAct.jl after loading both XCore and XTensor:
 function set_symbol_hooks!(validate::Function, register::Function)
     _validate_symbol_hook[] = validate
     _register_symbol_hook[] = register
+    _default_session[].validate_symbol_hook = validate
+    _default_session[].register_symbol_hook = register
     nothing
 end
 
@@ -323,80 +473,62 @@ Check that `name` is not already used as a manifold, tensor, metric, vbundle,
 covariant derivative, or perturbation in the current session.  Throws on
 collision.  Analogous to Wolfram `ValidateSymbolInSession`.
 """
-function ValidateSymbolInSession(name::Symbol)
+function ValidateSymbolInSession(name::Symbol; session::Session=_default_session[])
     sname = string(name)
     hint = " Call reset_state!() to clear all definitions or choose a different name."
-    ManifoldQ(name) && throw(
+    ManifoldQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a manifold." * hint
         ),
     )
-    VBundleQ(name) && throw(
+    VBundleQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a vector bundle." * hint,
         ),
     )
-    MetricQ(name) && throw(
+    MetricQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a metric." * hint
         ),
     )
-    TensorQ(name) && throw(
+    TensorQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a tensor." * hint
         ),
     )
-    CovDQ(name) && throw(
+    CovDQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a covariant derivative." *
             hint,
         ),
     )
-    PerturbationQ(name) && throw(
+    PerturbationQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a perturbation." * hint
         ),
     )
-    BasisQ(name) && throw(
+    BasisQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a basis." * hint
         ),
     )
-    ChartQ(name) && throw(
+    ChartQ(name; session) && throw(
         ArgumentError(
             "ValidateSymbolInSession: \"$sname\" already used as a chart." * hint
         ),
     )
     nothing
 end
-ValidateSymbolInSession(name::AbstractString) = ValidateSymbolInSession(Symbol(name))
+function ValidateSymbolInSession(name::AbstractString; session::Session=_default_session[])
+    ValidateSymbolInSession(Symbol(name); session)
+end
 
 # ============================================================
 # State management
 # ============================================================
 
 function reset_state!()
-    empty!(_manifolds);
-    empty!(_vbundles);
-    empty!(_tensors);
-    empty!(_metrics);
-    empty!(_metric_name_index)
-    empty!(_perturbations)
-    empty!(_bases);
-    empty!(_parallel_deriv_index)
-    empty!(_charts)
-    empty!(_basis_changes)
-    empty!(_ctensors)
-    empty!(Manifolds);
-    empty!(Tensors);
-    empty!(VBundles);
-    empty!(Perturbations)
-    empty!(Bases);
-    empty!(Charts)
-    empty!(_traceless_tensors);
-    empty!(_trace_scalars)
-    empty!(_einstein_expansion)
-    empty!(_identity_registry)
+    reset_session!(_default_session[])
 end
 
 # ============================================================
@@ -409,11 +541,13 @@ end
 Register a multi-term identity for a tensor. Identities are applied during
 canonicalization by `_apply_identities!`.
 """
-function RegisterIdentity!(tensor_name::Symbol, identity::MultiTermIdentity)
-    if !haskey(_identity_registry, tensor_name)
-        _identity_registry[tensor_name] = MultiTermIdentity[]
+function RegisterIdentity!(
+    tensor_name::Symbol, identity::MultiTermIdentity; session::Session=_default_session[]
+)
+    if !haskey(session.identity_registry, tensor_name)
+        session.identity_registry[tensor_name] = MultiTermIdentity[]
     end
-    push!(_identity_registry[tensor_name], identity)
+    push!(session.identity_registry[tensor_name], identity)
     nothing
 end
 
@@ -548,53 +682,93 @@ end
 # Accessor functions
 # ============================================================
 
-get_manifold(name::Symbol) = get(_manifolds, name, nothing)
-get_tensor(name::Symbol) = get(_tensors, name, nothing)
-get_vbundle(name::Symbol) = get(_vbundles, name, nothing)
-get_metric(name::Symbol) = get(_metrics, name, nothing)
-get_basis(name::Symbol) = get(_bases, name, nothing)
-get_chart(name::Symbol) = get(_charts, name, nothing)
-list_manifolds() = copy(Manifolds)
-list_tensors() = copy(Tensors)
-list_vbundles() = copy(VBundles)
-list_bases() = copy(Bases)
-list_charts() = copy(Charts)
+function get_manifold(name::Symbol; session::Session=_default_session[])
+    get(session.manifolds, name, nothing)
+end
+function get_tensor(name::Symbol; session::Session=_default_session[])
+    get(session.tensors, name, nothing)
+end
+function get_vbundle(name::Symbol; session::Session=_default_session[])
+    get(session.vbundles, name, nothing)
+end
+function get_metric(name::Symbol; session::Session=_default_session[])
+    get(session.metrics, name, nothing)
+end
+function get_basis(name::Symbol; session::Session=_default_session[])
+    get(session.bases, name, nothing)
+end
+function get_chart(name::Symbol; session::Session=_default_session[])
+    get(session.charts, name, nothing)
+end
+list_manifolds(; session::Session=_default_session[]) = copy(session.manifold_list)
+list_tensors(; session::Session=_default_session[]) = copy(session.tensor_list)
+list_vbundles(; session::Session=_default_session[]) = copy(session.vbundle_list)
+list_bases(; session::Session=_default_session[]) = copy(session.basis_list)
+list_charts(; session::Session=_default_session[]) = copy(session.chart_list)
 
-get_manifold(name::AbstractString) = get_manifold(Symbol(name))
-get_tensor(name::AbstractString) = get_tensor(Symbol(name))
-get_vbundle(name::AbstractString) = get_vbundle(Symbol(name))
-get_metric(name::AbstractString) = get_metric(Symbol(name))
-get_basis(name::AbstractString) = get_basis(Symbol(name))
-get_chart(name::AbstractString) = get_chart(Symbol(name))
+function get_manifold(name::AbstractString; session::Session=_default_session[])
+    get_manifold(Symbol(name); session)
+end
+function get_tensor(name::AbstractString; session::Session=_default_session[])
+    get_tensor(Symbol(name); session)
+end
+function get_vbundle(name::AbstractString; session::Session=_default_session[])
+    get_vbundle(Symbol(name); session)
+end
+function get_metric(name::AbstractString; session::Session=_default_session[])
+    get_metric(Symbol(name); session)
+end
+function get_basis(name::AbstractString; session::Session=_default_session[])
+    get_basis(Symbol(name); session)
+end
+function get_chart(name::AbstractString; session::Session=_default_session[])
+    get_chart(Symbol(name); session)
+end
 
 # ============================================================
 # Query predicates
 # ============================================================
 
-ManifoldQ(s::Symbol) = haskey(_manifolds, s)
-ManifoldQ(s::AbstractString) = ManifoldQ(Symbol(s))
-TensorQ(s::Symbol) = haskey(_tensors, s)
-TensorQ(s::AbstractString) = TensorQ(Symbol(s))
-VBundleQ(s::Symbol) = haskey(_vbundles, s)
-VBundleQ(s::AbstractString) = VBundleQ(Symbol(s))
-MetricQ(s::Symbol) = haskey(_metrics, s)
-MetricQ(s::AbstractString) = MetricQ(Symbol(s))
-BasisQ(s::Symbol) = haskey(_bases, s)
-BasisQ(s::AbstractString) = BasisQ(Symbol(s))
-ChartQ(s::Symbol) = haskey(_charts, s)
-ChartQ(s::AbstractString) = ChartQ(Symbol(s))
-CovDQ(s::Symbol) = haskey(_metrics, s) || haskey(_parallel_deriv_index, s)
-CovDQ(s::AbstractString) = CovDQ(Symbol(s))
-PerturbationQ(s::Symbol) = haskey(_perturbations, s)
-PerturbationQ(s::AbstractString) = PerturbationQ(Symbol(s))
-FermionicQ(s::Symbol) = begin
-    t = get(_tensors, s, nothing)
+ManifoldQ(s::Symbol; session::Session=_default_session[]) = haskey(session.manifolds, s)
+function ManifoldQ(s::AbstractString; session::Session=_default_session[])
+    ManifoldQ(Symbol(s); session)
+end
+TensorQ(s::Symbol; session::Session=_default_session[]) = haskey(session.tensors, s)
+function TensorQ(s::AbstractString; session::Session=_default_session[])
+    TensorQ(Symbol(s); session)
+end
+VBundleQ(s::Symbol; session::Session=_default_session[]) = haskey(session.vbundles, s)
+function VBundleQ(s::AbstractString; session::Session=_default_session[])
+    VBundleQ(Symbol(s); session)
+end
+MetricQ(s::Symbol; session::Session=_default_session[]) = haskey(session.metrics, s)
+function MetricQ(s::AbstractString; session::Session=_default_session[])
+    MetricQ(Symbol(s); session)
+end
+BasisQ(s::Symbol; session::Session=_default_session[]) = haskey(session.bases, s)
+BasisQ(s::AbstractString; session::Session=_default_session[]) = BasisQ(Symbol(s); session)
+ChartQ(s::Symbol; session::Session=_default_session[]) = haskey(session.charts, s)
+ChartQ(s::AbstractString; session::Session=_default_session[]) = ChartQ(Symbol(s); session)
+function CovDQ(s::Symbol; session::Session=_default_session[])
+    haskey(session.metrics, s) || haskey(session.parallel_deriv_index, s)
+end
+CovDQ(s::AbstractString; session::Session=_default_session[]) = CovDQ(Symbol(s); session)
+function PerturbationQ(s::Symbol; session::Session=_default_session[])
+    haskey(session.perturbations, s)
+end
+function PerturbationQ(s::AbstractString; session::Session=_default_session[])
+    PerturbationQ(Symbol(s); session)
+end
+function FermionicQ(s::Symbol; session::Session=_default_session[])
+    t = get(session.tensors, s, nothing)
     !isnothing(t) && t.symmetry.type == :GradedSymmetric
 end
-FermionicQ(s::AbstractString) = FermionicQ(Symbol(s))
+function FermionicQ(s::AbstractString; session::Session=_default_session[])
+    FermionicQ(Symbol(s); session)
+end
 
-function Dimension(s::Symbol)
-    m = get(_manifolds, s, nothing)
+function Dimension(s::Symbol; session::Session=_default_session[])
+    m = get(session.manifolds, s, nothing)
     isnothing(m) && throw(
         ArgumentError(
             "Dimension: manifold $s not defined. Register it with def_manifold!(:$s, dim, indices).",
@@ -602,75 +776,93 @@ function Dimension(s::Symbol)
     )
     m.dimension
 end
-Dimension(s::AbstractString) = Dimension(Symbol(s))
+function Dimension(s::AbstractString; session::Session=_default_session[])
+    Dimension(Symbol(s); session)
+end
 
-function IndicesOfVBundle(s::Symbol)
-    vb = get(_vbundles, s, nothing)
+function IndicesOfVBundle(s::Symbol; session::Session=_default_session[])
+    vb = get(session.vbundles, s, nothing)
     isnothing(vb) && error("IndicesOfVBundle: VBundle $s not defined")
     vb.index_labels
 end
-IndicesOfVBundle(s::AbstractString) = IndicesOfVBundle(Symbol(s))
+function IndicesOfVBundle(s::AbstractString; session::Session=_default_session[])
+    IndicesOfVBundle(Symbol(s); session)
+end
 
-function SlotsOfTensor(s::Symbol)
-    t = get(_tensors, s, nothing)
+function SlotsOfTensor(s::Symbol; session::Session=_default_session[])
+    t = get(session.tensors, s, nothing)
     isnothing(t) && error("SlotsOfTensor: tensor $s not defined")
     t.slots
 end
-SlotsOfTensor(s::AbstractString) = SlotsOfTensor(Symbol(s))
+function SlotsOfTensor(s::AbstractString; session::Session=_default_session[])
+    SlotsOfTensor(Symbol(s); session)
+end
 
-function VBundleOfBasis(s::Symbol)
-    b = get(_bases, s, nothing)
+function VBundleOfBasis(s::Symbol; session::Session=_default_session[])
+    b = get(session.bases, s, nothing)
     isnothing(b) && error("VBundleOfBasis: basis $s not defined")
     b.vbundle
 end
-VBundleOfBasis(s::AbstractString) = VBundleOfBasis(Symbol(s))
-
-function BasesOfVBundle(vb::Symbol)
-    [b.name for b in values(_bases) if b.vbundle == vb]
+function VBundleOfBasis(s::AbstractString; session::Session=_default_session[])
+    VBundleOfBasis(Symbol(s); session)
 end
-BasesOfVBundle(vb::AbstractString) = BasesOfVBundle(Symbol(vb))
 
-function CNumbersOf(s::Symbol)
-    b = get(_bases, s, nothing)
+function BasesOfVBundle(vb::Symbol; session::Session=_default_session[])
+    [b.name for b in values(session.bases) if b.vbundle == vb]
+end
+function BasesOfVBundle(vb::AbstractString; session::Session=_default_session[])
+    BasesOfVBundle(Symbol(vb); session)
+end
+
+function CNumbersOf(s::Symbol; session::Session=_default_session[])
+    b = get(session.bases, s, nothing)
     isnothing(b) && error("CNumbersOf: basis $s not defined")
     copy(b.cnumbers)
 end
-CNumbersOf(s::AbstractString) = CNumbersOf(Symbol(s))
+function CNumbersOf(s::AbstractString; session::Session=_default_session[])
+    CNumbersOf(Symbol(s); session)
+end
 
-function PDOfBasis(s::Symbol)
-    b = get(_bases, s, nothing)
+function PDOfBasis(s::Symbol; session::Session=_default_session[])
+    b = get(session.bases, s, nothing)
     isnothing(b) && error("PDOfBasis: basis $s not defined")
     b.parallel_deriv
 end
-PDOfBasis(s::AbstractString) = PDOfBasis(Symbol(s))
+function PDOfBasis(s::AbstractString; session::Session=_default_session[])
+    PDOfBasis(Symbol(s); session)
+end
 
-function ManifoldOfChart(s::Symbol)
-    c = get(_charts, s, nothing)
+function ManifoldOfChart(s::Symbol; session::Session=_default_session[])
+    c = get(session.charts, s, nothing)
     isnothing(c) && error("ManifoldOfChart: chart $s not defined")
     c.manifold
 end
-ManifoldOfChart(s::AbstractString) = ManifoldOfChart(Symbol(s))
+function ManifoldOfChart(s::AbstractString; session::Session=_default_session[])
+    ManifoldOfChart(Symbol(s); session)
+end
 
-function ScalarsOfChart(s::Symbol)
-    c = get(_charts, s, nothing)
+function ScalarsOfChart(s::Symbol; session::Session=_default_session[])
+    c = get(session.charts, s, nothing)
     isnothing(c) && error("ScalarsOfChart: chart $s not defined")
     copy(c.scalars)
 end
-ScalarsOfChart(s::AbstractString) = ScalarsOfChart(Symbol(s))
+function ScalarsOfChart(s::AbstractString; session::Session=_default_session[])
+    ScalarsOfChart(Symbol(s); session)
+end
 
-function MemberQ(collection::Symbol, s::Symbol)
+function MemberQ(collection::Symbol, s::Symbol; session::Session=_default_session[])
     if collection == :Manifolds
-        s in Manifolds
+        s in session.manifold_list
     elseif collection == :Tensors
-        s in Tensors
+        s in session.tensor_list
     elseif collection == :VBundles
-        s in VBundles
+        s in session.vbundle_list
     elseif collection == :Perturbations
-        s in Perturbations
+        s in session.perturbation_list
     elseif collection == :Bases
-        s in Bases
+        s in session.basis_list
     elseif collection == :Charts
-        s in Charts
+        s in session.chart_list
     else
         false
     end
@@ -678,22 +870,28 @@ end
 # Also accept a live collection (e.g. when `Manifolds` resolves to the actual Vector)
 MemberQ(collection::AbstractVector, s::Symbol) = s in collection
 MemberQ(collection::AbstractVector, s::AbstractString) = Symbol(s) in collection
-MemberQ(collection::Symbol, s::AbstractString) = MemberQ(collection, Symbol(s))
-MemberQ(collection::AbstractString, s) = MemberQ(Symbol(collection), s)
+function MemberQ(collection::Symbol, s::AbstractString; session::Session=_default_session[])
+    MemberQ(collection, Symbol(s); session)
+end
+function MemberQ(collection::AbstractString, s; session::Session=_default_session[])
+    MemberQ(Symbol(collection), s; session)
+end
 
 """
     SignDetOfMetric(metric_name) → Int
 
 Return the sign of the determinant (+1 Riemannian, -1 Lorentzian) for a registered metric.
 """
-function SignDetOfMetric(metric_name::Symbol)::Int
-    covd = get(_metric_name_index, metric_name, nothing)
+function SignDetOfMetric(metric_name::Symbol; session::Session=_default_session[])::Int
+    covd = get(session.metric_name_index, metric_name, nothing)
     if covd !== nothing
-        return _metrics[covd].signdet
+        return session.metrics[covd].signdet
     end
     error("SignDetOfMetric: metric $metric_name not found")
 end
-SignDetOfMetric(s::AbstractString) = SignDetOfMetric(Symbol(s))
+function SignDetOfMetric(s::AbstractString; session::Session=_default_session[])
+    SignDetOfMetric(Symbol(s); session)
+end
 
 # ============================================================
 # Symmetry string parser
@@ -766,35 +964,45 @@ end
 
 Define a new abstract manifold.
 """
-function def_manifold!(name::Symbol, dim::Int, index_labels::Vector{Symbol})::ManifoldObj
+function def_manifold!(
+    name::Symbol,
+    dim::Int,
+    index_labels::Vector{Symbol};
+    session::Session=_default_session[],
+)::ManifoldObj
     @assert dim >= 1 "def_manifold!: dimension must be ≥ 1, got $dim"
     @assert length(index_labels) >= 2 "def_manifold!: need ≥ 2 index labels, got $(length(index_labels))"
     @assert length(unique(index_labels)) == length(index_labels) "def_manifold!: duplicate index labels"
     validate_identifier(name; context="manifold name")
-    _validate_symbol_hook[](name)
-    ValidateSymbolInSession(name)
+    session.validate_symbol_hook(name)
+    ValidateSymbolInSession(name; session)
 
     tb_name = Symbol("Tangent" * string(name))
 
     m = ManifoldObj(name, dim, index_labels)
     tb = VBundleObj(tb_name, name, index_labels)
 
-    _manifolds[name] = m
-    _vbundles[tb.name] = tb
-    push!(Manifolds, name)
-    push!(VBundles, tb.name)
+    session.manifolds[name] = m
+    session.vbundles[tb.name] = tb
+    push!(session.manifold_list, name)
+    push!(session.vbundle_list, tb.name)
 
-    _register_symbol_hook[](name, "XTensor")
-    _register_symbol_hook[](tb_name, "XTensor")
+    session.register_symbol_hook(name, "XTensor")
+    session.register_symbol_hook(tb_name, "XTensor")
 
     m
 end
 
 # Convenience overloads for string input
-function def_manifold!(name::AbstractString, dim::Int, index_labels::Vector)::ManifoldObj
+function def_manifold!(
+    name::AbstractString,
+    dim::Int,
+    index_labels::Vector;
+    session::Session=_default_session[],
+)::ManifoldObj
     sym_name = Symbol(name)
     sym_labels = [Symbol(string(l)) for l in index_labels]
-    def_manifold!(sym_name, dim, sym_labels)
+    def_manifold!(sym_name, dim, sym_labels; session)
 end
 
 """
@@ -809,14 +1017,15 @@ function def_tensor!(
     manifold::Symbol;
     symmetry_str::Union{String,Nothing}=nothing,
     _skip_validation::Bool=false,
+    session::Session=_default_session[],
 )::TensorObj
     if !_skip_validation
         validate_identifier(name; context="tensor name")
-        _validate_symbol_hook[](name)
-        ValidateSymbolInSession(name)
+        session.validate_symbol_hook(name)
+        ValidateSymbolInSession(name; session)
     end
 
-    m = get(_manifolds, manifold, nothing)
+    m = get(session.manifolds, manifold, nothing)
     isnothing(m) && error("def_tensor!: manifold $manifold not defined")
 
     # Parse index specs into IndexSpec
@@ -838,14 +1047,14 @@ function def_tensor!(
 
     sym = _parse_symmetry(symmetry_str, slots)
     t = TensorObj(name, slots, manifold, sym)
-    _tensors[name] = t
-    push!(Tensors, name)
+    session.tensors[name] = t
+    push!(session.tensor_list, name)
 
-    _register_symbol_hook[](name, "XTensor")
+    session.register_symbol_hook(name, "XTensor")
 
     # Auto-register first Bianchi identity for RiemannSymmetric tensors
     if sym.type == :RiemannSymmetric && length(slots) == 4
-        RegisterIdentity!(name, _make_bianchi_identity(name))
+        RegisterIdentity!(name, _make_bianchi_identity(name); session)
     end
 
     t
@@ -856,11 +1065,12 @@ function def_tensor!(
     index_specs::Vector,
     manifold::AbstractString;
     symmetry_str::Union{String,Nothing}=nothing,
+    session::Session=_default_session[],
 )::TensorObj
     sym_name = Symbol(name)
     sym_manifold = Symbol(manifold)
     str_specs = [string(s) for s in index_specs]
-    def_tensor!(sym_name, str_specs, sym_manifold; symmetry_str=symmetry_str)
+    def_tensor!(sym_name, str_specs, sym_manifold; symmetry_str=symmetry_str, session)
 end
 
 """
@@ -876,18 +1086,19 @@ function def_tensor!(
     manifolds::Vector{Symbol};
     symmetry_str::Union{String,Nothing}=nothing,
     _skip_validation::Bool=false,
+    session::Session=_default_session[],
 )::TensorObj
     isempty(manifolds) && error("def_tensor!: manifolds list is empty")
 
     if !_skip_validation
-        _validate_symbol_hook[](name)
-        ValidateSymbolInSession(name)
+        session.validate_symbol_hook(name)
+        ValidateSymbolInSession(name; session)
     end
 
     # Validate all listed manifolds exist and build union of allowed labels
     allowed = Set{Symbol}()
     for mname in manifolds
-        m = get(_manifolds, mname, nothing)
+        m = get(session.manifolds, mname, nothing)
         isnothing(m) && error("def_tensor!: manifold $mname not defined")
         union!(allowed, m.index_labels)
     end
@@ -912,14 +1123,14 @@ function def_tensor!(
     primary_manifold = manifolds[1]
     sym = _parse_symmetry(symmetry_str, slots)
     t = TensorObj(name, slots, primary_manifold, sym)
-    _tensors[name] = t
-    push!(Tensors, name)
+    session.tensors[name] = t
+    push!(session.tensor_list, name)
 
-    _register_symbol_hook[](name, "XTensor")
+    session.register_symbol_hook(name, "XTensor")
 
     # Auto-register first Bianchi identity for RiemannSymmetric tensors
     if sym.type == :RiemannSymmetric && length(slots) == 4
-        RegisterIdentity!(name, _make_bianchi_identity(name))
+        RegisterIdentity!(name, _make_bianchi_identity(name); session)
     end
 
     t
@@ -931,11 +1142,12 @@ function def_tensor!(
     index_specs::Vector,
     manifolds::Vector;
     symmetry_str::Union{String,Nothing}=nothing,
+    session::Session=_default_session[],
 )::TensorObj
     sym_name = Symbol(name)
     sym_manifolds = Symbol[Symbol(string(m)) for m in manifolds]
     str_specs = [string(s) for s in index_specs]
-    def_tensor!(sym_name, str_specs, sym_manifolds; symmetry_str=symmetry_str)
+    def_tensor!(sym_name, str_specs, sym_manifolds; symmetry_str=symmetry_str, session)
 end
 
 """
@@ -946,13 +1158,16 @@ metric_expr: e.g. "Cng[-cna,-cnb]"
 covd_name: e.g. "Cnd" (used as suffix for auto-created curvature tensors)
 """
 function def_metric!(
-    signdet::Int, metric_expr::AbstractString, covd_name::Symbol
+    signdet::Int,
+    metric_expr::AbstractString,
+    covd_name::Symbol;
+    session::Session=_default_session[],
 )::MetricObj
     @assert signdet in (-1, 0, 1) "def_metric!: signdet must be -1, 0, or 1, got $signdet"
     # Validate covd name against xAct registry and session
     validate_identifier(covd_name; context="covariant derivative name")
-    _validate_symbol_hook[](covd_name)
-    ValidateSymbolInSession(covd_name)
+    session.validate_symbol_hook(covd_name)
+    ValidateSymbolInSession(covd_name; session)
 
     # Parse metric_expr: extract name and slots
     m = match(r"^(\w+)\[([^\]]*)\]$", metric_expr)
@@ -962,31 +1177,34 @@ function def_metric!(
     slot_strs = String[strip(s) for s in split(m.captures[2], ",")]
 
     # Determine manifold: find which manifold has these index labels
-    manifold_sym = _find_manifold_for_indices(slot_strs)
+    manifold_sym = _find_manifold_for_indices(slot_strs; session)
     isnothing(manifold_sym) &&
         error("Cannot determine manifold for metric indices: $slot_strs")
 
     # Register the metric tensor (symmetric rank-2 covariant)
     # (metric tensor name validated inside def_tensor!)
     sym_str = "Symmetric[{$(join(slot_strs, ","))}]"
-    def_tensor!(metric_name, slot_strs, manifold_sym; symmetry_str=sym_str)
+    def_tensor!(metric_name, slot_strs, manifold_sym; symmetry_str=sym_str, session)
 
     metric = MetricObj(metric_name, manifold_sym, covd_name, signdet)
-    _metrics[covd_name] = metric
-    _metric_name_index[metric_name] = covd_name
+    session.metrics[covd_name] = metric
+    session.metric_name_index[metric_name] = covd_name
 
-    _register_symbol_hook[](covd_name, "XTensor")
+    session.register_symbol_hook(covd_name, "XTensor")
 
     # Auto-create curvature tensors
-    _auto_create_curvature!(manifold_sym, covd_name)
+    _auto_create_curvature!(manifold_sym, covd_name; session)
 
     metric
 end
 
 function def_metric!(
-    signdet::Int, metric_expr::AbstractString, covd_name::AbstractString
+    signdet::Int,
+    metric_expr::AbstractString,
+    covd_name::AbstractString;
+    session::Session=_default_session[],
 )::MetricObj
-    def_metric!(signdet, metric_expr, Symbol(covd_name))
+    def_metric!(signdet, metric_expr, Symbol(covd_name); session)
 end
 
 # ============================================================
@@ -1001,19 +1219,23 @@ Define a basis of vector fields on a vector bundle.
 Auto-creates a parallel derivative symbol `PD<name>`.
 """
 function def_basis!(
-    name::Symbol, vbundle::Symbol, cnumbers::Vector{Int}; _skip_validation::Bool=false
+    name::Symbol,
+    vbundle::Symbol,
+    cnumbers::Vector{Int};
+    _skip_validation::Bool=false,
+    session::Session=_default_session[],
 )::BasisObj
     if !_skip_validation
-        _validate_symbol_hook[](name)
-        ValidateSymbolInSession(name)
+        session.validate_symbol_hook(name)
+        ValidateSymbolInSession(name; session)
     end
 
     # Validate vbundle exists
-    vb = get(_vbundles, vbundle, nothing)
+    vb = get(session.vbundles, vbundle, nothing)
     isnothing(vb) && throw(ArgumentError("def_basis!: vector bundle $vbundle not defined"))
 
     # Validate cnumbers length matches dimension
-    manifold = _manifolds[vb.manifold]
+    manifold = session.manifolds[vb.manifold]
     dim = manifold.dimension
     length(cnumbers) == dim || throw(
         ArgumentError(
@@ -1029,26 +1251,32 @@ function def_basis!(
     pd_name = Symbol("PD" * string(name))
 
     b = BasisObj(name, vbundle, sort(cnumbers), pd_name, false)
-    _bases[name] = b
-    _parallel_deriv_index[pd_name] = name
-    push!(Bases, name)
+    session.bases[name] = b
+    session.parallel_deriv_index[pd_name] = name
+    push!(session.basis_list, name)
 
-    _register_symbol_hook[](name, "XTensor")
-    _register_symbol_hook[](pd_name, "XTensor")
+    session.register_symbol_hook(name, "XTensor")
+    session.register_symbol_hook(pd_name, "XTensor")
 
     b
 end
 
 function def_basis!(
-    name::AbstractString, vbundle::AbstractString, cnumbers::Vector{Int}
+    name::AbstractString,
+    vbundle::AbstractString,
+    cnumbers::Vector{Int};
+    session::Session=_default_session[],
 )::BasisObj
-    def_basis!(Symbol(name), Symbol(vbundle), cnumbers)
+    def_basis!(Symbol(name), Symbol(vbundle), cnumbers; session)
 end
 
 function def_basis!(
-    name::AbstractString, vbundle::AbstractString, cnumbers::Vector
+    name::AbstractString,
+    vbundle::AbstractString,
+    cnumbers::Vector;
+    session::Session=_default_session[],
 )::BasisObj
-    def_basis!(Symbol(name), Symbol(vbundle), Int[Int(c) for c in cnumbers])
+    def_basis!(Symbol(name), Symbol(vbundle), Int[Int(c) for c in cnumbers]; session)
 end
 
 """
@@ -1059,13 +1287,17 @@ and registers the coordinate scalar fields as tensors.
 `scalars` are the coordinate field names, e.g. [:t, :r, :theta, :phi].
 """
 function def_chart!(
-    name::Symbol, manifold::Symbol, cnumbers::Vector{Int}, scalars::Vector{Symbol}
+    name::Symbol,
+    manifold::Symbol,
+    cnumbers::Vector{Int},
+    scalars::Vector{Symbol};
+    session::Session=_default_session[],
 )::ChartObj
-    _validate_symbol_hook[](name)
-    ValidateSymbolInSession(name)
+    session.validate_symbol_hook(name)
+    ValidateSymbolInSession(name; session)
 
     # Validate manifold exists
-    m = get(_manifolds, manifold, nothing)
+    m = get(session.manifolds, manifold, nothing)
     isnothing(m) && throw(ArgumentError("def_chart!: manifold $manifold not defined"))
 
     dim = m.dimension
@@ -1080,49 +1312,56 @@ function def_chart!(
 
     # Create the coordinate basis on the tangent bundle
     tb_name = Symbol("Tangent" * string(manifold))
-    def_basis!(name, tb_name, cnumbers; _skip_validation=true)
+    def_basis!(name, tb_name, cnumbers; _skip_validation=true, session)
     # Mark it as a chart basis
-    _bases[name] = BasisObj(
-        name, tb_name, sort(cnumbers), _bases[name].parallel_deriv, true
+    session.bases[name] = BasisObj(
+        name, tb_name, sort(cnumbers), session.bases[name].parallel_deriv, true
     )
 
     # Register coordinate scalars as rank-0 tensors on this manifold
     for sc in scalars
-        if !TensorQ(sc)
+        if !TensorQ(sc; session)
             t = TensorObj(sc, IndexSpec[], manifold, SymmetrySpec(:NoSymmetry, Int[]))
-            _tensors[sc] = t
-            push!(Tensors, sc)
-            _register_symbol_hook[](sc, "XTensor")
+            session.tensors[sc] = t
+            push!(session.tensor_list, sc)
+            session.register_symbol_hook(sc, "XTensor")
         end
     end
 
     chart = ChartObj(name, manifold, sort(cnumbers), scalars)
-    _charts[name] = chart
-    push!(Charts, name)
+    session.charts[name] = chart
+    push!(session.chart_list, name)
 
-    _register_symbol_hook[](name, "XTensor")
+    session.register_symbol_hook(name, "XTensor")
 
     chart
 end
 
 function def_chart!(
-    name::AbstractString, manifold::AbstractString, cnumbers::Vector, scalars::Vector
+    name::AbstractString,
+    manifold::AbstractString,
+    cnumbers::Vector,
+    scalars::Vector;
+    session::Session=_default_session[],
 )::ChartObj
     def_chart!(
         Symbol(name),
         Symbol(manifold),
         Int[Int(c) for c in cnumbers],
-        Symbol[Symbol(s) for s in scalars],
+        Symbol[Symbol(s) for s in scalars];
+        session,
     )
 end
 
 """
 Find which manifold has all of the given index labels (stripping '-').
 """
-function _find_manifold_for_indices(slot_strs)::Union{Symbol,Nothing}
+function _find_manifold_for_indices(
+    slot_strs; session::Session=_default_session[]
+)::Union{Symbol,Nothing}
     # Strip '-' from each label
     bare = Set([Symbol(startswith(s, "-") ? s[2:end] : string(s)) for s in slot_strs])
-    for (name, m) in _manifolds
+    for (name, m) in session.manifolds
         if bare ⊆ Set(m.index_labels)
             return name
         end
@@ -1133,21 +1372,23 @@ end
 """
 Auto-create Riemann, Ricci, RicciScalar, Einstein tensors for a metric.
 """
-function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
-    m = _manifolds[manifold]
+function _auto_create_curvature!(
+    manifold::Symbol, covd::Symbol; session::Session=_default_session[]
+)
+    m = session.manifolds[manifold]
     idxs = m.index_labels
     n = length(idxs)
     covd_str = string(covd)
 
     # Ricci scalar: always created (scalar, no indices)
     ricci_scalar_name = Symbol("RicciScalar" * covd_str)
-    if !haskey(_tensors, ricci_scalar_name)
+    if !haskey(session.tensors, ricci_scalar_name)
         t = TensorObj(
             ricci_scalar_name, IndexSpec[], manifold, SymmetrySpec(:NoSymmetry, Int[])
         )
-        _tensors[ricci_scalar_name] = t
-        push!(Tensors, ricci_scalar_name)
-        _register_symbol_hook[](ricci_scalar_name, "XTensor")
+        session.tensors[ricci_scalar_name] = t
+        push!(session.tensor_list, ricci_scalar_name)
+        session.register_symbol_hook(ricci_scalar_name, "XTensor")
     end
 
     # Need at least 2 indices for Ricci and Einstein
@@ -1156,17 +1397,17 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
     i1, i2 = "-" * string(idxs[1]), "-" * string(idxs[2])
 
     ricci_name = Symbol("Ricci" * covd_str)
-    if !haskey(_tensors, ricci_name)
+    if !haskey(session.tensors, ricci_name)
         slots2 = String[i1, i2]
         sym2 = "Symmetric[{$i1,$i2}]"
-        def_tensor!(ricci_name, slots2, manifold; symmetry_str=sym2)
+        def_tensor!(ricci_name, slots2, manifold; symmetry_str=sym2, session)
     end
 
     einstein_name = Symbol("Einstein" * covd_str)
-    if !haskey(_tensors, einstein_name)
+    if !haskey(session.tensors, einstein_name)
         slots2 = String[i1, i2]
         sym2 = "Symmetric[{$i1,$i2}]"
-        def_tensor!(einstein_name, slots2, manifold; symmetry_str=sym2)
+        def_tensor!(einstein_name, slots2, manifold; symmetry_str=sym2, session)
     end
 
     # Christoffel (second kind): Γ^a_{bc}, symmetric in last two covariant slots
@@ -1177,10 +1418,10 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
         c_i2 = i2                                  # first covariant slot
         c_i3 = n >= 3 ? "-" * string(idxs[3]) : "-" * string(idxs[1])
         christoffel_name = Symbol("Christoffel" * covd_str)
-        if !haskey(_tensors, christoffel_name)
+        if !haskey(session.tensors, christoffel_name)
             slots3 = String[c_i1, c_i2, c_i3]
             sym3 = "Symmetric[{$c_i2,$c_i3}]"
-            def_tensor!(christoffel_name, slots3, manifold; symmetry_str=sym3)
+            def_tensor!(christoffel_name, slots3, manifold; symmetry_str=sym3, session)
         end
     end
 
@@ -1190,18 +1431,13 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
     i3, i4 = "-" * string(idxs[3]), "-" * string(idxs[4])
 
     riemann_name = Symbol("Riemann" * covd_str)
-    if !haskey(_tensors, riemann_name)
+    if !haskey(session.tensors, riemann_name)
         slots4 = String[i1, i2, i3, i4]
         sym4 = "RiemannSymmetric[{$i1,$i2,$i3,$i4}]"
-        def_tensor!(riemann_name, slots4, manifold; symmetry_str=sym4)
+        def_tensor!(riemann_name, slots4, manifold; symmetry_str=sym4, session)
     end
 
     # Register CovD commutation as a multi-term identity (Ricci identity).
-    # ∇_a ∇_b T_c - ∇_b ∇_a T_c - R^d_{cab} T_d = 0
-    # This identity is applied algorithmically by SortCovDs, not by
-    # the coefficient-map reduction in _apply_single_identity! (which handles
-    # single-factor identities only). The registration records the identity
-    # for metadata and extensibility.
     RegisterIdentity!(
         covd,
         MultiTermIdentity(
@@ -1213,35 +1449,33 @@ function _auto_create_curvature!(manifold::Symbol, covd::Symbol)
             Vector{Int}[],    # slot_perms
             Rational{Int}[],  # coefficients
             0,                # eliminate
-        ),
+        );
+        session,
     )
 
     # Also register Weyl tensor (curvature_invariants.toml uses WeylCID)
     weyl_name = Symbol("Weyl" * covd_str)
-    if !haskey(_tensors, weyl_name)
+    if !haskey(session.tensors, weyl_name)
         slots4 = String[i1, i2, i3, i4]
         sym4 = "RiemannSymmetric[{$i1,$i2,$i3,$i4}]"
-        def_tensor!(weyl_name, slots4, manifold; symmetry_str=sym4)
+        def_tensor!(weyl_name, slots4, manifold; symmetry_str=sym4, session)
     end
     # Mark Weyl as traceless (any trace over any pair of its indices = 0)
-    push!(_traceless_tensors, weyl_name)
+    push!(session.traceless_tensors, weyl_name)
 
     # Register Einstein tensor trace rule: tr(G_{ab}) = g^{ab} G_{ab} = -R
     # In n dimensions: g^{ab} G_{ab} = R - (n/2)*R = (1 - n/2)*R
-    # For a general manifold we encode the 4D rule (coefficient -1) since
-    # the curvature invariant tests use 4D manifolds.
     # The coefficient is (1 - dim/2).  For dim=4: coeff = -1.
     n = m.dimension
     coeff_int = 1 - n // 2  # Rational — correct for all dimensions
-    if !haskey(_trace_scalars, einstein_name)
-        _trace_scalars[einstein_name] = (ricci_scalar_name, coeff_int)
+    if !haskey(session.trace_scalars, einstein_name)
+        session.trace_scalars[einstein_name] = (ricci_scalar_name, coeff_int)
     end
 
     # Register Einstein expansion rule: G_{ab} = R_{ab} - (1/2) g_{ab} R
-    # Used by ToCanonical to verify the Einstein definition identity
-    metric_obj = get(_metrics, covd, nothing)
-    if !isnothing(metric_obj) && !haskey(_einstein_expansion, einstein_name)
-        _einstein_expansion[einstein_name] = (
+    metric_obj = get(session.metrics, covd, nothing)
+    if !isnothing(metric_obj) && !haskey(session.einstein_expansion, einstein_name)
+        session.einstein_expansion[einstein_name] = (
             ricci_name, metric_obj.name, ricci_scalar_name
         )
     end
@@ -2716,19 +2950,21 @@ The background tensor must already be registered (via `def_tensor!` or `def_metr
 Raises an error if either tensor is unknown, `order < 1`, or the perturbation
 is already defined.
 """
-function def_perturbation!(tensor::Symbol, background::Symbol, order::Int)::PerturbationObj
+function def_perturbation!(
+    tensor::Symbol, background::Symbol, order::Int; session::Session=_default_session[]
+)::PerturbationObj
     validate_order(order; context="def_perturbation! order")
-    PerturbationQ(tensor) &&
+    PerturbationQ(tensor; session) &&
         throw(ArgumentError("def_perturbation!: perturbation $tensor already defined"))
-    haskey(_tensors, tensor) || throw(
+    haskey(session.tensors, tensor) || throw(
         ArgumentError(
             "def_perturbation!: tensor $tensor not registered — call def_tensor! first"
         ),
     )
-    haskey(_tensors, background) || throw(
+    haskey(session.tensors, background) || throw(
         ArgumentError("def_perturbation!: background tensor $background not registered")
     )
-    for (existing_name, existing_p) in _perturbations
+    for (existing_name, existing_p) in session.perturbations
         if existing_p.background == background && existing_p.order == order
             throw(
                 ArgumentError(
@@ -2739,13 +2975,18 @@ function def_perturbation!(tensor::Symbol, background::Symbol, order::Int)::Pert
     end
 
     p = PerturbationObj(tensor, background, order)
-    _perturbations[tensor] = p
-    push!(Perturbations, tensor)
+    session.perturbations[tensor] = p
+    push!(session.perturbation_list, tensor)
     p
 end
 
-function def_perturbation!(tensor::AbstractString, background::AbstractString, order::Int)
-    def_perturbation!(Symbol(tensor), Symbol(background), order)
+function def_perturbation!(
+    tensor::AbstractString,
+    background::AbstractString,
+    order::Int;
+    session::Session=_default_session[],
+)
+    def_perturbation!(Symbol(tensor), Symbol(background), order; session)
 end
 
 """
@@ -2761,14 +3002,16 @@ symmetric tensor.  Currently validates:
 
 Returns `true` if all checks pass, `false` otherwise (never throws).
 """
-function check_metric_consistency(metric_name::Symbol)::Bool
+function check_metric_consistency(
+    metric_name::Symbol; session::Session=_default_session[]
+)::Bool
     # Check metric tensor is defined
-    t = get(_tensors, metric_name, nothing)
+    t = get(session.tensors, metric_name, nothing)
     isnothing(t) && return false
 
     # Check metric is registered in the metric registry
     found = false
-    for (_, m) in _metrics
+    for (_, m) in session.metrics
         if m.name == metric_name
             found = true
             break
@@ -2783,8 +3026,10 @@ function check_metric_consistency(metric_name::Symbol)::Bool
     true
 end
 
-function check_metric_consistency(metric_name::AbstractString)::Bool
-    check_metric_consistency(Symbol(metric_name))
+function check_metric_consistency(
+    metric_name::AbstractString; session::Session=_default_session[]
+)::Bool
+    check_metric_consistency(Symbol(metric_name); session)
 end
 
 """
@@ -2794,14 +3039,18 @@ Verify that a perturbation tensor is registered with the given perturbation orde
 Returns `true` if `tensor_name` is a registered perturbation of exactly `order`,
 `false` otherwise.
 """
-function check_perturbation_order(tensor_name::Symbol, order::Int)::Bool
-    p = get(_perturbations, tensor_name, nothing)
+function check_perturbation_order(
+    tensor_name::Symbol, order::Int; session::Session=_default_session[]
+)::Bool
+    p = get(session.perturbations, tensor_name, nothing)
     isnothing(p) && return false
     p.order == order
 end
 
-function check_perturbation_order(tensor_name::AbstractString, order::Int)::Bool
-    check_perturbation_order(Symbol(tensor_name), order)
+function check_perturbation_order(
+    tensor_name::AbstractString, order::Int; session::Session=_default_session[]
+)::Bool
+    check_perturbation_order(Symbol(tensor_name), order; session)
 end
 
 """
@@ -2817,16 +3066,18 @@ PerturbationOrder(:Pertg1)   # → 1
 PerturbationOrder(:Pertg2)   # → 2
 ```
 """
-function PerturbationOrder(tensor_name::Symbol)::Int
-    p = get(_perturbations, tensor_name, nothing)
+function PerturbationOrder(tensor_name::Symbol; session::Session=_default_session[])::Int
+    p = get(session.perturbations, tensor_name, nothing)
     isnothing(p) && throw(
         ArgumentError("PerturbationOrder: $tensor_name is not a registered perturbation"),
     )
     p.order
 end
 
-function PerturbationOrder(tensor_name::AbstractString)::Int
-    PerturbationOrder(Symbol(tensor_name))
+function PerturbationOrder(
+    tensor_name::AbstractString; session::Session=_default_session[]
+)::Int
+    PerturbationOrder(Symbol(tensor_name); session)
 end
 
 """
@@ -2842,8 +3093,10 @@ PerturbationAtOrder(:g, 1)   # → :Pertg1
 PerturbationAtOrder(:g, 2)   # → :Pertg2
 ```
 """
-function PerturbationAtOrder(background::Symbol, order::Int)::Symbol
-    for (pname, p) in _perturbations
+function PerturbationAtOrder(
+    background::Symbol, order::Int; session::Session=_default_session[]
+)::Symbol
+    for (pname, p) in session.perturbations
         if p.background == background && p.order == order
             return pname
         end
@@ -2855,8 +3108,10 @@ function PerturbationAtOrder(background::Symbol, order::Int)::Symbol
     )
 end
 
-function PerturbationAtOrder(background::AbstractString, order::Int)::Symbol
-    PerturbationAtOrder(Symbol(background), order)
+function PerturbationAtOrder(
+    background::AbstractString, order::Int; session::Session=_default_session[]
+)::Symbol
+    PerturbationAtOrder(Symbol(background), order; session)
 end
 
 # ============================================================
@@ -3952,18 +4207,21 @@ Validates:
   - Matrix is invertible (non-singular)
 """
 function set_basis_change!(
-    from_basis::Symbol, to_basis::Symbol, matrix::AbstractMatrix
+    from_basis::Symbol,
+    to_basis::Symbol,
+    matrix::AbstractMatrix;
+    session::Session=_default_session[],
 )::BasisChangeObj
-    BasisQ(from_basis) || error("set_basis_change!: basis $from_basis not defined")
-    BasisQ(to_basis) || error("set_basis_change!: basis $to_basis not defined")
+    BasisQ(from_basis; session) || error("set_basis_change!: basis $from_basis not defined")
+    BasisQ(to_basis; session) || error("set_basis_change!: basis $to_basis not defined")
 
-    vb_from = VBundleOfBasis(from_basis)
-    vb_to = VBundleOfBasis(to_basis)
+    vb_from = VBundleOfBasis(from_basis; session)
+    vb_to = VBundleOfBasis(to_basis; session)
     vb_from == vb_to || error(
         "set_basis_change!: bases $from_basis ($vb_from) and $to_basis ($vb_to) belong to different vector bundles",
     )
 
-    dim = length(CNumbersOf(from_basis))
+    dim = length(CNumbersOf(from_basis; session))
     n, m = size(matrix)
     (n == m == dim) ||
         error("set_basis_change!: matrix size ($n×$m) does not match basis dimension $dim")
@@ -3975,19 +4233,22 @@ function set_basis_change!(
     inv_mat = inv(fmat)
 
     bc = BasisChangeObj(from_basis, to_basis, fmat, inv_mat, jac)
-    _basis_changes[(from_basis, to_basis)] = bc
+    session.basis_changes[(from_basis, to_basis)] = bc
 
     # Store inverse direction
     bc_inv = BasisChangeObj(to_basis, from_basis, inv_mat, fmat, 1.0 / jac)
-    _basis_changes[(to_basis, from_basis)] = bc_inv
+    session.basis_changes[(to_basis, from_basis)] = bc_inv
 
     bc
 end
 
 function set_basis_change!(
-    from_basis::AbstractString, to_basis::AbstractString, matrix::AbstractMatrix
+    from_basis::AbstractString,
+    to_basis::AbstractString,
+    matrix::AbstractMatrix;
+    session::Session=_default_session[],
 )::BasisChangeObj
-    set_basis_change!(Symbol(from_basis), Symbol(to_basis), matrix)
+    set_basis_change!(Symbol(from_basis), Symbol(to_basis), matrix; session)
 end
 
 """
@@ -3995,9 +4256,13 @@ end
 
 Check if a basis change from `from` to `to` is registered.
 """
-BasisChangeQ(from::Symbol, to::Symbol) = haskey(_basis_changes, (from, to))
-function BasisChangeQ(from::AbstractString, to::AbstractString)
-    BasisChangeQ(Symbol(from), Symbol(to))
+function BasisChangeQ(from::Symbol, to::Symbol; session::Session=_default_session[])
+    haskey(session.basis_changes, (from, to))
+end
+function BasisChangeQ(
+    from::AbstractString, to::AbstractString; session::Session=_default_session[]
+)
+    BasisChangeQ(Symbol(from), Symbol(to); session)
 end
 
 """
@@ -4005,13 +4270,17 @@ end
 
 Return the transformation matrix from `from` basis to `to` basis.
 """
-function BasisChangeMatrix(from::Symbol, to::Symbol)::Matrix{Any}
-    haskey(_basis_changes, (from, to)) ||
+function BasisChangeMatrix(
+    from::Symbol, to::Symbol; session::Session=_default_session[]
+)::Matrix{Any}
+    haskey(session.basis_changes, (from, to)) ||
         error("BasisChangeMatrix: no basis change registered from $from to $to")
-    _basis_changes[(from, to)].matrix
+    session.basis_changes[(from, to)].matrix
 end
-function BasisChangeMatrix(from::AbstractString, to::AbstractString)
-    BasisChangeMatrix(Symbol(from), Symbol(to))
+function BasisChangeMatrix(
+    from::AbstractString, to::AbstractString; session::Session=_default_session[]
+)
+    BasisChangeMatrix(Symbol(from), Symbol(to); session)
 end
 
 """
@@ -4019,13 +4288,17 @@ end
 
 Return the inverse transformation matrix (i.e. the matrix that goes from `to` back to `from`).
 """
-function InverseBasisChangeMatrix(from::Symbol, to::Symbol)::Matrix{Any}
-    haskey(_basis_changes, (from, to)) ||
+function InverseBasisChangeMatrix(
+    from::Symbol, to::Symbol; session::Session=_default_session[]
+)::Matrix{Any}
+    haskey(session.basis_changes, (from, to)) ||
         error("InverseBasisChangeMatrix: no basis change registered from $from to $to")
-    _basis_changes[(from, to)].inverse
+    session.basis_changes[(from, to)].inverse
 end
-function InverseBasisChangeMatrix(from::AbstractString, to::AbstractString)
-    InverseBasisChangeMatrix(Symbol(from), Symbol(to))
+function InverseBasisChangeMatrix(
+    from::AbstractString, to::AbstractString; session::Session=_default_session[]
+)
+    InverseBasisChangeMatrix(Symbol(from), Symbol(to); session)
 end
 
 """
@@ -4033,13 +4306,15 @@ end
 
 Return the Jacobian determinant of the transformation from `basis1` to `basis2`.
 """
-function Jacobian(basis1::Symbol, basis2::Symbol)
-    haskey(_basis_changes, (basis1, basis2)) ||
+function Jacobian(basis1::Symbol, basis2::Symbol; session::Session=_default_session[])
+    haskey(session.basis_changes, (basis1, basis2)) ||
         error("Jacobian: no basis change registered from $basis1 to $basis2")
-    _basis_changes[(basis1, basis2)].jacobian
+    session.basis_changes[(basis1, basis2)].jacobian
 end
-function Jacobian(basis1::AbstractString, basis2::AbstractString)
-    Jacobian(Symbol(basis1), Symbol(basis2))
+function Jacobian(
+    basis1::AbstractString, basis2::AbstractString; session::Session=_default_session[]
+)
+    Jacobian(Symbol(basis1), Symbol(basis2); session)
 end
 
 """
@@ -4061,11 +4336,12 @@ function change_basis(
     bases::Vector{Symbol},
     slot::Int,
     from_basis::Symbol,
-    to_basis::Symbol,
+    to_basis::Symbol;
+    session::Session=_default_session[],
 )::AbstractArray
-    haskey(_basis_changes, (from_basis, to_basis)) ||
+    haskey(session.basis_changes, (from_basis, to_basis)) ||
         error("change_basis: no basis change registered from $from_basis to $to_basis")
-    M = Float64.(_basis_changes[(from_basis, to_basis)].matrix)
+    M = Float64.(session.basis_changes[(from_basis, to_basis)].matrix)
     ndims(array) == 0 && return array
 
     # Contract M along the `slot`-th dimension of the array
@@ -4139,14 +4415,18 @@ Validates:
   - Each array dimension matches the basis dimension (length of CNumbersOf)
 """
 function set_components!(
-    tensor::Symbol, array::AbstractArray, bases::Vector{Symbol}; weight::Int=0
+    tensor::Symbol,
+    array::AbstractArray,
+    bases::Vector{Symbol};
+    weight::Int=0,
+    session::Session=_default_session[],
 )::CTensorObj
     # Validate tensor exists
-    TensorQ(tensor) || error("set_components!: tensor $tensor not defined")
+    TensorQ(tensor; session) || error("set_components!: tensor $tensor not defined")
 
     # Validate each basis exists
     for b in bases
-        BasisQ(b) || error("set_components!: basis $b not defined")
+        BasisQ(b; session) || error("set_components!: basis $b not defined")
     end
 
     # Validate array rank matches number of bases
@@ -4163,7 +4443,7 @@ function set_components!(
 
     # Validate each array dimension matches the basis dimension
     for (i, b) in enumerate(bases)
-        dim = length(CNumbersOf(b))
+        dim = length(CNumbersOf(b; session))
         if size(array, i) != dim
             error(
                 "set_components!: array dimension $i is $(size(array, i)), expected $dim (basis $b)",
@@ -4173,14 +4453,20 @@ function set_components!(
 
     key = (tensor, bases...)
     ct = CTensorObj(tensor, _to_numeric_array(array), collect(bases), weight)
-    _ctensors[key] = ct
+    session.ctensors[key] = ct
     ct
 end
 
 function set_components!(
-    tensor::AbstractString, array::AbstractArray, bases::Vector; weight::Int=0
+    tensor::AbstractString,
+    array::AbstractArray,
+    bases::Vector;
+    weight::Int=0,
+    session::Session=_default_session[],
 )::CTensorObj
-    set_components!(Symbol(tensor), array, Symbol[Symbol(b) for b in bases]; weight=weight)
+    set_components!(
+        Symbol(tensor), array, Symbol[Symbol(b) for b in bases]; weight=weight, session
+    )
 end
 
 """
@@ -4190,12 +4476,14 @@ Retrieve stored component values for a tensor in the given bases.
 If not directly stored, attempts to transform from a stored basis configuration
 using registered basis changes.
 """
-function get_components(tensor::Symbol, bases::Vector{Symbol})::CTensorObj
+function get_components(
+    tensor::Symbol, bases::Vector{Symbol}; session::Session=_default_session[]
+)::CTensorObj
     key = (tensor, bases...)
-    haskey(_ctensors, key) && return _ctensors[key]
+    haskey(session.ctensors, key) && return session.ctensors[key]
 
     # Try to find stored components in a different basis configuration and transform
-    for (stored_key, ct) in _ctensors
+    for (stored_key, ct) in session.ctensors
         stored_key[1] == tensor || continue
         stored_bases = Symbol[stored_key[i] for i in 2:length(stored_key)]
         length(stored_bases) == length(bases) || continue
@@ -4203,7 +4491,7 @@ function get_components(tensor::Symbol, bases::Vector{Symbol})::CTensorObj
         # Check if we can transform each slot
         can_transform = true
         for (i, (from_b, to_b)) in enumerate(zip(stored_bases, bases))
-            if from_b != to_b && !BasisChangeQ(from_b, to_b)
+            if from_b != to_b && !BasisChangeQ(from_b, to_b; session)
                 can_transform = false
                 break
             end
@@ -4215,7 +4503,9 @@ function get_components(tensor::Symbol, bases::Vector{Symbol})::CTensorObj
         current_bases = copy(stored_bases)
         for (i, (from_b, to_b)) in enumerate(zip(stored_bases, bases))
             if from_b != to_b
-                result_array = change_basis(result_array, current_bases, i, from_b, to_b)
+                result_array = change_basis(
+                    result_array, current_bases, i, from_b, to_b; session
+                )
                 current_bases[i] = to_b
             end
         end
@@ -4227,8 +4517,10 @@ function get_components(tensor::Symbol, bases::Vector{Symbol})::CTensorObj
     )
 end
 
-function get_components(tensor::AbstractString, bases::Vector)::CTensorObj
-    get_components(Symbol(tensor), Symbol[Symbol(b) for b in bases])
+function get_components(
+    tensor::AbstractString, bases::Vector; session::Session=_default_session[]
+)::CTensorObj
+    get_components(Symbol(tensor), Symbol[Symbol(b) for b in bases]; session)
 end
 
 """
@@ -4236,12 +4528,16 @@ end
 
 Return just the array of component values for a tensor in the given bases.
 """
-function ComponentArray(tensor::Symbol, bases::Vector{Symbol})::Array
-    get_components(tensor, bases).array
+function ComponentArray(
+    tensor::Symbol, bases::Vector{Symbol}; session::Session=_default_session[]
+)::Array
+    get_components(tensor, bases; session).array
 end
 
-function ComponentArray(tensor::AbstractString, bases::Vector)::Array
-    ComponentArray(Symbol(tensor), Symbol[Symbol(b) for b in bases])
+function ComponentArray(
+    tensor::AbstractString, bases::Vector; session::Session=_default_session[]
+)::Array
+    ComponentArray(Symbol(tensor), Symbol[Symbol(b) for b in bases]; session)
 end
 
 """
@@ -4249,12 +4545,16 @@ end
 
 Return true if component values are stored for the given tensor and bases.
 """
-function CTensorQ(tensor::Symbol, bases::Symbol...)::Bool
-    haskey(_ctensors, (tensor, bases...))
+function CTensorQ(
+    tensor::Symbol, bases::Symbol...; session::Session=_default_session[]
+)::Bool
+    haskey(session.ctensors, (tensor, bases...))
 end
 
-function CTensorQ(tensor::AbstractString, bases::AbstractString...)::Bool
-    CTensorQ(Symbol(tensor), (Symbol(b) for b in bases)...)
+function CTensorQ(
+    tensor::AbstractString, bases::AbstractString...; session::Session=_default_session[]
+)::Bool
+    CTensorQ(Symbol(tensor), (Symbol(b) for b in bases)...; session)
 end
 
 """
@@ -4263,8 +4563,13 @@ end
 Return a single component value from a stored CTensor.
 `indices` are 1-based integer indices into the array.
 """
-function component_value(tensor::Symbol, indices::Vector{Int}, bases::Vector{Symbol})::Any
-    ct = get_components(tensor, bases)
+function component_value(
+    tensor::Symbol,
+    indices::Vector{Int},
+    bases::Vector{Symbol};
+    session::Session=_default_session[],
+)::Any
+    ct = get_components(tensor, bases; session)
     arr = ct.array
     for (i, idx) in enumerate(indices)
         if idx < 1 || idx > size(arr, i)
@@ -4276,9 +4581,17 @@ function component_value(tensor::Symbol, indices::Vector{Int}, bases::Vector{Sym
     arr[indices...]
 end
 
-function component_value(tensor::AbstractString, indices::Vector, bases::Vector)::Any
+function component_value(
+    tensor::AbstractString,
+    indices::Vector,
+    bases::Vector;
+    session::Session=_default_session[],
+)::Any
     component_value(
-        Symbol(tensor), Int[Int(i) for i in indices], Symbol[Symbol(b) for b in bases]
+        Symbol(tensor),
+        Int[Int(i) for i in indices],
+        Symbol[Symbol(b) for b in bases];
+        session,
     )
 end
 
@@ -4290,9 +4603,13 @@ Both slots must be in the same basis. The result has rank reduced by 2.
 For rank-2, this is the matrix trace.
 """
 function ctensor_contract(
-    tensor::Symbol, bases::Vector{Symbol}, slot1::Int, slot2::Int
+    tensor::Symbol,
+    bases::Vector{Symbol},
+    slot1::Int,
+    slot2::Int;
+    session::Session=_default_session[],
 )::CTensorObj
-    ct = get_components(tensor, bases)
+    ct = get_components(tensor, bases; session)
     arr = ct.array
     nd = ndims(arr)
     (1 <= slot1 <= nd) || error("ctensor_contract: slot1=$slot1 out of range [1, $nd]")
@@ -4344,9 +4661,15 @@ function ctensor_contract(
 end
 
 function ctensor_contract(
-    tensor::AbstractString, bases::Vector, slot1::Int, slot2::Int
+    tensor::AbstractString,
+    bases::Vector,
+    slot1::Int,
+    slot2::Int;
+    session::Session=_default_session[],
 )::CTensorObj
-    ctensor_contract(Symbol(tensor), Symbol[Symbol(b) for b in bases], slot1, slot2)
+    ctensor_contract(
+        Symbol(tensor), Symbol[Symbol(b) for b in bases], slot1, slot2; session
+    )
 end
 
 # ============================================================
@@ -4372,11 +4695,14 @@ Arguments:
 Returns the CTensorObj stored under the auto-created Christoffel tensor name.
 """
 function christoffel!(
-    metric::Symbol, basis::Symbol; metric_derivs::Union{Nothing,AbstractArray}=nothing
+    metric::Symbol,
+    basis::Symbol;
+    metric_derivs::Union{Nothing,AbstractArray}=nothing,
+    session::Session=_default_session[],
 )::CTensorObj
     # Find the covariant derivative associated with this metric
     covd = nothing
-    for (cd, mobj) in _metrics
+    for (cd, mobj) in session.metrics
         if mobj.name == metric
             covd = cd
             break
@@ -4385,11 +4711,11 @@ function christoffel!(
     isnothing(covd) && error("christoffel!: no metric named $metric found")
 
     christoffel_name = Symbol("Christoffel" * string(covd))
-    TensorQ(christoffel_name) ||
+    TensorQ(christoffel_name; session) ||
         error("christoffel!: Christoffel tensor $christoffel_name not registered")
 
     # Get metric components g_{ab}
-    g_ct = get_components(metric, [basis, basis])
+    g_ct = get_components(metric, [basis, basis]; session)
     g_arr = g_ct.array
     dim = size(g_arr, 1)
 
@@ -4415,13 +4741,16 @@ function christoffel!(
         gamma[a, b, c] = 0.5 * val
     end
 
-    set_components!(christoffel_name, gamma, [basis, basis, basis])
+    set_components!(christoffel_name, gamma, [basis, basis, basis]; session)
 end
 
 function christoffel!(
-    metric::AbstractString, basis::AbstractString; metric_derivs=nothing
+    metric::AbstractString,
+    basis::AbstractString;
+    metric_derivs=nothing,
+    session::Session=_default_session[],
 )::CTensorObj
-    christoffel!(Symbol(metric), Symbol(basis); metric_derivs=metric_derivs)
+    christoffel!(Symbol(metric), Symbol(basis); metric_derivs=metric_derivs, session)
 end
 
 # ============================================================
