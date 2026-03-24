@@ -1258,6 +1258,12 @@ struct TermAST
 end
 
 """
+Zero-coefficient sentinel: returned instead of `nothing` to keep TermAST endomorphism.
+"""
+const ZERO_TERM = TermAST(0 // 1, FactorAST[])
+_is_zero_term(t::TermAST) = t.coeff == 0 && isempty(t.factors)
+
+"""
 Serialize a structured key to a canonical string for O(1) Dict hashing.
 """
 function _term_key_str(factors::_StructKey)::String
@@ -2246,7 +2252,7 @@ function ToCanonical(expression::AbstractString)::String
     canon_terms = TermAST[]
     for term in terms
         result = _canonicalize_term(term)
-        isnothing(result) || push!(canon_terms, result)
+        _is_zero_term(result) || push!(canon_terms, result)
     end
 
     isempty(canon_terms) && return "0"
@@ -2283,7 +2289,7 @@ end
 """
 Canonicalize a single term; returns nothing if the term is zero.
 """
-function _canonicalize_term(term::TermAST)::Union{TermAST,Nothing}
+function _canonicalize_term(term::TermAST)::TermAST
     running_sign = term.coeff
     new_factors = FactorAST[]
 
@@ -2308,7 +2314,7 @@ function _canonicalize_term(term::TermAST)::Union{TermAST,Nothing}
         )
 
         if factor_sign == 0
-            return nothing  # term is zero
+            return ZERO_TERM
         end
 
         running_sign *= (factor_sign // 1)
@@ -2389,7 +2395,7 @@ function Contract(expression::AbstractString)::String
     result_terms = TermAST[]
     for term in terms
         contracted = _contract_term(term)
-        isnothing(contracted) && continue
+        _is_zero_term(contracted) && continue
         push!(result_terms, contracted)
     end
 
@@ -2434,14 +2440,14 @@ end
 Apply ContractMetric to a single term.
 Returns the contracted TermAST, or nothing if the term is zero.
 """
-function _contract_term(term::TermAST)::Union{TermAST,Nothing}
+function _contract_term(term::TermAST)::TermAST
     # Iteratively contract metrics until none remain
     current = term
     max_iters = 20
     for _ in 1:max_iters
         result = _contract_one_metric(current)
-        if isnothing(result)
-            return nothing  # term is zero
+        if _is_zero_term(result)
+            return ZERO_TERM
         end
         if result === current
             # No metric found / no further contraction possible
@@ -2517,7 +2523,7 @@ end
 Find one metric factor and contract it with another factor (or apply a trace rule).
 Returns the updated TermAST, the same TermAST if no metric found, or nothing if zero.
 """
-function _contract_one_metric(term::TermAST)::Union{TermAST,Nothing}
+function _contract_one_metric(term::TermAST)::TermAST
     factors = term.factors
 
     # Find a metric factor (contravariant or covariant)
@@ -2632,7 +2638,7 @@ function _contract_one_metric(term::TermAST)::Union{TermAST,Nothing}
                 bare_2,
                 metric_obj,
             )
-            status == :zero && return nothing
+            status == :zero && return ZERO_TERM
             status == :replaced && return trace_term
             # :none → no special rule, fall through to normal contraction
         end
