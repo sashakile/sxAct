@@ -1,9 +1,9 @@
 {
   "test_id": "nopattern_atomic",
-  "oracle_version": "julia-axiom",
-  "mathematica_version": "N/A",
-  "timestamp": "2026-03-09T23:54:11.210318+00:00",
-  "commands": "[julia-adapter]",
+  "oracle_version": "xAct 1.2.0",
+  "mathematica_version": "14.3",
+  "timestamp": "2026-03-24T13:20:02Z",
+  "commands": "NoPattern[42] === 42",
   "raw_output": "True",
   "normalized_output": "True",
   "properties": {},

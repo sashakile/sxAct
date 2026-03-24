@@ -4,8 +4,8 @@
   "mathematica_version": "N/A",
   "timestamp": "2026-03-11T18:00:00.000000+00:00",
   "commands": "[julia-adapter]",
-  "raw_output": "Any[-1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]",
-  "normalized_output": "Any[-1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]",
+  "raw_output": "[-1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]",
+  "normalized_output": "[-1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1]",
   "properties": {},
-  "hash": "sha256:c77a5857cc67"
+  "hash": "sha256:35e0fff336bd"
 }

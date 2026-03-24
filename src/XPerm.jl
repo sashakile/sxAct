@@ -1234,9 +1234,13 @@ function StrongGenSet(base::AbstractVector{<:Integer}, genset::Vector{Vector{Int
             push!(padded, copy(g))
         end
     end
-    # Detect signed permutations: last 2 positions always map to {deg-1, deg}
+    # Detect signed permutations: last 2 positions always map to {deg-1, deg}.
+    # We require deg >= 5 to avoid false positives on small unsigned groups:
+    # - deg 2: [2,1] is a plain transposition, not signed on 0 physical points
+    # - deg 4: S_2×S_2 on {1,2,3,4} is indistinguishable from signed on 2 points
+    # Valid signed groups have deg = n+2 where n >= 3 physical points (deg >= 5).
     n =
-        if deg >= 2 && all(
+        if deg >= 5 && all(
             g ->
                 (g[deg - 1] == deg-1 || g[deg - 1] == deg) &&
                 (g[deg] == deg-1 || g[deg] == deg),

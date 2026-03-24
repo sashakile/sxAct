@@ -331,6 +331,72 @@ class TestChristoffel:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Integration: end-to-end xCoba pipelines (sxAct-xqpd)
+# ---------------------------------------------------------------------------
+
+
+class TestBasisChangeEndToEnd:
+    """set_basis_change -> change_basis -> verify transformation."""
+
+    @pytest.fixture()
+    def setup_2d(self, manifold_4d, metric):
+        B = xact.Basis("Bi", "TangentM", [1, 2, 3, 4])
+        C = xact.Chart("Ci", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        return B, C
+
+    def test_set_and_query_basis_change(self, setup_2d):
+        B, C = setup_2d
+        xact.set_basis_change(
+            "Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        )
+        assert xact.basis_change_q("Bi", "Ci") is True
+
+    def test_get_jacobian(self, setup_2d):
+        B, C = setup_2d
+        xact.set_basis_change(
+            "Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        )
+        jac = xact.get_jacobian("Bi", "Ci")
+        assert isinstance(jac, str)
+
+
+class TestComponentTensorPipeline:
+    """set_components -> get_components -> component_value."""
+
+    def test_set_get_components(self, manifold_4d, metric):
+        xact.Chart("Cc", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tc", ["-a", "-b"], manifold_4d, symmetry="Symmetric[{-a,-b}]")
+        vals = [[1, 2, 3, 4], [2, 5, 6, 7], [3, 6, 8, 9], [4, 7, 9, 10]]
+        xact.set_components("Tc", vals, ["Cc", "Cc"])
+        ct = xact.get_components("Tc", ["Cc", "Cc"])
+        assert isinstance(ct, xact.CTensor)
+        assert ct.tensor == "Tc"
+
+    def test_ctensor_q_after_set(self, manifold_4d, metric):
+        xact.Chart("Cq", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tq", ["-a", "-b"], manifold_4d, symmetry="Symmetric[{-a,-b}]")
+        xact.set_components(
+            "Tq", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], ["Cq", "Cq"]
+        )
+        assert xact.ctensor_q("Tq", "Cq", "Cq") is True
+
+
+class TestTraceBasisDummyPipeline:
+    """trace_basis_dummy returns a scalar CTensor."""
+
+    def test_trace_of_identity(self, manifold_4d, metric):
+        xact.Chart("Ct", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tt", ["a", "-b"], manifold_4d)
+        xact.set_components(
+            "Tt", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], ["Ct", "Ct"]
+        )
+        ct = xact.trace_basis_dummy("Tt", ["Ct", "Ct"])
+        assert isinstance(ct, xact.CTensor)
+        # Trace of 4x4 identity = 4
+        assert ct.array == 4 or ct.array == 4.0
+
+
 _XCOBA_EXPORTS = [
     "Basis",
     "Chart",
