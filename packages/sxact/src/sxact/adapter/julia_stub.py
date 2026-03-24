@@ -1777,6 +1777,11 @@ def _wl_to_jl(expr: str) -> str:
 
     # Handle Wolfram Unicode operator escapes
     expr = expr.replace("\\[Equal]", "==")
+    # WL Rule infix: a -> b → a => b (Pair), but NOT inside strings
+    # Also handle :> (RuleDelayed)
+    expr = expr.replace(":>", "=>")
+    # Only convert -> that isn't part of --> or other patterns
+    expr = re.sub(r"(?<![=-])->(?!>)", "=>", expr)
 
     # Handle // postfix operator: rewrite "expr // f" → "f(expr)"
     # Apply before other translations to restructure correctly.
@@ -1914,6 +1919,38 @@ def _wl_to_jl(expr: str) -> str:
                             depth2 -= 1
                         k += 1
                     out.append("nothing")
+                    i = k
+                elif name in ("Rule", "RuleDelayed"):
+                    # Rule[key, val] → (key => val)
+                    depth2 = 1
+                    k = j + 1
+                    while k < n and depth2 > 0:
+                        if expr[k] == "[":
+                            depth2 += 1
+                        elif expr[k] == "]":
+                            depth2 -= 1
+                        k += 1
+                    inner = expr[j + 1 : k - 1]
+                    parts = _top_level_split(inner, ",")
+                    if len(parts) == 2:
+                        lhs = _wl_to_jl(parts[0].strip())
+                        rhs = _wl_to_jl(parts[1].strip())
+                        out.append(f"({lhs} => {rhs})")
+                    else:
+                        out.append(f"Rule({_wl_to_jl(inner)})")
+                    i = k
+                elif name == "Head":
+                    # Head[x] → typeof(x) (approximate WL Head)
+                    depth2 = 1
+                    k = j + 1
+                    while k < n and depth2 > 0:
+                        if expr[k] == "[":
+                            depth2 += 1
+                        elif expr[k] == "]":
+                            depth2 -= 1
+                        k += 1
+                    inner = _wl_to_jl(expr[j + 1 : k - 1].strip())
+                    out.append(f"typeof({inner})")
                     i = k
                 else:
                     # Function call: translate name if keyword-mapped, then emit name(
