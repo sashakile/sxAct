@@ -5,38 +5,23 @@ import pytest
 import xact
 
 
-@pytest.fixture(autouse=True)
-def _reset():
-    xact.reset()
-
-
-@pytest.fixture()
-def manifold_4d():
-    return xact.Manifold("M", 4, ["a", "b", "c", "d", "e", "f"])
-
-
-@pytest.fixture()
-def metric(manifold_4d):
-    return xact.Metric(manifold_4d, "g", signature=-1, covd="CD")
-
-
 # ---------------------------------------------------------------------------
 # Basis handle class
 # ---------------------------------------------------------------------------
 
 
 class TestBasis:
-    def test_create(self, manifold_4d, metric):
+    def test_create(self, manifold, metric):
         B = xact.Basis("B", "TangentM", [1, 2, 3, 4])
         assert B.name == "B"
         assert B.vbundle == "TangentM"
         assert B.cnumbers == [1, 2, 3, 4]
 
-    def test_repr(self, manifold_4d, metric):
+    def test_repr(self, manifold, metric):
         B = xact.Basis("B", "TangentM", [1, 2, 3, 4])
         assert repr(B) == "Basis('B', 'TangentM')"
 
-    def test_creates_julia_basis(self, manifold_4d, metric):
+    def test_creates_julia_basis(self, manifold, metric):
         xact.Basis("B", "TangentM", [1, 2, 3, 4])
         # The basis should be queryable from Julia
         jl, _ = xact.api._ensure_init()
@@ -49,28 +34,28 @@ class TestBasis:
 
 
 class TestChart:
-    def test_create(self, manifold_4d):
-        C = xact.Chart("SchC", manifold_4d, [1, 2, 3, 4], ["t", "r", "th", "ph"])
+    def test_create(self, manifold):
+        C = xact.Chart("SchC", manifold, [1, 2, 3, 4], ["t", "r", "th", "ph"])
         assert C.name == "SchC"
-        assert C.manifold is manifold_4d
+        assert C.manifold is manifold
         assert C.cnumbers == [1, 2, 3, 4]
         assert C.scalars == ["t", "r", "th", "ph"]
 
-    def test_create_with_manifold_name(self, manifold_4d):
+    def test_create_with_manifold_name(self, manifold):
         C = xact.Chart("SchC", "M", [1, 2, 3, 4], ["t", "r", "th", "ph"])
         assert C.name == "SchC"
 
-    def test_repr(self, manifold_4d):
-        C = xact.Chart("SchC", manifold_4d, [1, 2, 3, 4], ["t", "r", "th", "ph"])
+    def test_repr(self, manifold):
+        C = xact.Chart("SchC", manifold, [1, 2, 3, 4], ["t", "r", "th", "ph"])
         assert repr(C) == "Chart('SchC', 'M')"
 
-    def test_creates_julia_chart(self, manifold_4d):
-        xact.Chart("SchC", manifold_4d, [1, 2, 3, 4], ["t", "r", "th", "ph"])
+    def test_creates_julia_chart(self, manifold):
+        xact.Chart("SchC", manifold, [1, 2, 3, 4], ["t", "r", "th", "ph"])
         jl, _ = xact.api._ensure_init()
         assert jl.seval("XTensor.ChartQ(:SchC)") is True
 
-    def test_registers_coordinate_scalars(self, manifold_4d):
-        xact.Chart("SchC", manifold_4d, [1, 2, 3, 4], ["t", "r", "th", "ph"])
+    def test_registers_coordinate_scalars(self, manifold):
+        xact.Chart("SchC", manifold, [1, 2, 3, 4], ["t", "r", "th", "ph"])
         jl, _ = xact.api._ensure_init()
         # Each scalar should be registered as a tensor
         for sc in ["t", "r", "th", "ph"]:
@@ -83,23 +68,23 @@ class TestChart:
 
 
 class TestDefBasis:
-    def test_def_basis(self, manifold_4d, metric):
+    def test_def_basis(self, manifold, metric):
         xact.def_basis("B2", "TangentM", [1, 2, 3, 4])
         jl, _ = xact.api._ensure_init()
         assert jl.seval("XTensor.BasisQ(:B2)") is True
 
-    def test_def_basis_wrong_vbundle(self, manifold_4d, metric):
+    def test_def_basis_wrong_vbundle(self, manifold, metric):
         with pytest.raises(Exception):
             xact.def_basis("B3", "NonExistentBundle", [1, 2, 3, 4])
 
 
 class TestDefChart:
-    def test_def_chart(self, manifold_4d):
+    def test_def_chart(self, manifold):
         xact.def_chart("SchC2", "M", [1, 2, 3, 4], ["t2", "r2", "th2", "ph2"])
         jl, _ = xact.api._ensure_init()
         assert jl.seval("XTensor.ChartQ(:SchC2)") is True
 
-    def test_def_chart_wrong_dim(self, manifold_4d):
+    def test_def_chart_wrong_dim(self, manifold):
         with pytest.raises(Exception):
             xact.def_chart("SchC3", "M", [1, 2, 3], ["t3", "r3", "th3"])
 
@@ -111,7 +96,7 @@ class TestDefChart:
 
 class TestBasisChange:
     @pytest.fixture()
-    def two_bases(self, manifold_4d, metric):
+    def two_bases(self, manifold, metric):
         B1 = xact.Basis("Bcart", "TangentM", [1, 2, 3, 4])
         B2 = xact.Basis("Bpol", "TangentM", [1, 2, 3, 4])
         # Simple identity Jacobian (diagonal 1s)
@@ -122,7 +107,7 @@ class TestBasisChange:
     def test_set_basis_change(self, two_bases):
         assert xact.basis_change_q("Bcart", "Bpol") is True
 
-    def test_basis_change_q_false(self, manifold_4d, metric):
+    def test_basis_change_q_false(self, manifold, metric):
         xact.Basis("Bx", "TangentM", [1, 2, 3, 4])
         xact.Basis("By", "TangentM", [1, 2, 3, 4])
         assert xact.basis_change_q("Bx", "By") is False
@@ -227,8 +212,8 @@ class TestCTensorQ:
     def test_true_after_set(self, flat2d):
         assert xact.ctensor_q("gf2", "Cf2", "Cf2") is True
 
-    def test_false_before_set(self, manifold_4d):
-        xact.Tensor("Utest", ["-a", "-b"], manifold_4d)
+    def test_false_before_set(self, manifold):
+        xact.Tensor("Utest", ["-a", "-b"], manifold)
         assert xact.ctensor_q("Utest", "B_notset") is False
 
     def test_exported(self):
@@ -340,9 +325,9 @@ class TestBasisChangeEndToEnd:
     """set_basis_change -> change_basis -> verify transformation."""
 
     @pytest.fixture()
-    def setup_2d(self, manifold_4d, metric):
+    def setup_2d(self, manifold, metric):
         B = xact.Basis("Bi", "TangentM", [1, 2, 3, 4])
-        C = xact.Chart("Ci", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        C = xact.Chart("Ci", manifold, [1, 2, 3, 4], ["x", "y", "z", "w"])
         return B, C
 
     def test_set_and_query_basis_change(self, setup_2d):
@@ -364,18 +349,18 @@ class TestBasisChangeEndToEnd:
 class TestComponentTensorPipeline:
     """set_components -> get_components -> component_value."""
 
-    def test_set_get_components(self, manifold_4d, metric):
-        xact.Chart("Cc", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
-        xact.Tensor("Tc", ["-a", "-b"], manifold_4d, symmetry="Symmetric[{-a,-b}]")
+    def test_set_get_components(self, manifold, metric):
+        xact.Chart("Cc", manifold, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tc", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
         vals = [[1, 2, 3, 4], [2, 5, 6, 7], [3, 6, 8, 9], [4, 7, 9, 10]]
         xact.set_components("Tc", vals, ["Cc", "Cc"])
         ct = xact.get_components("Tc", ["Cc", "Cc"])
         assert isinstance(ct, xact.CTensor)
         assert ct.tensor == "Tc"
 
-    def test_ctensor_q_after_set(self, manifold_4d, metric):
-        xact.Chart("Cq", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
-        xact.Tensor("Tq", ["-a", "-b"], manifold_4d, symmetry="Symmetric[{-a,-b}]")
+    def test_ctensor_q_after_set(self, manifold, metric):
+        xact.Chart("Cq", manifold, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tq", ["-a", "-b"], manifold, symmetry="Symmetric[{-a,-b}]")
         xact.set_components(
             "Tq", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], ["Cq", "Cq"]
         )
@@ -385,9 +370,9 @@ class TestComponentTensorPipeline:
 class TestTraceBasisDummyPipeline:
     """trace_basis_dummy returns a scalar CTensor."""
 
-    def test_trace_of_identity(self, manifold_4d, metric):
-        xact.Chart("Ct", manifold_4d, [1, 2, 3, 4], ["x", "y", "z", "w"])
-        xact.Tensor("Tt", ["a", "-b"], manifold_4d)
+    def test_trace_of_identity(self, manifold, metric):
+        xact.Chart("Ct", manifold, [1, 2, 3, 4], ["x", "y", "z", "w"])
+        xact.Tensor("Tt", ["a", "-b"], manifold)
         xact.set_components(
             "Tt", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], ["Ct", "Ct"]
         )

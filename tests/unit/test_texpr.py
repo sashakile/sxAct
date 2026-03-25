@@ -8,21 +8,6 @@ import xact
 from xact.expr import AppliedTensor, CovDExpr, CovDHead, DnIdx, TExpr, TensorHead
 
 
-@pytest.fixture(autouse=True)
-def _reset():
-    xact.reset()
-
-
-@pytest.fixture()
-def manifold():
-    return xact.Manifold("M", 4, ["a", "b", "c", "d", "e", "f"])
-
-
-@pytest.fixture()
-def metric(manifold):
-    return xact.Metric(manifold, "g", signature=-1, covd="CD")
-
-
 class TestIdx:
     def test_create(self, manifold):
         a, b, c, d, e, f = xact.indices(manifold)
