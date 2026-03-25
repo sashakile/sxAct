@@ -571,34 +571,7 @@ function right_coset_rep(perm::Vector{Int}, sgs::StrongGenSet)::Tuple{Vector{Int
 
     for (i, b) in enumerate(sgs.base)
         GS_i = level_GS[i]
-        sv = schreier_vector(b, GS_i, n)
-        # Find the element in the orbit of cur[b] that gives minimum image
-        # We want to pick s ∈ S_i such that s(cur)[b] is minimized
-        # The orbit of b under GS_i are the possible values s(b)
-        # We want to find u in the stabilizer chain such that u∘cur maps b to min orbit element
-        min_img = cur[b]
-        best_u = identity_perm(length(cur))
-
-        for γ in sv.orbit
-            # γ is a possible image for position b
-            # The coset rep u such that u(b) = γ is trace_schreier(sv, γ, GS_i)
-            u_γ = trace_schreier(sv, γ, GS_i)
-            # Apply u_γ^{-1} to cur: new_cur = u_γ^{-1} ∘ cur
-            candidate_img = γ  # u_γ^{-1}(cur(b)) is not what we want
-            # Actually: (u_γ^{-1} ∘ cur)[b] = u_γ^{-1}[cur[b]]
-            # We want the image at position b in the new permutation = u_γ^{-1}(cur[b])
-            # But for lex-min, we want to minimize the image of cur at position b
-            # In the right coset S·perm, elements are s·perm for s ∈ S
-            # (s·perm)[b] = s[perm[b]] = s[cur[b]] (since cur = g·perm for current g)
-            # The orbit of cur[b] under S_i is what matters
-            img_b = γ  # orbit elements of b under S_i
-            # But what we want: for s ∈ S_i, (s ∘ cur)[b] = s[cur[b]]
-            # So we need the orbit of cur[b] under S_i, not of b
-            _ = img_b  # unused, fix below
-            break  # We'll redo this properly
-        end
-
-        # Correct approach: orbit of cur[b] under S_i
+        # Orbit of cur[b] under stabilizer generators at level i
         sv_cur = schreier_vector(cur[b], GS_i, n)
         min_img = minimum(sv_cur.orbit)
         # Find s ∈ S_i such that s[cur[b]] = min_img
