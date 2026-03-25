@@ -5,6 +5,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-03-25
+
+### Highlights
+
+- **Session struct** — `Session` owns all 22 mutable state containers in XTensor, replacing global state; all `def_*!`, accessors, and predicates accept `; session::Session` kwarg
+- **TExpr Stage 3: Rich Display** — Unicode math rendering in REPL, `text/latex` MIME for Jupyter/Quarto notebooks
+- **Error handling hardening** — `Validation.jl` module, safe Julia bridge with typed arg builders, runtime assertions across XPerm/XTensor/InvarDB
+- **Performance** — zero-allocation einsum, `ZERO_TERM` sentinel, String-key coeff_map, O(1) metric/CovD lookups
+- **8 tutorial notebooks** — foundational geometry (2D polar, 3D coords, sphere), Carroll Schwarzschild, Wald Cosmology, MTW Gravitational Waves, Electromagnetism, Fluid Dynamics
+- **887 Python tests**, 567 XTensor + 156 XPerm + 648,820 XInvar Julia tests passing
+
+### Added
+
+#### Session Struct
+- `Session` type owning all XTensor mutable state (22 containers)
+- `_default_session` shares dict objects with globals for backward compatibility
+- `reset_session!()` to reset a session without touching globals
+- All `def_*!`, accessors, predicates, and xCoba functions accept `; session::Session` kwarg
+
+#### TExpr Stage 3: Rich Display
+- `Base.show` for `text/latex` MIME on TExpr nodes
+- Unicode math rendering in Julia REPL
+- CovD rendering fixes
+
+#### Error Handling & Validation
+- `Validation.jl` — Julia-side input validation module
+- Safe Julia bridge with typed arg builders (Phase B)
+- `timed_seval` wrapper for slow-call monitoring
+- `_execute_assert` surfaces Julia exceptions instead of swallowing as `False`
+- Runtime assertions added to XPerm, XTensor, and InvarDB entry points
+- `error()` instead of `@assert` for LoadInvarDB input validation
+
+#### Translator
+- `Rule`/`RuleDelayed` and `Head` WL→Julia translations
+- WL builtins and Unicode identifier support
+
+#### Tutorials
+- Foundational geometry: 2D polar coordinates, 3D coordinate systems, sphere geometry
+- GR textbook examples: Carroll Schwarzschild, Wald FLRW Cosmology, MTW Gravitational Waves
+- Physics applications: Electromagnetism, Fluid Dynamics
+- Google Colab links in all notebook headers
+
+### Performance
+- Zero-allocation einsum inner loop for `ToBasis` component evaluation
+- `ZERO_TERM` sentinel replacing `Union{TermAST,Nothing}`
+- String-key `coeff_map` for O(1) Dict hashing
+- O(1) metric lookup via `_metric_name_index`, O(1) `CovDQ` lookups
+- Trace-rule dispatch extraction, IOBuffer optimizations
+- Pre-allocated backtracking buffer in XInvar
+- Hot-path optimizations across XPerm, XInvar, and XTensor
+
+### Fixed
+- 3 XPerm bugs: lambda cleanup, sign-bit validation, identity generators
+- `_swap_indices` bracket-aware replacement to prevent substring corruption
+- Dimension-aware InvarDB cache to prevent dim collision
+- Einstein trace for odd dimensions
+- `double_coset_rep` guard against factorial blowup for large dummy groups
+- `StablePoints(sgs)` referencing wrong field (`sgs.sgs` → `sgs.GS`)
+- `perturb()` exception type and Manifold index validation
+- `isdefined` guard, preprocess loop limit, 2D Christoffel creation
+- 8 missing API function exports with TExpr round-trip
+- numpy hard dependency removed (optional fast path)
+- String-literal handling in `_top_level_split`, malformed DB robustness
+- JET type instability fixes in Julia core
+
+### Refactoring
+- Registry-based dispatch (`_ACTION_HANDLERS` dict) replacing 26-branch if/elif chain
+- Centralized Julia function names into `julia_names.py` registry
+- `strip_variance` added to XCore, standardized return types
+
+### Testing
+- 13 low-dimensional manifold tests
+- Round-trip property tests and edge-case coverage
+- xCoba integration tests for Python API pipeline
+- 15 Python API tests for 14 previously untested functions
+- 43 direct tests for `_parse_expression`/`_serialize_terms`
+- Direct tests for `canonical_perm` and Wolfram-compat XPerm API
+- Tightened Contract/Simplify/IBP/VarD assertions to prevent false positives
+
+### Infrastructure
+- Reverted to ubuntu-latest CI runners with 30-minute timeout
+- Committed `uv.lock` for reproducible Python dependency resolution
+
+---
+
 ## [0.5.0] - 2026-03-18
 
 ### Highlights
