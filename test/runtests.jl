@@ -81,14 +81,14 @@ end
 @testset "ValidateSymbol — collision with registered symbol" begin
     reset_registry!()
     register_symbol(:AlreadyTaken, "XCoba")
-    err = @test_throws ErrorException ValidateSymbol(:AlreadyTaken)
+    err = @test_throws ArgumentError ValidateSymbol(:AlreadyTaken)
     @test occursin("XCoba", err.value.msg)
 end
 
 @testset "ValidateSymbol — collision with Base export" begin
     reset_registry!()
     # :map is a well-known Base export
-    err = @test_throws ErrorException ValidateSymbol(:map)
+    err = @test_throws ArgumentError ValidateSymbol(:map)
     @test occursin("Base", err.value.msg)
 end
 
@@ -106,7 +106,7 @@ end
 @testset "ValidateSymbol — collision message contains symbol name" begin
     reset_registry!()
     register_symbol(:NamedThing, "XTensor")
-    err = @test_throws ErrorException ValidateSymbol(:NamedThing)
+    err = @test_throws ArgumentError ValidateSymbol(:NamedThing)
     @test occursin("NamedThing", err.value.msg)
 end
 
@@ -684,7 +684,7 @@ end
         register_symbol(n, "XTensor")
     end
     for n in names
-        @test_throws ErrorException ValidateSymbol(Symbol(n))
+        @test_throws ArgumentError ValidateSymbol(Symbol(n))
     end
 end
 

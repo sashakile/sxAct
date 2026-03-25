@@ -2863,7 +2863,7 @@ function _contract_one_metric(term::TermAST)::TermAST
         self_trace_from_subst = length(unique(bare_new)) < length(bare_new)
         is_trace = (has_1 && has_2) || self_trace_from_subst
 
-        if is_trace
+        if is_trace && !isnothing(metric_obj)
             (status, trace_term) = _apply_trace_rules(
                 term,
                 factors,
@@ -2877,7 +2877,9 @@ function _contract_one_metric(term::TermAST)::TermAST
                 metric_obj,
             )
             status == :zero && return ZERO_TERM
-            status == :replaced && return trace_term
+            if status == :replaced && !isnothing(trace_term)
+                return trace_term::TermAST
+            end
             # :none → no special rule, fall through to normal contraction
         end
 
@@ -5364,7 +5366,8 @@ end
 Build a label-boundary regex for _swap_indices (cached per label string).
 """
 function _label_pattern(label::AbstractString)::Regex
-    Regex("(?<=[\\[,\\s-]|^)" * _regex_escape(label) * "(?=[\\],\\s-]|\$)")
+    pat = "(?<=[\\[,\\s-]|^)" * _regex_escape(label) * "(?=[\\],\\s-]|\$)"
+    Regex(String(pat))
 end
 
 """
@@ -5372,15 +5375,16 @@ Replace a whole index label inside a bracket string, bounded by delimiters.
 """
 function _replace_label(s::AbstractString, old::AbstractString, new::AbstractString)
     # Boundaries: start of string, [, ], comma, -, whitespace
-    pat = Regex("(?<=[\\[,\\s-]|^)" * _regex_escape(old) * "(?=[\\],\\s-]|\$)")
+    pat_str = "(?<=[\\[,\\s-]|^)" * _regex_escape(old) * "(?=[\\],\\s-]|\$)"
+    pat = Regex(String(pat_str))
     replace(s, pat => new)
 end
 
 """
 Escape special regex characters in a string.
 """
-function _regex_escape(s::AbstractString)
-    replace(s, r"([.+*?^${}()|\\[\]])" => s"\\\1")
+function _regex_escape(s::AbstractString)::String
+    String(replace(String(s), r"([.+*?^${}()|\\[\]])" => s"\\\1"))
 end
 
 """

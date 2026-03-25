@@ -643,16 +643,20 @@ function _to_latex(s::TSum)::String
 end
 
 function _to_unicode(c::TCovD)::String
-    name = _label_to_unicode(c.covd)
-    idx = _to_unicode(c.index)
-    op = c.operand isa TSum ? "(" * _to_unicode(c.operand) * ")" : _to_unicode(c.operand)
+    name = _label_to_unicode(c.covd)::String
+    idx = _to_unicode(c.index)::String
+    op = (
+        c.operand isa TSum ? "(" * _to_unicode(c.operand) * ")" : _to_unicode(c.operand)
+    )::String
     name * idx * op
 end
 
 function _to_latex(c::TCovD)::String
-    name = _label_to_latex(c.covd)
-    idx = _to_latex(c.index)
-    op = c.operand isa TSum ? "(" * _to_latex(c.operand) * ")" : _to_latex(c.operand)
+    name = _label_to_latex(c.covd)::String
+    idx = _to_latex(c.index)::String
+    op = (
+        c.operand isa TSum ? "(" * _to_latex(c.operand) * ")" : _to_latex(c.operand)
+    )::String
     name * idx * op
 end
 
