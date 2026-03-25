@@ -3,7 +3,7 @@
 This guide is for researchers who already use the Wolfram Language `xAct` suite and want to migrate their workflows to `xAct.jl`. It covers the **Wolfram Expression Translator** — a CLI tool that automatically converts your existing Wolfram code into Julia, TOML, or Python.
 
 !!! tip "Already familiar with the Julia API?"
-    If you just need a quick reference, see the [Rosetta Stone](getting-started.md#2-reference-migration-rosetta-stone) table.
+    If you just need a quick reference, see the [Rosetta Stone](getting-started.md#4-reference-migration-rosetta-stone) table.
 
 !!! info "Prerequisites"
     Install sxAct following the [Installation Guide](installation.md). The translator CLI (`xact-test translate`) is included — no Wolfram license required.

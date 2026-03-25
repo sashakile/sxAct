@@ -178,9 +178,12 @@ def _cmd_property(args: argparse.Namespace) -> int:
     property_files = []
     for p in toml_files:
         try:
-            import tomli
+            if sys.version_info >= (3, 11):
+                import tomllib
+            else:
+                import tomli as tomllib
 
-            raw = tomli.loads(p.read_text())
+            raw = tomllib.loads(p.read_text())
             if raw.get("layer") == "property":
                 property_files.append(p)
         except Exception:

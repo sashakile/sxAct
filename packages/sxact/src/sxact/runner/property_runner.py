@@ -22,7 +22,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import tomli
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +109,7 @@ class PropertyLoadError(ValueError):
 def load_property_file(path: Path) -> PropertyFile:
     """Parse a property TOML file into a PropertyFile dataclass."""
     try:
-        raw = tomli.loads(path.read_text())
+        raw = tomllib.loads(path.read_text())
     except Exception as exc:
         raise PropertyLoadError(f"TOML parse error in {path}: {exc}") from exc
 

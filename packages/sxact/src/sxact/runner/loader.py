@@ -17,7 +17,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-import tomli
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 import jsonschema
 import jsonschema.validators
 
@@ -145,10 +150,10 @@ def load_test_file(path: str | Path) -> TestFile:
 def _parse_toml(path: Path) -> dict[str, Any]:
     try:
         with open(path, "rb") as fh:
-            return tomli.load(fh)
+            return tomllib.load(fh)
     except FileNotFoundError:
         raise LoadError(f"Test file not found: {path}", path=path)
-    except tomli.TOMLDecodeError as exc:
+    except tomllib.TOMLDecodeError as exc:
         raise LoadError(f"TOML parse error in {path.name}: {exc}", path=path) from exc
 
 
