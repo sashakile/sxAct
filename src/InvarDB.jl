@@ -565,8 +565,8 @@ Arguments:
   - `dim`: Spacetime dimension for dimension-dependent rules (steps 5, 6). Default: 4.
 """
 function LoadInvarDB(dbdir::String; dim::Int=4)
-    @assert dim >= 2 "LoadInvarDB: dimension must be ≥ 2, got $dim"
-    @assert isdir(dbdir) "LoadInvarDB: directory $dbdir does not exist"
+    dim >= 2 || error("LoadInvarDB: dimension must be ≥ 2, got $dim")
+    isdir(dbdir) || error("LoadInvarDB: directory $dbdir does not exist")
     riemann_dir = joinpath(dbdir, "Riemann")
 
     perms = Dict{Vector{Int},Dict{Int,Vector{Int}}}()
