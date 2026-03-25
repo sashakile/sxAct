@@ -13,7 +13,6 @@ import pytest
 from sxact.snapshot.runner import compute_oracle_hash
 from sxact.snapshot.store import SnapshotLoadError, SnapshotStore
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -88,9 +87,7 @@ class TestLoad:
         assert snap.normalized_output == "delta[-$1,-$2]"
 
     def test_loads_properties(self, tmp_path):
-        _write_snapshot(
-            tmp_path, "pkg/a", "t1", properties={"rank": 2, "type": "Tensor"}
-        )
+        _write_snapshot(tmp_path, "pkg/a", "t1", properties={"rank": 2, "type": "Tensor"})
         store = SnapshotStore(tmp_path)
         snap = store.load("pkg/a", "t1")
         assert snap.properties == {"rank": 2, "type": "Tensor"}

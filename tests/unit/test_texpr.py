@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import xact
-from xact.expr import AppliedTensor, CovDExpr, CovDHead, DnIdx, TExpr, TensorHead
+from xact.expr import AppliedTensor, CovDExpr, CovDHead, DnIdx, TensorHead, TExpr
 
 
 class TestIdx:

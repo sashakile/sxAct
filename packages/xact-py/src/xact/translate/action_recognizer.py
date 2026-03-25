@@ -18,7 +18,6 @@ from typing import Any
 from xact.translate.wl_parser import WLExpr, WLLeaf, WLNode, parse, parse_session
 from xact.translate.wl_serializer import serialize
 
-
 # ---------------------------------------------------------------------------
 # Wolfram → sxAct name mapping (where they differ)
 # ---------------------------------------------------------------------------
@@ -90,9 +89,7 @@ _KNOWN_HEADS: frozenset[str] = frozenset(
 _CHAINED_HEADS = frozenset({"VarD", "ToBasis", "FromBasis"})
 
 # PerturbCurvature key names
-_PERTURB_CURVATURE_KEYS = frozenset(
-    {"Christoffel1", "Riemann1", "Ricci1", "RicciScalar1"}
-)
+_PERTURB_CURVATURE_KEYS = frozenset({"Christoffel1", "Riemann1", "Ricci1", "RicciScalar1"})
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +165,7 @@ def recognize(expr: WLExpr) -> ActionDict:
     }
 
 
-def _recognize_chained(
-    head_name: str, inner_node: WLNode, outer_args: list[WLExpr]
-) -> ActionDict:
+def _recognize_chained(head_name: str, inner_node: WLNode, outer_args: list[WLExpr]) -> ActionDict:
     """Handle chained calls like VarD[field][expr], ToBasis[basis][expr]."""
     if head_name == "VarD":
         variable = _ser(inner_node.args[0]) if inner_node.args else ""

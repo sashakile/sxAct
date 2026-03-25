@@ -39,7 +39,7 @@ class CompareResult:
     equal: bool
     tier: int
     confidence: float = 1.0
-    diff: Optional[str] = None
+    diff: str | None = None
 
 
 def compare(
@@ -101,9 +101,7 @@ def _compare_tier1(lhs: "Result", rhs: "Result") -> CompareResult:
     )
 
 
-def _compare_tier2(
-    lhs: "Result", rhs: "Result", oracle: "OracleClient"
-) -> CompareResult:
+def _compare_tier2(lhs: "Result", rhs: "Result", oracle: "OracleClient") -> CompareResult:
     """Tier 2: Symbolic diff=0 via oracle Simplify."""
     diff_expr = f"Simplify[({lhs.repr}) - ({rhs.repr})]"
 

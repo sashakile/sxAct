@@ -6,6 +6,7 @@ be handed to :mod:`sxact.snapshot.writer` to persist as the oracle directory.
 Public API::
 
     from sxact.snapshot.runner import run_file, FileSnapshot, TestSnapshot
+
     snap = run_file(test_file, adapter)
 """
 
@@ -22,7 +23,6 @@ from typing import Any
 from sxact.adapter.wolfram import WolframAdapter
 from sxact.oracle.result import Result
 from sxact.runner.loader import Operation, TestCase, TestFile
-
 
 # ---------------------------------------------------------------------------
 # Value objects
@@ -196,13 +196,10 @@ def _run_op(
     return expr, result
 
 
-def _substitute_bindings(
-    args: dict[str, Any], bindings: dict[str, str]
-) -> dict[str, Any]:
+def _substitute_bindings(args: dict[str, Any], bindings: dict[str, str]) -> dict[str, Any]:
     """Return a copy of *args* with ``$name`` references replaced by bound values."""
     return {
-        key: _sub_refs(val, bindings) if isinstance(val, str) else val
-        for key, val in args.items()
+        key: _sub_refs(val, bindings) if isinstance(val, str) else val for key, val in args.items()
     }
 
 

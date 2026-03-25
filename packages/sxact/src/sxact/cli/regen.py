@@ -47,11 +47,7 @@ def _interactive_review(
         print(f"\n+++ {meta_id}/{test_id} [NEW]")
         while True:
             try:
-                ans = (
-                    input("Accept new snapshot? [y]es/[n]o/[a]ll/[q]uit: ")
-                    .strip()
-                    .lower()
-                )
+                ans = input("Accept new snapshot? [y]es/[n]o/[a]ll/[q]uit: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 return None
             if ans in ("y", "yes"):
@@ -84,9 +80,9 @@ def _interactive_review(
 
 
 def _cmd_regen_oracle(args: argparse.Namespace) -> int:
-    from sxact.adapter.wolfram import WolframAdapter
     from sxact.adapter.base import AdapterError
-    from sxact.runner.loader import load_test_file, LoadError
+    from sxact.adapter.wolfram import WolframAdapter
+    from sxact.runner.loader import LoadError, load_test_file
     from sxact.snapshot.runner import run_file
     from sxact.snapshot.store import SnapshotStore
     from sxact.snapshot.writer import write_oracle_dir
@@ -207,9 +203,7 @@ def _cmd_regen_oracle(args: argparse.Namespace) -> int:
 
     print()
     if args.interactive:
-        accepted_snapshots = _interactive_review(
-            new_snapshots, added, removed, changed, store
-        )
+        accepted_snapshots = _interactive_review(new_snapshots, added, removed, changed, store)
         if accepted_snapshots is None:
             print("Aborted.")
             return 1

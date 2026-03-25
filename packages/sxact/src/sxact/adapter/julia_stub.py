@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Literal as _Literal
+from typing import Any, ClassVar
+from typing import Literal as _Literal
 
 from sxact.adapter.base import (
     AdapterError,
@@ -26,10 +27,20 @@ from sxact.adapter.base import (
 )
 from sxact.adapter.julia_names import (
     DEF_MANIFOLD as _JN_DEF_MANIFOLD,
+)
+from sxact.adapter.julia_names import (
     DEF_METRIC as _JN_DEF_METRIC,
-    DEF_TENSOR as _JN_DEF_TENSOR,
+)
+from sxact.adapter.julia_names import (
     DEF_PERTURBATION as _JN_DEF_PERTURBATION,
+)
+from sxact.adapter.julia_names import (
+    DEF_TENSOR as _JN_DEF_TENSOR,
+)
+from sxact.adapter.julia_names import (
     TENSOR_Q as _JN_TENSOR_Q,
+)
+from sxact.adapter.julia_names import (
     TO_CANONICAL as _JN_TO_CANONICAL,
 )
 from sxact.normalize import normalize as _normalize
@@ -55,7 +66,7 @@ _log = logging.getLogger(__name__)
 _Symmetry = _Literal["Symmetric", "Antisymmetric"]
 
 
-def _parse_symmetry(sym_str: str) -> "_Symmetry | None":
+def _parse_symmetry(sym_str: str) -> _Symmetry | None:
     """Extract symmetry type from xAct symmetry string.
 
     Returns 'Symmetric', 'Antisymmetric', or None.
@@ -106,7 +117,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     _DEFERRED_ACTIONS: frozenset[str] = frozenset()
 
     # XCore module-level mutable state to reset on teardown
-    _RESET_STMTS = ["xAct.reset_state!()"]
+    _RESET_STMTS: ClassVar[list[str]] = ["xAct.reset_state!()"]
 
     def __init__(self) -> None:
         self._jl: Any = None
@@ -152,9 +163,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             "MakeTraceFree": "_make_trace_free",
             "RiemannSimplify": "_riemann_simplify",
         }
-        self._CTX_ACTIONS = frozenset(
-            {"DefManifold", "DefMetric", "DefTensor", "DefPerturbation"}
-        )
+        self._CTX_ACTIONS = frozenset({"DefManifold", "DefMetric", "DefTensor", "DefPerturbation"})
 
     def _ensure_ready(self) -> None:
         if self._jl is not None:
@@ -195,8 +204,8 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         for stmt in self._RESET_STMTS:
             try:
                 self._jl.seval(stmt)
-            except Exception:  # noqa: BLE001 — teardown must not raise
-                import warnings  # noqa: PLC0415
+            except Exception:
+                import warnings
 
                 warnings.warn(
                     f"JuliaAdapter.teardown: failed to execute '{stmt}'",
@@ -238,9 +247,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             # Exception: if the expression contains a comparison operator (===) it is a
             # law-check from the property runner and must be evaluated in Julia.
             if _is_tensor_expr(expr) and "===" not in expr:
-                return Result(
-                    status="ok", type="Expr", repr=expr, normalized=_normalize(expr)
-                )
+                return Result(status="ok", type="Expr", repr=expr, normalized=_normalize(expr))
             return self._execute_expr(expr)
         if action == "Assert":
             return self._execute_assert(
@@ -256,9 +263,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             error=f"unhandled action: {action!r}",
         )
 
-    def _execute_xtensor(
-        self, ctx: _JuliaContext, action: str, args: dict[str, Any]
-    ) -> Result:
+    def _execute_xtensor(self, ctx: _JuliaContext, action: str, args: dict[str, Any]) -> Result:
         """Dispatch xTensor actions via handler registry."""
         method_name = self._ACTION_HANDLERS.get(action)
         if method_name is None:
@@ -278,7 +283,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
                 result = handler(args)
             return result
         except Exception as exc:
-            import traceback as _tb  # noqa: PLC0415
+            import traceback as _tb
 
             tb_str = _tb.format_exc()
             return Result(
@@ -326,9 +331,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         raw_manifolds = args.get("manifolds")
         if raw_manifolds is not None:
             # Multi-index-set: pass a Vector of Symbols to Julia
-            manifold_names = [
-                validate_ident(str(m), "manifold name") for m in raw_manifolds
-            ]
+            manifold_names = [validate_ident(str(m), "manifold name") for m in raw_manifolds]
             jl_manifolds = "Symbol[" + ", ".join(f":{m}" for m in manifold_names) + "]"
             jl_call(
                 self._jl,
@@ -405,15 +408,13 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             # signdet == 1 → Euclidean (0 negative eigenvalues); -1 → Lorentzian (1 neg)
             signature = 1 if signdet == -1 else 0
             ctx._metrics.append(
-                Metric(
-                    name=metric_name, manifold=ctx._manifolds[-1], signature=signature
-                )
+                Metric(name=metric_name, manifold=ctx._manifolds[-1], signature=signature)
             )
         repr_str = metric_raw
         return Result(status="ok", type="Handle", repr=repr_str, normalized=repr_str)
 
     def _def_basis(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         name = validate_ident(str(args["name"]), "basis name")
         _api.def_basis(name, str(args["vbundle"]), list(args["cnumbers"]))
@@ -421,7 +422,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Handle", repr=name, normalized=name)
 
     def _def_chart(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         name = validate_ident(str(args["name"]), "chart name")
         scalars = list(args["scalars"])
@@ -433,19 +434,19 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Handle", repr=name, normalized=name)
 
     def _to_canonical(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.canonicalize(str(args["expression"]))
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 
     def _contract(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.contract(str(args["expression"]))
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 
     def _commute_covds(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         indices = list(args["indices"])
         if len(indices) != 2:
@@ -462,7 +463,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 
     def _sort_covds(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.sort_covds(str(args["expression"]), str(args["covd"]))
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
@@ -483,38 +484,38 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Handle", repr=tensor, normalized=tensor)
 
     def _perturb(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.perturb(str(args["expr"]), int(args["order"]))
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _check_metric_consistency(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ok = _api.check_metric_consistency(str(args["metric"]))
         raw = "True" if ok else "False"
         return Result(status="ok", type="Bool", repr=raw, normalized=raw)
 
     def _perturbation_order(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         order = _api.perturbation_order(str(args["tensor"]))
         return Result(status="ok", type="Int", repr=str(order), normalized=str(order))
 
     def _perturbation_at_order(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         name = _api.perturbation_at_order(str(args["background"]), int(args["order"]))
         return Result(status="ok", type="String", repr=name, normalized=name)
 
     def _simplify(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.simplify(str(args["expression"]))
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _perturb_curvature(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         key = args.get("key")
         jl_dict = _api.perturb_curvature(
@@ -524,34 +525,32 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         )
         if key is not None:
             formula = jl_dict.get(str(key), "")
-            return Result(
-                status="ok", type="Expr", repr=formula, normalized=_normalize(formula)
-            )
+            return Result(status="ok", type="Expr", repr=formula, normalized=_normalize(formula))
         lines = [f"{k}: {v}" for k, v in sorted(jl_dict.items())]
         raw = "\n".join(lines)
         return Result(status="ok", type="Dict", repr=raw, normalized=raw)
 
     def _integrate_by_parts(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.ibp(str(args["expression"]), str(args["covd"]))
         return Result(status="ok", type="Expr", repr=s, normalized=_normalize(s))
 
     def _total_derivative_q(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         is_true = _api.total_derivative_q(str(args["expression"]), str(args["covd"]))
         s = "True" if is_true else "False"
         return Result(status="ok", type="Bool", repr=s, normalized=s)
 
     def _vard(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.var_d(str(args["expression"]), str(args["field"]), str(args["covd"]))
         return Result(status="ok", type="Expr", repr=s, normalized=_normalize(s))
 
     def _set_basis_change(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         from_basis = str(args["from_basis"])
         to_basis = str(args["to_basis"])
@@ -560,7 +559,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Handle", repr=repr_str, normalized=repr_str)
 
     def _change_basis(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.change_basis(
             str(args["expr"]),
@@ -571,38 +570,36 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Expr", repr=raw, normalized=_normalize(raw))
 
     def _get_jacobian(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.get_jacobian(str(args["basis1"]), str(args["basis2"]))
         return Result(status="ok", type="Scalar", repr=raw, normalized=raw)
 
     def _basis_change_q(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ok = _api.basis_change_q(str(args["from_basis"]), str(args["to_basis"]))
         raw = "True" if ok else "False"
         return Result(status="ok", type="Bool", repr=raw, normalized=raw)
 
     def _set_components(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         tensor = str(args["tensor"])
         bases = [str(b) for b in args["bases"]]
-        _api.set_components(
-            tensor, list(args["array"]), bases, weight=int(args.get("weight", 0))
-        )
+        _api.set_components(tensor, list(args["array"]), bases, weight=int(args.get("weight", 0)))
         repr_str = f"CTensor({tensor}, {bases})"
         return Result(status="ok", type="Handle", repr=repr_str, normalized=repr_str)
 
     def _get_components(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ct = _api.get_components(str(args["tensor"]), [str(b) for b in args["bases"]])
         raw = ct._julia_str or repr(ct)
         return Result(status="ok", type="Expr", repr=raw, normalized=raw)
 
     def _component_value(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         val = _api.component_value(
             str(args["tensor"]),
@@ -613,36 +610,34 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
         return Result(status="ok", type="Scalar", repr=raw, normalized=raw)
 
     def _ctensor_q(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ok = _api.ctensor_q(str(args["tensor"]), *[str(b) for b in args["bases"]])
         raw = "True" if ok else "False"
         return Result(status="ok", type="Bool", repr=raw, normalized=raw)
 
     def _to_basis(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ct = _api.to_basis(str(args["expression"]), str(args["basis"]))
         raw = ct._julia_str or repr(ct)
         return Result(status="ok", type="Expr", repr=raw, normalized=raw)
 
     def _from_basis(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         raw = _api.from_basis(str(args["tensor"]), [str(b) for b in args["bases"]])
         return Result(status="ok", type="Expr", repr=raw, normalized=raw)
 
     def _trace_basis_dummy(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
-        ct = _api.trace_basis_dummy(
-            str(args["tensor"]), [str(b) for b in args["bases"]]
-        )
+        ct = _api.trace_basis_dummy(str(args["tensor"]), [str(b) for b in args["bases"]])
         raw = ct._julia_str or repr(ct)
         return Result(status="ok", type="Expr", repr=raw, normalized=raw)
 
     def _christoffel(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         ct = _api.christoffel(
             str(args["metric"]),
@@ -657,32 +652,32 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     # ------------------------------------------------------------------
 
     def _collect_tensors(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.collect_tensors(str(args["expression"]))
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _all_contractions(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         items = _api.all_contractions(str(args["expression"]), str(args["metric"]))
         s = ", ".join(items) if len(items) > 1 else (items[0] if items else "")
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _symmetry_of(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.symmetry_of(str(args["expression"]))
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _make_trace_free(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.make_trace_free(str(args["expression"]), str(args["metric"]))
         return Result(status="ok", type="String", repr=s, normalized=s)
 
     def _riemann_simplify(self, args: dict[str, Any]) -> Result:
-        import xact.api as _api  # noqa: PLC0415
+        import xact.api as _api
 
         s = _api.riemann_simplify(
             str(args["expression"]), str(args["covd"]), level=int(args.get("level", 6))
@@ -816,9 +811,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
     # Introspection
     # ------------------------------------------------------------------
 
-    def get_properties(
-        self, expr: str, ctx: _JuliaContext | None = None
-    ) -> dict[str, Any]:
+    def get_properties(self, expr: str, ctx: _JuliaContext | None = None) -> dict[str, Any]:
         return {}
 
     def get_version(self) -> VersionInfo:
@@ -833,7 +826,7 @@ class JuliaAdapter(TestAdapter[_JuliaContext]):
             adapter_version=f"0.1.0 (xAct {self._xact_version})",
         )
 
-    def get_tensor_context(self, ctx: _JuliaContext, rng: "Any | None" = None) -> "Any":
+    def get_tensor_context(self, ctx: _JuliaContext, rng: Any | None = None) -> Any:
         """Build a TensorContext from the manifold/tensor state in *ctx*.
 
         Returns a :class:`~sxact.compare.sampling.TensorContext` populated with
@@ -880,9 +873,7 @@ def _try_tensor_string_comparison(condition: str) -> tuple[bool, str, str] | Non
     return None
 
 
-def _try_to_canonical_comparison(
-    condition: str, jl: Any
-) -> tuple[bool, str, str] | None:
+def _try_to_canonical_comparison(condition: str, jl: Any) -> tuple[bool, str, str] | None:
     """Handle conditions of the form: tensor_expr // ToCanonical === value.
 
     Also handles OR conditions: "clause1 || tensor_expr // ToCanonical === value"
@@ -946,9 +937,7 @@ def _try_tensor_q(condition: str, jl: Any) -> tuple[bool, str, str] | None:
         return None
 
 
-def _try_single_to_canonical_comparison(
-    condition: str, jl: Any
-) -> tuple[bool, str, str] | None:
+def _try_single_to_canonical_comparison(condition: str, jl: Any) -> tuple[bool, str, str] | None:
     """Handle a single (no ||) condition of the form: tensor_expr // ToCanonical === value."""
     # Pattern: something // ToCanonical === something_else
     # Split on " === " first to find the comparison value
@@ -1033,9 +1022,7 @@ def _preprocess_xperm_calls(jl: Any, expr: str) -> str:
             # Recursively preprocess the inner expression first
             inner_processed = _preprocess_xperm_calls(jl, inner)
             try:
-                result = str(
-                    jl_call(jl, f"XTensor.{func_name}", jl_str(inner_processed))
-                )
+                result = str(jl_call(jl, f"XTensor.{func_name}", jl_str(inner_processed)))
             except Exception:
                 # If preprocessing fails, leave the call in place
                 break
@@ -1142,7 +1129,6 @@ _JULIA_BUILTINS: frozenset[str] = frozenset(
     {
         "length",
         "unique",
-        "string",
         "string",
         "println",
         "print",
@@ -1270,7 +1256,7 @@ def _bind_wl_atoms(jl: Any, julia_expr: str) -> None:
                 jl.seval(f'Main.eval(:(global {sym} = Symbol("{julia_sym}")))')
             else:
                 jl.seval(f"Main.eval(:(global {sym} = :{sym}))")
-        except Exception:  # noqa: BLE001 — binding failure is non-fatal
+        except Exception:
             pass  # If binding fails, skip — symbol may already be defined correctly
 
 
@@ -1288,7 +1274,7 @@ def _bind_fresh_symbols(jl: Any, julia_expr: str) -> None:
             already_defined = bool(jl.seval(f"isdefined(Main, :{sym})"))
             if not already_defined:
                 jl.seval(f"Main.eval(:(global {sym} = :{sym}))")
-        except Exception:  # noqa: BLE001 — binding failure is non-fatal
+        except Exception:
             pass
 
 
@@ -1385,9 +1371,7 @@ def _rewrite_postfix(expr: str) -> str:
     return expr
 
 
-_SCHREIER_ORBIT_RE = re.compile(
-    r"SchreierOrbit\[([^,\[]+),\s*GenSet\[([^\]]+)\],\s*([^\]]+)\]"
-)
+_SCHREIER_ORBIT_RE = re.compile(r"SchreierOrbit\[([^,\[]+),\s*GenSet\[([^\]]+)\],\s*([^\]]+)\]")
 _SCHREIER_ORBITS_RE = re.compile(r"SchreierOrbits\[GenSet\[([^\]]+)\],\s*([^\]]+)\]")
 
 # Post-process Dimino after WL→Julia translation.
@@ -1402,7 +1386,7 @@ def _postprocess_dimino(julia_expr: str) -> str:
     Dimino(GenSet(g1, g2, ...)) → Dimino(GenSet(g1, g2, ...), ["g1"=>g1, "g2"=>g2, ...])
     """
 
-    def replace_dimino(m: "re.Match[str]") -> str:
+    def replace_dimino(m: re.Match[str]) -> str:
         gens_str = m.group(1).strip()
         gen_names = [g.strip() for g in gens_str.split(",")]
         pairs = ", ".join(f'"{nm}"=>{nm}' for nm in gen_names)
@@ -1577,7 +1561,7 @@ def _preprocess_schreier_orbit(expr: str) -> str:
     SchreierOrbits[GenSet[g1,...], n]     →  SchreierOrbits([g1,...], n, ["g1",...])
     """
 
-    def replace_single(m: "re.Match[str]") -> str:
+    def replace_single(m: re.Match[str]) -> str:
         pt = m.group(1).strip()
         gens = m.group(2).strip()
         n = m.group(3).strip()
@@ -1586,7 +1570,7 @@ def _preprocess_schreier_orbit(expr: str) -> str:
         gens_arr = "[" + ", ".join(gen_names) + "]"
         return f"SchreierOrbit({pt}, {gens_arr}, {n}, {names_arr})"
 
-    def replace_multi(m: "re.Match[str]") -> str:
+    def replace_multi(m: re.Match[str]) -> str:
         gens = m.group(1).strip()
         n = m.group(2).strip()
         gen_names = [g.strip() for g in gens.split(",")]

@@ -10,7 +10,6 @@ import pytest
 from xact.translate import wl_to_actions
 from xact.translate.renderers import render, to_json, to_julia, to_python, to_toml
 
-
 # ===================================================================
 # Shared fixtures
 # ===================================================================

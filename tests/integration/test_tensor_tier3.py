@@ -12,15 +12,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from sxact.compare.comparator import EqualityMode, compare
 from sxact.compare.sampling import (
     TensorContext,
     build_tensor_context,
     sample_numeric,
 )
-from sxact.compare.comparator import compare, EqualityMode
 from sxact.compare.tensor_objects import Manifold, Metric, TensorField
 from sxact.oracle.result import Result
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -257,13 +256,9 @@ class TestComparatorTier3WithTensorContext:
         rhs = _ok("F[-a,-b] + 0")  # normalized differently → Tier 1 fails
         m = Manifold("M", 2)
         tensor = TensorField("F", rank=2, manifold=m)
-        tensor_ctx = build_tensor_context(
-            [m], [], [tensor], rng=np.random.default_rng(7)
-        )
+        tensor_ctx = build_tensor_context([m], [], [tensor], rng=np.random.default_rng(7))
 
-        cmp = compare(
-            lhs, rhs, oracle, mode=EqualityMode.NUMERIC, tensor_ctx=tensor_ctx
-        )
+        cmp = compare(lhs, rhs, oracle, mode=EqualityMode.NUMERIC, tensor_ctx=tensor_ctx)
 
         assert cmp.tier == 3
         assert cmp.equal

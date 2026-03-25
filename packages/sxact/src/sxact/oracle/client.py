@@ -33,11 +33,7 @@ class OracleClient:
             data = resp.json()
             status_raw = data.get("status", "error")
             status: Literal["ok", "error", "timeout"] = (
-                "ok"
-                if status_raw == "ok"
-                else "timeout"
-                if status_raw == "timeout"
-                else "error"
+                "ok" if status_raw == "ok" else "timeout" if status_raw == "timeout" else "error"
             )
             raw = data.get("result", "") or ""
             return Result(
@@ -76,11 +72,7 @@ class OracleClient:
             data = resp.json()
             status_raw = data.get("status", "error")
             status: Literal["ok", "error", "timeout"] = (
-                "ok"
-                if status_raw == "ok"
-                else "timeout"
-                if status_raw == "timeout"
-                else "error"
+                "ok" if status_raw == "ok" else "timeout" if status_raw == "timeout" else "error"
             )
             raw = data.get("result", "") or ""
             return Result(

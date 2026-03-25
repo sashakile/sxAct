@@ -5,24 +5,23 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from sxact.compare.sampling import (
+    Sample,
+    SamplingResult,
+    _extract_variables,
+    _numpy_to_wl,
+    build_tensor_context,
+)
 from sxact.compare.tensor_objects import (
     Manifold,
     Metric,
     TensorField,
+    _antisymmetrize,
+    _symmetrize,
     random_manifold,
     random_metric_array,
     random_tensor_array,
-    _symmetrize,
-    _antisymmetrize,
 )
-from sxact.compare.sampling import (
-    Sample,
-    SamplingResult,
-    build_tensor_context,
-    _extract_variables,
-    _numpy_to_wl,
-)
-
 
 # ---------------------------------------------------------------------------
 # Manifold / Metric / TensorField dataclasses
@@ -78,9 +77,7 @@ class TestRandomMetricArray:
         metric = Metric("g", m, signature=1)
         arr = random_metric_array(metric, np.random.default_rng(2))
         eigenvalues = np.linalg.eigvalsh(arr)
-        assert (eigenvalues < 0).sum() == 1, (
-            "Lorentzian metric should have 1 negative eigenvalue"
-        )
+        assert (eigenvalues < 0).sum() == 1, "Lorentzian metric should have 1 negative eigenvalue"
 
 
 class TestRandomTensorArray:

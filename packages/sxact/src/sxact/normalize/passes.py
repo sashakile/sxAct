@@ -41,9 +41,7 @@ def _structural_key(expr: Expr) -> str:
         return expr.value
     else:
         # For Node, use head name + recursive structural keys of args
-        head_key = (
-            expr.head if isinstance(expr.head, str) else _structural_key(expr.head)
-        )
+        head_key = expr.head if isinstance(expr.head, str) else _structural_key(expr.head)
         args_key = ",".join(_structural_key(a) for a in expr.args)
         return f"{head_key}[{args_key}]"
 
@@ -67,9 +65,7 @@ def sort_commutative(expr: Expr) -> Expr:
     # Recurse first (bottom-up)
     new_args = [sort_commutative(a) for a in expr.args]
     new_head: str | Node = (
-        expr.head
-        if isinstance(expr.head, str)
-        else cast(Node, sort_commutative(expr.head))
+        expr.head if isinstance(expr.head, str) else cast(Node, sort_commutative(expr.head))
     )
 
     if isinstance(expr.head, str) and expr.head in _COMMUTATIVE_HEADS:
@@ -111,9 +107,7 @@ def canonicalize_indices(expr: Expr) -> Expr:
         else:
             new_args = [_visit(a) for a in node.args]
             new_head: str | Node = (
-                node.head
-                if isinstance(node.head, str)
-                else cast(Node, _visit(node.head))
+                node.head if isinstance(node.head, str) else cast(Node, _visit(node.head))
             )
             return Node(head=new_head, args=new_args)
 
@@ -140,9 +134,7 @@ def flatten_coefficients(expr: Expr) -> Expr:
 
     new_args = [flatten_coefficients(a) for a in expr.args]
     new_head: str | Node = (
-        expr.head
-        if isinstance(expr.head, str)
-        else cast(Node, flatten_coefficients(expr.head))
+        expr.head if isinstance(expr.head, str) else cast(Node, flatten_coefficients(expr.head))
     )
 
     # Times[1, x] → x  (when exactly two args and the first is Leaf("1"))

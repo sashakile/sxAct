@@ -17,7 +17,6 @@ from sxact.runner.property_runner import (
     run_property_file,
 )
 
-
 # ---------------------------------------------------------------------------
 # Output helpers
 # ---------------------------------------------------------------------------
@@ -190,9 +189,7 @@ def _cmd_property(args: argparse.Namespace) -> int:
             pass  # non-TOML or unreadable files silently skipped
 
     if not property_files:
-        print(
-            f"warning: no property TOML files found under {test_path}", file=sys.stderr
-        )
+        print(f"warning: no property TOML files found under {test_path}", file=sys.stderr)
         return 0
 
     tag_filter: str | None = None
@@ -226,9 +223,7 @@ def _cmd_property(args: argparse.Namespace) -> int:
             continue
 
         try:
-            result = run_property_file(
-                prop_file, adapter, tag_filter, adapter_name=args.adapter
-            )
+            result = run_property_file(prop_file, adapter, tag_filter, adapter_name=args.adapter)
         except Exception as exc:
             result = PropertyFileResult(
                 file_path=str(toml_path),
@@ -269,9 +264,7 @@ def _cmd_property(args: argparse.Namespace) -> int:
                         )
                     ],
                 )
-            _apply_cross_adapter_diff(
-                result, secondary, args.adapter, compare_adapter_name
-            )
+            _apply_cross_adapter_diff(result, secondary, args.adapter, compare_adapter_name)
 
         file_results.append(result)
 
@@ -281,8 +274,6 @@ def _cmd_property(args: argparse.Namespace) -> int:
         _print_terminal(file_results)
 
     any_failure = any(
-        r.status in ("fail", "partial", "error")
-        for fr in file_results
-        for r in fr.results
+        r.status in ("fail", "partial", "error") for fr in file_results for r in fr.results
     )
     return 1 if any_failure else 0

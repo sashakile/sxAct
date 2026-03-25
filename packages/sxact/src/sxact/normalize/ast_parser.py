@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Union
-
 
 # ---------------------------------------------------------------------------
 # AST node types
@@ -43,8 +41,8 @@ class Node:
     chained application like ``f[x][y]``).
     """
 
-    head: Union[str, "Node"]
-    args: list[Union["Node", Leaf]] = field(default_factory=list)
+    head: str | Node
+    args: list[Node | Leaf] = field(default_factory=list)
 
     def __repr__(self) -> str:
         head_repr = self.head if isinstance(self.head, str) else repr(self.head)
@@ -52,7 +50,7 @@ class Node:
         return f"Node({head_repr!r}, [{args_repr}])"
 
 
-Expr = Union[Node, Leaf]
+Expr = Node | Leaf
 
 
 # ---------------------------------------------------------------------------

@@ -32,7 +32,6 @@ from sxact.adapter.base import (
 from sxact.normalize import normalize as _normalize
 from sxact.oracle.result import Result
 
-
 # ===========================================================================
 # Wolfram symbolic expression data model
 # ===========================================================================
@@ -59,7 +58,7 @@ class Sym:
 class WExpr:
     """A Wolfram compound expression: Head[arg1, arg2, ...]."""
 
-    __slots__ = ("head", "args")
+    __slots__ = ("args", "head")
 
     def __init__(self, head: Any, args: list[Any]) -> None:
         self.head = head
@@ -356,11 +355,7 @@ def _wl_evaluate(expr: Any, state: _XCoreState) -> Any:
         # xTagSet[{tag, lhs_expr}, value]
         tag_pair, value = args[0], args[1]
         val = _wl_evaluate(value, state)
-        if (
-            isinstance(tag_pair, WExpr)
-            and tag_pair.head == _SYM_LIST
-            and len(tag_pair.args) == 2
-        ):
+        if isinstance(tag_pair, WExpr) and tag_pair.head == _SYM_LIST and len(tag_pair.args) == 2:
             tag_sym = tag_pair.args[0]
             lhs_expr = tag_pair.args[1]
             tag = tag_sym.name if isinstance(tag_sym, Sym) else str(tag_sym)
@@ -371,11 +366,7 @@ def _wl_evaluate(expr: Any, state: _XCoreState) -> Any:
         # xTagSetDelayed[{tag, lhs_expr}, rhs]
         tag_pair, rhs_expr = args[0], args[1]
         val = _wl_evaluate(rhs_expr, state)
-        if (
-            isinstance(tag_pair, WExpr)
-            and tag_pair.head == _SYM_LIST
-            and len(tag_pair.args) == 2
-        ):
+        if isinstance(tag_pair, WExpr) and tag_pair.head == _SYM_LIST and len(tag_pair.args) == 2:
             tag_sym = tag_pair.args[0]
             lhs_expr = tag_pair.args[1]
             tag = tag_sym.name if isinstance(tag_sym, Sym) else str(tag_sym)
@@ -551,9 +542,7 @@ def _wl_evaluate(expr: Any, state: _XCoreState) -> Any:
                     if isinstance(item, tuple) and len(item) == 2:
                         result.append(item)
                     else:
-                        raise RuntimeError(
-                            f"CheckOptions: expected rule, got {_wl_repr(item)}"
-                        )
+                        raise RuntimeError(f"CheckOptions: expected rule, got {_wl_repr(item)}")
             else:
                 raise RuntimeError(f"CheckOptions: expected rule, got {_wl_repr(a)}")
         return result
@@ -793,7 +782,7 @@ class _Parser:
                 self.pos += 2
                 rhs = self._parse_atom_call()  # function to apply
                 # lhs // rhs → rhs[lhs]
-                lhs = WExpr(rhs if isinstance(rhs, Sym) else rhs, [lhs])
+                lhs = WExpr(rhs, [lhs])
             else:
                 break
         return lhs
@@ -807,7 +796,7 @@ class _Parser:
                 rhs = self._parse_mul()
                 # Symbolic addition
                 if isinstance(lhs, WExpr) and lhs.head == _SYM_PLUS:
-                    lhs = WExpr(_SYM_PLUS, lhs.args + [rhs])
+                    lhs = WExpr(_SYM_PLUS, [*lhs.args, rhs])
                 else:
                     lhs = WExpr(_SYM_PLUS, [lhs, rhs])
             elif (
@@ -1008,16 +997,16 @@ def _wl_same(a: Any, b: Any) -> bool:
             return a == b
         return False
     if isinstance(a, list):
-        return len(a) == len(b) and all(_wl_same(x, y) for x, y in zip(a, b))
+        return len(a) == len(b) and all(_wl_same(x, y) for x, y in zip(a, b, strict=True))
     if isinstance(a, WExpr):
         return (
             isinstance(b, WExpr)
             and _wl_same(a.head, b.head)
             and len(a.args) == len(b.args)
-            and all(_wl_same(x, y) for x, y in zip(a.args, b.args))
+            and all(_wl_same(x, y) for x, y in zip(a.args, b.args, strict=True))
         )
     if isinstance(a, tuple) and isinstance(b, tuple):
-        return len(a) == len(b) and all(_wl_same(x, y) for x, y in zip(a, b))
+        return len(a) == len(b) and all(_wl_same(x, y) for x, y in zip(a, b, strict=True))
     return bool(a == b)
 
 
@@ -1217,10 +1206,7 @@ class PythonAdapter(TestAdapter[_PythonContext]):
             passed = _eval_bool_result(val)
             if passed:
                 return Result(status="ok", type="Bool", repr="True", normalized="True")
-            msg = (
-                message
-                or f"Assertion failed: {wolfram_condition!r} (got {_wl_repr(val)!r})"
-            )
+            msg = message or f"Assertion failed: {wolfram_condition!r} (got {_wl_repr(val)!r})"
             return Result(
                 status="error",
                 type="Bool",
@@ -1257,9 +1243,7 @@ class PythonAdapter(TestAdapter[_PythonContext]):
     # Introspection
     # ------------------------------------------------------------------
 
-    def get_properties(
-        self, expr: str, ctx: _PythonContext | None = None
-    ) -> dict[str, Any]:
+    def get_properties(self, expr: str, ctx: _PythonContext | None = None) -> dict[str, Any]:
         return {}
 
     def get_version(self) -> VersionInfo:

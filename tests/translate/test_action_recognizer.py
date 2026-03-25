@@ -6,7 +6,6 @@ import pytest
 
 from xact.translate import wl_to_action, wl_to_actions
 
-
 # ===================================================================
 # A.1 Definition actions
 # ===================================================================
@@ -44,9 +43,7 @@ class TestDefinitions:
         assert "symmetry" not in d["args"]
 
     def test_t5_multiline(self) -> None:
-        d = wl_to_action(
-            "DefTensor[R[-a,-b,-c,-d], M,\n  RiemannSymmetric[{-a,-b,-c,-d}]]"
-        )
+        d = wl_to_action("DefTensor[R[-a,-b,-c,-d], M,\n  RiemannSymmetric[{-a,-b,-c,-d}]]")
         assert d["action"] == "DefTensor"
         assert d["args"]["name"] == "R"
         assert len(d["args"]["indices"]) == 4
@@ -163,9 +160,7 @@ class TestSyntacticSugar:
         assert actions == []
 
     def test_t23_semicolon(self) -> None:
-        actions = wl_to_actions(
-            "DefManifold[M, 4, {a,b,c,d}]; DefMetric[-1, g[-a,-b], CD]"
-        )
+        actions = wl_to_actions("DefManifold[M, 4, {a,b,c,d}]; DefMetric[-1, g[-a,-b], CD]")
         assert len(actions) == 2
         assert actions[0]["action"] == "DefManifold"
         assert actions[1]["action"] == "DefMetric"
@@ -259,7 +254,8 @@ result == 0
         assert actions[3]["action"] == "Assert"
 
     def test_public_api_import(self) -> None:
-        from xact.translate import wl_to_action as fn1, wl_to_actions as fn2
+        from xact.translate import wl_to_action as fn1
+        from xact.translate import wl_to_actions as fn2
 
         assert callable(fn1)
         assert callable(fn2)

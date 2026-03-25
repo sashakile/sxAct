@@ -27,7 +27,6 @@ from sxact.adapter.julia_stub import _wl_to_jl  # reuse the Wolfram→Julia tran
 from sxact.normalize import normalize as _normalize
 from sxact.oracle.result import Result
 
-
 # ---------------------------------------------------------------------------
 # Context
 # ---------------------------------------------------------------------------
@@ -102,9 +101,7 @@ class PythonAdapter(TestAdapter[_PythonContext]):
             except Exception:
                 self._xact_version = "dev"
         except Exception as exc:
-            raise AdapterError(
-                f"xact.xcore (Julia runtime) initialisation failed: {exc}"
-            ) from exc
+            raise AdapterError(f"xact.xcore (Julia runtime) initialisation failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -227,9 +224,7 @@ class PythonAdapter(TestAdapter[_PythonContext]):
     # Introspection
     # ------------------------------------------------------------------
 
-    def get_properties(
-        self, expr: str, ctx: _PythonContext | None = None
-    ) -> dict[str, Any]:
+    def get_properties(self, expr: str, ctx: _PythonContext | None = None) -> dict[str, Any]:
         return {}
 
     def get_version(self) -> VersionInfo:

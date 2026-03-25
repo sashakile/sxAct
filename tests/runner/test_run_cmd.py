@@ -12,14 +12,13 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 from sxact.cli import (
-    _RunResult,
     _cmd_run,
     _print_json_run,
     _print_terminal_run,
     _run_file_live,
     _run_file_snapshot,
+    _RunResult,
     _sub_bindings,
     _tc_matches_tag,
 )
@@ -33,15 +32,12 @@ from sxact.runner.loader import (
 )
 from sxact.snapshot.runner import TestSnapshot
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
 
-def _ok(
-    repr: str = "T", normalized: str = "", properties: dict | None = None
-) -> Result:
+def _ok(repr: str = "T", normalized: str = "", properties: dict | None = None) -> Result:
     return Result(
         status="ok",
         type="Expr",
@@ -96,13 +92,11 @@ def _make_adapter(*results: Result) -> MagicMock:
     adapter.teardown.return_value = None
     adapter.execute.side_effect = list(results)
     adapter.normalize.side_effect = lambda expr: expr
-    adapter.equals.side_effect = lambda a, b, mode, ctx=None: (a == b)
+    adapter.equals.side_effect = lambda a, b, mode, ctx=None: a == b
     return adapter
 
 
-def _make_snapshot(
-    test_id: str, normalized: str = "T", hash_: str = ""
-) -> TestSnapshot:
+def _make_snapshot(test_id: str, normalized: str = "T", hash_: str = "") -> TestSnapshot:
     from sxact.snapshot.runner import compute_oracle_hash
 
     h = hash_ or compute_oracle_hash(normalized, {})
@@ -488,9 +482,7 @@ class TestPrintJsonRun:
 
     def test_test_fields(self):
         results = [
-            _RunResult(
-                "pkg/t", "tc_1", "fail", actual="T", expected="R", message="mismatch"
-            )
+            _RunResult("pkg/t", "tc_1", "fail", actual="T", expected="R", message="mismatch")
         ]
         data = self._capture_json([("f.toml", results)])
         t = data["files"][0]["tests"][0]
@@ -565,9 +557,7 @@ class TestCmdRun:
         bad.write_text("not valid toml content ][")
 
         args = self._make_args(str(tmp_path))
-        with patch(
-            "sxact.snapshot.store.SnapshotStore", side_effect=ValueError("no dir")
-        ):
+        with patch("sxact.snapshot.store.SnapshotStore", side_effect=ValueError("no dir")):
             rc = _cmd_run(args)
 
         # Either oracle_dir missing causes rc=1 or load error does; either way rc=1
@@ -578,9 +568,7 @@ class TestCmdRun:
         toml_file = tmp_path / "tests.toml"
         toml_file.write_text("")  # will be intercepted by mock
 
-        tc = _make_tc(
-            id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})]
-        )
+        tc = _make_tc(id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})])
         tf = _make_file(tests=[tc])
         snap = _make_snapshot("t1", normalized="X")
         store = _make_store({("pkg/tests", "t1"): snap})
@@ -602,9 +590,7 @@ class TestCmdRun:
         toml_file = tmp_path / "tests.toml"
         toml_file.write_text("")
 
-        tc = _make_tc(
-            id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})]
-        )
+        tc = _make_tc(id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})])
         tf = _make_file(tests=[tc])
         snap = _make_snapshot("t1", normalized="DIFFERENT")
         store = _make_store({("pkg/tests", "t1"): snap})
@@ -626,9 +612,7 @@ class TestCmdRun:
         toml_file = tmp_path / "tests.toml"
         toml_file.write_text("")
 
-        tc = _make_tc(
-            id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})]
-        )
+        tc = _make_tc(id="t1", ops=[Operation(action="Evaluate", args={"expression": "X"})])
         tf = _make_file(tests=[tc])
         snap = _make_snapshot("t1", normalized="X")
         store = _make_store({("pkg/tests", "t1"): snap})

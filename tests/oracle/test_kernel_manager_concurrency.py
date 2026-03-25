@@ -1,12 +1,11 @@
 """Tests that KernelManager correctly serializes concurrent evaluate() calls."""
 
-import sys
 import os
+import sys
 import threading
 import time
 import types
 from unittest.mock import MagicMock
-
 
 # Stub out wolframclient before importing kernel_manager so tests run offline.
 _wc = types.ModuleType("wolframclient")
@@ -83,6 +82,5 @@ class TestKernelManagerConcurrency:
     def test_rlock_is_reentrant(self):
         """RLock must not deadlock when same thread re-acquires it."""
         km = _make_km()
-        with km._lock:
-            with km._lock:  # must not deadlock
-                pass
+        with km._lock, km._lock:  # must not deadlock
+            pass

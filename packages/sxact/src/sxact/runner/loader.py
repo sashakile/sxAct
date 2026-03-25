@@ -3,6 +3,7 @@
 Public API::
 
     from sxact.runner.loader import load_test_file
+
     test_file = load_test_file("path/to/tests.toml")
 
 Raises :class:`LoadError` for missing files, TOML parse errors, and schema
@@ -13,11 +14,10 @@ violations.  Error messages always include the offending field path so callers
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
-
-import sys
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -151,8 +151,8 @@ def _parse_toml(path: Path) -> dict[str, Any]:
     try:
         with open(path, "rb") as fh:
             return tomllib.load(fh)
-    except FileNotFoundError:
-        raise LoadError(f"Test file not found: {path}", path=path)
+    except FileNotFoundError as exc:
+        raise LoadError(f"Test file not found: {path}", path=path) from exc
     except tomllib.TOMLDecodeError as exc:
         raise LoadError(f"TOML parse error in {path.name}: {exc}", path=path) from exc
 

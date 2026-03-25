@@ -4,7 +4,6 @@ import pytest
 
 import xact
 
-
 # ---------------------------------------------------------------------------
 # Basis handle class
 # ---------------------------------------------------------------------------
@@ -332,16 +331,12 @@ class TestBasisChangeEndToEnd:
 
     def test_set_and_query_basis_change(self, setup_2d):
         B, C = setup_2d
-        xact.set_basis_change(
-            "Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
-        )
+        xact.set_basis_change("Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
         assert xact.basis_change_q("Bi", "Ci") is True
 
     def test_get_jacobian(self, setup_2d):
         B, C = setup_2d
-        xact.set_basis_change(
-            "Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
-        )
+        xact.set_basis_change("Bi", "Ci", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
         jac = xact.get_jacobian("Bi", "Ci")
         assert isinstance(jac, str)
 

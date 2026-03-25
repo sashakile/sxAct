@@ -22,7 +22,6 @@ from typing import Any
 
 from . import _runtime
 
-
 # ---------------------------------------------------------------------------
 # Internal helpers (used by this module and upvalues.py)
 # ---------------------------------------------------------------------------
@@ -46,9 +45,7 @@ def _sym_list(symbols: list[str | Any]) -> Any:
     return (
         jl.seval("Symbol[]")
         if not symbols
-        else jl.seval(
-            "Symbol[" + ", ".join(f"Symbol({str(s)!r})" for s in symbols) + "]"
-        )
+        else jl.seval("Symbol[" + ", ".join(f"Symbol({str(s)!r})" for s in symbols) + "]")
     )
 
 

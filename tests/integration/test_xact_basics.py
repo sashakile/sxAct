@@ -21,9 +21,7 @@ from sxact.oracle import OracleClient
 from sxact.oracle.result import Result
 
 
-def xact_evaluate(
-    oracle: OracleClient, expr: str, context_id: str | None = None
-) -> Result:
+def xact_evaluate(oracle: OracleClient, expr: str, context_id: str | None = None) -> Result:
     """Evaluate an xAct expression and return a Result envelope.
 
     Uses /evaluate-with-init to ensure xAct is loaded.
@@ -48,9 +46,7 @@ class TestDefineManifold:
         assert "M1" in result.repr, f"Expected M1 in repr, got: {result.repr}"
 
     def test_manifold_dimension(self, oracle: OracleClient) -> None:
-        result = xact_evaluate(
-            oracle, "DefManifold[M2, 3, {i2,j2,k2}]; DimOfManifold[M2]"
-        )
+        result = xact_evaluate(oracle, "DefManifold[M2, 3, {i2,j2,k2}]; DimOfManifold[M2]")
         assert result.status == "ok", f"Failed: {result.error}"
         assert "3" in result.repr
 
@@ -68,9 +64,7 @@ class TestDefineMetric:
         """
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "-1" in result.repr, (
-            f"Expected -1 for Lorentzian signature, got: {result.repr}"
-        )
+        assert "-1" in result.repr, f"Expected -1 for Lorentzian signature, got: {result.repr}"
 
 
 @pytest.mark.oracle
@@ -125,9 +119,7 @@ class TestMetricContraction:
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
         # Metric contraction raises the index; result must be V6 with one index slot
-        assert result.repr.startswith("V6["), (
-            f"Expected V6[...] expression, got: {result.repr}"
-        )
+        assert result.repr.startswith("V6["), f"Expected V6[...] expression, got: {result.repr}"
 
 
 @pytest.mark.oracle
@@ -143,9 +135,7 @@ class TestRiemannTensor:
         """
         result = xact_evaluate(oracle, expr)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert "Riemann" in result.repr, (
-            f"Expected Riemann tensor in repr, got: {result.repr}"
-        )
+        assert "Riemann" in result.repr, f"Expected Riemann tensor in repr, got: {result.repr}"
 
 
 @pytest.mark.oracle
@@ -169,9 +159,7 @@ class TestSymbolicEquality:
         lhs = xact_evaluate(
             oracle, "(S8[-a8,-b8] + S8[-b8,-a8]) // ToCanonical", context_id=context_id
         )
-        rhs = xact_evaluate(
-            oracle, "(2*S8[-a8,-b8]) // ToCanonical", context_id=context_id
-        )
+        rhs = xact_evaluate(oracle, "(2*S8[-a8,-b8]) // ToCanonical", context_id=context_id)
 
         assert lhs.status == "ok", f"LHS failed: {lhs.error}"
         assert rhs.status == "ok", f"RHS failed: {rhs.error}"
@@ -186,9 +174,7 @@ class TestSymbolicEquality:
 class TestNumericSampling:
     """Test 8: Expression requiring numeric sampling."""
 
-    def test_numeric_evaluation_of_scalar_expression(
-        self, oracle: OracleClient
-    ) -> None:
+    def test_numeric_evaluation_of_scalar_expression(self, oracle: OracleClient) -> None:
         lhs = Result(
             status="ok",
             type="Scalar",
@@ -221,9 +207,7 @@ class TestAntisymmetricTensor:
         """
         result = xact_evaluate(oracle, expr, context_id=context_id)
         assert result.status == "ok", f"Failed: {result.error}"
-        assert result.repr.strip() == "0", (
-            f"Expected 0 for antisymmetric sum, got: {result.repr}"
-        )
+        assert result.repr.strip() == "0", f"Expected 0 for antisymmetric sum, got: {result.repr}"
 
 
 @pytest.mark.oracle
@@ -238,9 +222,7 @@ class TestBianchiIdentity:
     - Pair exchange symmetry: R[a,b,c,d] = R[c,d,a,b]
     """
 
-    def test_riemann_antisymmetry_first_pair(
-        self, oracle: OracleClient, context_id: str
-    ) -> None:
+    def test_riemann_antisymmetry_first_pair(self, oracle: OracleClient, context_id: str) -> None:
         """R[a,b,c,d] + R[b,a,c,d] = 0 (antisymmetry in first pair)."""
         expr = """
         DefManifold[M10, 4, {a10,b10,c10,d10,e10,f10}];

@@ -9,12 +9,14 @@ Usage — in the adapter's own test module::
     import pytest
     from sxact.adapter.base import TestAdapter
 
+
     @pytest.fixture
     def adapter_factory():
-        return WolframAdapter   # the class itself (zero-arg constructor)
+        return WolframAdapter  # the class itself (zero-arg constructor)
+
 
     # Then import and run the conformance suite:
-    from tests.test_adapter_conformance import *   # noqa: F401,F403
+    from tests.test_adapter_conformance import *  # noqa: F401,F403
 
 Or run this file standalone to test a DummyAdapter that implements
 every method with minimal valid behaviour (verifies the test suite itself
@@ -37,7 +39,6 @@ from sxact.adapter.base import (
     VersionInfo,
 )
 from sxact.oracle.result import Result
-
 
 # ---------------------------------------------------------------------------
 # DummyAdapter — used when no external adapter_factory is provided

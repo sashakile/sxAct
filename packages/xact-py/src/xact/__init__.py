@@ -29,10 +29,10 @@ Example::
 
 __version__ = "0.3.0"
 
-from xact.api import (  # noqa: E402, F401
+from xact.api import (
     Basis,
-    CTensor,
     Chart,
+    CTensor,
     Manifold,
     Metric,
     Perturbation,
@@ -72,7 +72,7 @@ from xact.api import (  # noqa: E402, F401
     trace_basis_dummy,
     var_d,
 )
-from xact.expr import (  # noqa: E402, F401
+from xact.expr import (
     AppliedTensor,
     CovDExpr,
     CovDHead,

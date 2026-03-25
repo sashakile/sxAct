@@ -43,7 +43,7 @@ def _sub_bindings(args: dict, bindings: dict) -> dict:
     return {k: sub_val(v) for k, v in args.items()}
 
 
-def _sha_prefix(normalized_output: str, properties: dict = None) -> str:
+def _sha_prefix(normalized_output: str, properties: dict | None = None) -> str:
     import hashlib
 
     if properties is None:
@@ -60,7 +60,7 @@ def process_single_file(toml_path: Path, dry_run: bool) -> dict:
     """Process one TOML file and return a result dict (written to stdout as JSON
     when run as --single-file subprocess)."""
     from sxact.adapter.julia_stub import JuliaAdapter
-    from sxact.runner.loader import load_test_file, LoadError
+    from sxact.runner.loader import LoadError, load_test_file
 
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -165,14 +165,10 @@ def run_butler_tests(dry_run: bool = False) -> None:
             cmd.append("--dry-run")
 
         try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=FILE_TIMEOUT
-            )
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=FILE_TIMEOUT)
             if proc.returncode != 0 or not proc.stdout.strip():
                 stderr_snippet = (proc.stderr or "")[:300]
-                print(
-                    f"  ERROR   {toml_path.name}: subprocess failed\n    {stderr_snippet}"
-                )
+                print(f"  ERROR   {toml_path.name}: subprocess failed\n    {stderr_snippet}")
                 continue
             result = json.loads(proc.stdout)
         except subprocess.TimeoutExpired:

@@ -18,7 +18,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -336,9 +335,7 @@ class TestAPIForwarding:
         from xact.xcore import x_up_set
 
         x_up_set("prop", "tag", 99)
-        mock_xc.xUpSet_b.assert_called_once_with(
-            "<JuliaSymbol:prop>", "<JuliaSymbol:tag>", 99
-        )
+        mock_xc.xUpSet_b.assert_called_once_with("<JuliaSymbol:prop>", "<JuliaSymbol:tag>", 99)
 
     def test_x_up_append_to_returns_list(self, patched: Any) -> None:
         mock_jl, mock_xc = patched
@@ -388,9 +385,7 @@ class TestAPIForwarding:
         from xact.xcore import make_x_tensions
 
         make_x_tensions("DefTensor", "End", "arg1")
-        mock_xc.MakexTensions.assert_called_once_with(
-            "<JuliaSymbol:DefTensor>", "End", "arg1"
-        )
+        mock_xc.MakexTensions.assert_called_once_with("<JuliaSymbol:DefTensor>", "End", "arg1")
 
     def test_x_perm_names_returns_list(self, patched: Any) -> None:
         _, mock_xc = patched
@@ -594,7 +589,7 @@ class TestPerformance:
 
     def test_has_dagger_character_q_overhead(self) -> None:
         import xact.xcore as xc
-        from xact.xcore._runtime import get_xcore, get_julia
+        from xact.xcore._runtime import get_julia, get_xcore
 
         xc.has_dagger_character_q("A†")  # JIT warm-up
 
@@ -604,9 +599,7 @@ class TestPerformance:
         julia_elapsed = self._measure(
             lambda: jl_xc.HasDaggerCharacterQ(jl.Symbol("A†")), _PERF_REPS
         )
-        python_elapsed = self._measure(
-            lambda: xc.has_dagger_character_q("A†"), _PERF_REPS
-        )
+        python_elapsed = self._measure(lambda: xc.has_dagger_character_q("A†"), _PERF_REPS)
 
         ratio = python_elapsed / julia_elapsed if julia_elapsed > 0 else float("inf")
         assert ratio < _PERF_MAX_RATIO, (
@@ -625,6 +618,4 @@ class TestPerformance:
             xc.delete_duplicates(lst)
         elapsed = time.perf_counter() - t0
         # Must complete 10k calls in under 1 second (pure Python; no Julia)
-        assert elapsed < 1.0, (
-            f"delete_duplicates too slow: {elapsed:.3f}s for 10k calls"
-        )
+        assert elapsed < 1.0, f"delete_duplicates too slow: {elapsed:.3f}s for 10k calls"

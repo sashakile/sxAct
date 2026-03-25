@@ -23,7 +23,6 @@ from sxact.adapter.base import EqualityMode, TestAdapter
 from sxact.oracle.result import Result
 from sxact.runner.loader import TestCase, TestFile
 
-
 # ---------------------------------------------------------------------------
 # Result value object
 # ---------------------------------------------------------------------------
@@ -81,7 +80,7 @@ class IsolatedContext:
     # Context manager protocol
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> "IsolatedContext":
+    def __enter__(self) -> IsolatedContext:
         self._ctx = self._adapter.initialize()
         self._run_setup()
         self._ready = True
@@ -218,18 +217,16 @@ class IsolatedContext:
                 )
 
         # --- normalized: literal normalized-form check ---
-        if exp.normalized is not None:
-            if actual_norm != exp.normalized:
-                return TestResult(
-                    test_id=tc.id,
-                    status="fail",
-                    actual=str(actual_norm),
-                    expected=exp.normalized,
-                    message=(
-                        f"Normalized form mismatch: got {actual_norm!r}, "
-                        f"expected {exp.normalized!r}"
-                    ),
-                )
+        if exp.normalized is not None and actual_norm != exp.normalized:
+            return TestResult(
+                test_id=tc.id,
+                status="fail",
+                actual=str(actual_norm),
+                expected=exp.normalized,
+                message=(
+                    f"Normalized form mismatch: got {actual_norm!r}, expected {exp.normalized!r}"
+                ),
+            )
 
         # --- is_zero: compare normalized output to canonical zero ---
         if exp.is_zero is not None:
@@ -279,11 +276,8 @@ def _sub_refs(text: str, bindings: dict[str, str]) -> str:
     return _REF_RE.sub(lambda m: bindings.get(m.group(1), m.group(0)), text)
 
 
-def _substitute_bindings(
-    args: dict[str, Any], bindings: dict[str, str]
-) -> dict[str, Any]:
+def _substitute_bindings(args: dict[str, Any], bindings: dict[str, str]) -> dict[str, Any]:
     """Return a copy of *args* with ``$name`` references substituted."""
     return {
-        key: _sub_refs(val, bindings) if isinstance(val, str) else val
-        for key, val in args.items()
+        key: _sub_refs(val, bindings) if isinstance(val, str) else val for key, val in args.items()
     }

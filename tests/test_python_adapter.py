@@ -12,4 +12,4 @@ def adapter_factory():
 
 
 # Pull in all conformance tests
-from tests.test_adapter_conformance import *  # noqa: E402,F401,F403
+from tests.test_adapter_conformance import *  # noqa: E402, F403

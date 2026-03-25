@@ -25,8 +25,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Union
-
 
 # ---------------------------------------------------------------------------
 # AST node types
@@ -74,7 +72,7 @@ class WLNode:
         return hash((self.head, tuple(self.args)))
 
 
-WLExpr = Union[WLNode, WLLeaf]
+WLExpr = WLNode | WLLeaf
 
 
 # ---------------------------------------------------------------------------
@@ -334,14 +332,8 @@ class _Parser:
             op = self._consume()
             right = self._parse_product()
             if op.type == "MINUS":
-                right = WLNode(
-                    head="Times", args=[WLLeaf("-1", op.pos), right], pos=op.pos
-                )
-            if (
-                isinstance(left, WLNode)
-                and isinstance(left.head, str)
-                and left.head == "Plus"
-            ):
+                right = WLNode(head="Times", args=[WLLeaf("-1", op.pos), right], pos=op.pos)
+            if isinstance(left, WLNode) and isinstance(left.head, str) and left.head == "Plus":
                 left.args.append(right)
             else:
                 left = WLNode(head="Plus", args=[left, right], pos=op.pos)
@@ -357,19 +349,13 @@ class _Parser:
             elif pt == "SLASH":
                 op = self._consume()
                 right = self._parse_power()
-                right = WLNode(
-                    head="Power", args=[right, WLLeaf("-1", op.pos)], pos=op.pos
-                )
+                right = WLNode(head="Power", args=[right, WLLeaf("-1", op.pos)], pos=op.pos)
             elif pt == "NUMBER" or pt == "IDENT" or pt == "LPAREN" or pt == "LBRACE":
                 # Implicit multiplication: 2 T[-a,-b] or T S
                 right = self._parse_power()
             else:
                 break
-            if (
-                isinstance(left, WLNode)
-                and isinstance(left.head, str)
-                and left.head == "Times"
-            ):
+            if isinstance(left, WLNode) and isinstance(left.head, str) and left.head == "Times":
                 left.args.append(right)
             else:
                 left = WLNode(head="Times", args=[left, right], pos=right.pos)
@@ -387,9 +373,7 @@ class _Parser:
         if self._peek_type() == "MINUS":
             op = self._consume()
             operand = self._parse_unary()
-            return WLNode(
-                head="Times", args=[WLLeaf("-1", op.pos), operand], pos=op.pos
-            )
+            return WLNode(head="Times", args=[WLLeaf("-1", op.pos), operand], pos=op.pos)
         return self._parse_postfix()
 
     # ---------------------------------------------------------------
@@ -491,14 +475,8 @@ class _Parser:
             op = self._consume()
             right = self._parse_bracket_product()
             if op.type == "MINUS":
-                right = WLNode(
-                    head="Times", args=[WLLeaf("-1", op.pos), right], pos=op.pos
-                )
-            if (
-                isinstance(left, WLNode)
-                and isinstance(left.head, str)
-                and left.head == "Plus"
-            ):
+                right = WLNode(head="Times", args=[WLLeaf("-1", op.pos), right], pos=op.pos)
+            if isinstance(left, WLNode) and isinstance(left.head, str) and left.head == "Plus":
                 left.args.append(right)
             else:
                 left = WLNode(head="Plus", args=[left, right], pos=op.pos)
@@ -514,9 +492,7 @@ class _Parser:
             elif pt == "SLASH":
                 op = self._consume()
                 right = self._parse_bracket_power()
-                right = WLNode(
-                    head="Power", args=[right, WLLeaf("-1", op.pos)], pos=op.pos
-                )
+                right = WLNode(head="Power", args=[right, WLLeaf("-1", op.pos)], pos=op.pos)
             elif pt == "NUMBER" or pt == "LPAREN":
                 # Implicit multiplication inside brackets
                 right = self._parse_bracket_power()
@@ -526,11 +502,7 @@ class _Parser:
                 right = self._parse_bracket_power()
             else:
                 break
-            if (
-                isinstance(left, WLNode)
-                and isinstance(left.head, str)
-                and left.head == "Times"
-            ):
+            if isinstance(left, WLNode) and isinstance(left.head, str) and left.head == "Times":
                 left.args.append(right)
             else:
                 left = WLNode(head="Times", args=[left, right], pos=right.pos)

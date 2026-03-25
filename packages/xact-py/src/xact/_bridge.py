@@ -8,10 +8,13 @@ Usage::
 
     from xact._bridge import jl_sym, jl_int, jl_str, jl_sym_list, jl_call
 
-    jl_call(jl, "xAct.def_manifold!",
+    jl_call(
+        jl,
+        "xAct.def_manifold!",
         jl_sym(name, "manifold name"),
         jl_int(dim),
-        jl_sym_list(indices, "index labels"))
+        jl_sym_list(indices, "index labels"),
+    )
 """
 
 from __future__ import annotations

@@ -13,6 +13,7 @@ Produces the directory layout described in spec §5.6::
 Public API::
 
     from sxact.snapshot.writer import write_oracle_dir
+
     write_oracle_dir(snapshots, Path("oracle/"), oracle_version="xAct 1.2.0")
 """
 
@@ -23,7 +24,6 @@ import json
 from pathlib import Path
 
 from sxact.snapshot.runner import FileSnapshot, TestSnapshot
-
 
 # ---------------------------------------------------------------------------
 # Public entry point
@@ -75,9 +75,7 @@ def write_oracle_dir(
 # ---------------------------------------------------------------------------
 
 
-def _write_version(
-    output_dir: Path, oracle_version: str, mathematica_version: str
-) -> None:
+def _write_version(output_dir: Path, oracle_version: str, mathematica_version: str) -> None:
     text = f"{oracle_version}, Mathematica {mathematica_version}\n"
     (output_dir / "VERSION").write_text(text, encoding="utf-8")
 

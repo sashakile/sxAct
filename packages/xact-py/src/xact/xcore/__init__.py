@@ -31,12 +31,13 @@ Type conventions
 Example
 -------
 >>> from xact.xcore import validate_symbol
->>> validate_symbol("MyNewTensor")   # raises if name collides
+>>> validate_symbol("MyNewTensor")  # raises if name collides
 """
 
 from __future__ import annotations
 
-from ._runtime import get_julia as get_julia, get_xcore as get_xcore
+from ._runtime import get_julia as get_julia
+from ._runtime import get_xcore as get_xcore
 
 try:
     from juliacall import JuliaError
@@ -46,63 +47,63 @@ except ImportError as exc:  # pragma: no cover
     ) from exc
 
 from .list_utils import (
-    just_one,
-    map_if_plus,
-    thread_array,
-    set_number_of_arguments,
-    push_unevaluated,
-    x_evaluate_at,
     delete_duplicates,
     duplicate_free_q,
+    just_one,
+    map_if_plus,
+    push_unevaluated,
+    set_number_of_arguments,
+    thread_array,
+    x_evaluate_at,
 )
 from .options import (
     check_options,
-    true_or_false,
     report_set,
     report_set_option,
+    true_or_false,
 )
 from .symbols import (
-    symbol_join,
-    no_pattern,
     dagger_character,
-    set_dagger_character,
+    em_names,
+    find_symbols,
+    harmonics_names,
     has_dagger_character_q,
-    make_dagger_symbol,
+    invar_names,
     link_character,
-    set_link_character,
     link_symbols,
+    make_dagger_symbol,
+    no_pattern,
+    register_symbol,
+    set_dagger_character,
+    set_link_character,
+    set_warning_from,
+    set_xact_directory,
+    set_xact_doc_directory,
+    spinors_names,
+    symbol_join,
     unlink_symbol,
     validate_symbol,
-    find_symbols,
-    register_symbol,
-    x_perm_names,
-    x_tensor_names,
-    x_core_names,
-    x_tableau_names,
-    x_coba_names,
-    invar_names,
-    harmonics_names,
-    x_pert_names,
-    spinors_names,
-    em_names,
     warning_from,
-    set_warning_from,
+    x_coba_names,
+    x_core_names,
+    x_perm_names,
+    x_pert_names,
+    x_tableau_names,
+    x_tensor_names,
     xact_directory,
-    set_xact_directory,
     xact_doc_directory,
-    set_xact_doc_directory,
 )
 from .upvalues import (
+    disclaimer,
+    make_x_tensions,
     sub_head,
-    x_up_set,
-    x_up_set_delayed,
-    x_up_append_to,
-    x_up_delete_cases_to,
     x_tag_set,
     x_tag_set_delayed,
     x_tension,
-    make_x_tensions,
-    disclaimer,
+    x_up_append_to,
+    x_up_delete_cases_to,
+    x_up_set,
+    x_up_set_delayed,
 )
 
 __all__ = [

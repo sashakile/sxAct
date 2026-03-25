@@ -397,11 +397,7 @@ def parse_notebook(text: str) -> list[dict[str, Any]]:
     for i, m in enumerate(section_matches):
         name = m.group(1)
         start = m.start()
-        end = (
-            section_matches[i + 1].start()
-            if i + 1 < len(section_matches)
-            else len(text)
-        )
+        end = section_matches[i + 1].start() if i + 1 < len(section_matches) else len(text)
         section_text = text[start:end]
         setup, tests = parse_section(section_text)
         sections.append({"name": name, "setup": setup, "tests": tests})
@@ -433,9 +429,7 @@ def toml_string(s: str) -> str:
     return f'"{s}"'
 
 
-def generate_toml(
-    section_name: str, setup: list[str], tests: list[tuple[str, str]]
-) -> str:
+def generate_toml(section_name: str, setup: list[str], tests: list[tuple[str, str]]) -> str:
     slug = section_to_slug(section_name)
     file_id = f"xperm/butler_examples/{slug}"
 

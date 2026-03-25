@@ -18,11 +18,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from . import _runtime
 from .symbols import _sym
-
 
 # ---------------------------------------------------------------------------
 # 5. xUpvalues
@@ -45,9 +45,7 @@ def x_up_set(property: str | Any, tag: str | Any, value: Any) -> Any:
     return _runtime.get_xcore().xUpSet_b(_sym(property), _sym(tag), value)
 
 
-def x_up_set_delayed(
-    property: str | Any, tag: str | Any, thunk: Callable[[], Any]
-) -> None:
+def x_up_set_delayed(property: str | Any, tag: str | Any, thunk: Callable[[], Any]) -> None:
     """Attach a zero-argument thunk as a delayed upvalue.
 
     Julia: ``xUpSetDelayed!(property, tag, thunk)``
@@ -64,9 +62,7 @@ def x_up_append_to(property: str | Any, tag: str | Any, element: Any) -> list[An
     return list(result)
 
 
-def x_up_delete_cases_to(
-    property: str | Any, tag: str | Any, pred: Callable[[Any], bool]
-) -> None:
+def x_up_delete_cases_to(property: str | Any, tag: str | Any, pred: Callable[[Any], bool]) -> None:
     """Remove all upvalue-list elements satisfying *pred*.
 
     Julia: ``xUpDeleteCasesTo!(property, tag, pred)``

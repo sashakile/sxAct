@@ -3,7 +3,6 @@
 import time
 
 from flask import Flask, jsonify, request
-
 from kernel_manager import KernelManager
 
 app = Flask(__name__)
@@ -48,9 +47,7 @@ def evaluate_with_init():
     context_id = data.get("context_id")  # Optional context isolation
 
     start = time.time()
-    ok, result, error = km.evaluate(
-        expr, timeout, with_xact=True, context_id=context_id
-    )
+    ok, result, error = km.evaluate(expr, timeout, with_xact=True, context_id=context_id)
     elapsed_ms = int((time.time() - start) * 1000)
 
     if ok:

@@ -13,7 +13,6 @@ from xact.translate.wl_parser import (
 )
 from xact.translate.wl_serializer import serialize
 
-
 # ===================================================================
 # A.1 Definition Parsing
 # ===================================================================
@@ -261,9 +260,7 @@ class TestSyntacticSugar:
 
     def test_t23_semicolon_separator(self) -> None:
         """T23: Semicolon-separated statements."""
-        stmts = parse_session(
-            "DefManifold[M, 4, {a,b,c,d}]; DefMetric[-1, g[-a,-b], CD]"
-        )
+        stmts = parse_session("DefManifold[M, 4, {a,b,c,d}]; DefMetric[-1, g[-a,-b], CD]")
         assert len(stmts) == 2
         assert isinstance(stmts[0], WLNode) and stmts[0].head == "DefManifold"
         assert isinstance(stmts[1], WLNode) and stmts[1].head == "DefMetric"

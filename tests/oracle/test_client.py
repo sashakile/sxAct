@@ -7,9 +7,7 @@ from sxact.oracle import OracleClient
 
 @pytest.mark.oracle
 class TestOracleHealth:
-    def test_health_returns_true_when_server_running(
-        self, oracle: OracleClient
-    ) -> None:
+    def test_health_returns_true_when_server_running(self, oracle: OracleClient) -> None:
         assert oracle.health() is True
 
 

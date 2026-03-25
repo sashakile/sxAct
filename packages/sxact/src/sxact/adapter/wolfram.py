@@ -27,7 +27,6 @@ from sxact.normalize import normalize as _normalize
 from sxact.oracle.client import OracleClient
 from sxact.oracle.result import Result
 
-
 # ---------------------------------------------------------------------------
 # Context
 # ---------------------------------------------------------------------------
@@ -89,8 +88,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             import warnings
 
             warnings.warn(
-                f"Kernel dirty before test file (leaked: {leaked}); "
-                "triggering hard restart.",
+                f"Kernel dirty before test file (leaked: {leaked}); triggering hard restart.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -112,8 +110,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             import warnings
 
             warnings.warn(
-                "Oracle cleanup failed after test file; "
-                "kernel state may be dirty for next test.",
+                "Oracle cleanup failed after test file; kernel state may be dirty for next test.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -160,9 +157,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             }
         )
 
-    def execute(
-        self, ctx: _WolframContext, action: str, args: dict[str, Any]
-    ) -> Result:
+    def execute(self, ctx: _WolframContext, action: str, args: dict[str, Any]) -> Result:
         if action not in self.supported_actions():
             raise ValueError(f"Unknown action: {action!r}")
 
@@ -187,10 +182,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
         # Assert: treat non-True oracle result as test failure
         if action == "Assert" and result.status == "ok":
             if result.repr.strip() != "True":
-                msg = (
-                    args.get("message")
-                    or f"Assertion failed: {args.get('condition', '')}"
-                )
+                msg = args.get("message") or f"Assertion failed: {args.get('condition', '')}"
                 return Result(
                     status="error",
                     type="Bool",
@@ -289,9 +281,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
             return f"VarD[{args['variable']}][{args['expression']}]"
 
         if action == "SetBasisChange":
-            return (
-                f"SetBasisChange[{args['basis1']}, {args['basis2']}, {args['matrix']}]"
-            )
+            return f"SetBasisChange[{args['basis1']}, {args['basis2']}, {args['matrix']}]"
 
         if action == "ChangeBasis":
             return f"ChangeBasis[{args['expression']}, {args['target_basis']}]"
@@ -370,9 +360,7 @@ class WolframAdapter(TestAdapter[_WolframContext]):
     # Introspection
     # ------------------------------------------------------------------
 
-    def get_properties(
-        self, expr: str, ctx: _WolframContext | None = None
-    ) -> dict[str, Any]:
+    def get_properties(self, expr: str, ctx: _WolframContext | None = None) -> dict[str, Any]:
         return {}
 
     def get_version(self) -> VersionInfo:

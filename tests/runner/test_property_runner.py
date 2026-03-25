@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from sxact.cli.property import _apply_cross_adapter_diff
 from sxact.runner.property_runner import (
     GeneratorSpec,
     PropertyFile,
@@ -17,8 +18,6 @@ from sxact.runner.property_runner import (
     load_property_file,
     run_property_file,
 )
-from sxact.cli.property import _apply_cross_adapter_diff
-
 
 # ---------------------------------------------------------------------------
 # _fresh_symbol
@@ -61,16 +60,12 @@ class TestGenerateValue:
         assert len(vals) == 10
 
     def test_symbol_list_produces_list(self):
-        gen = GeneratorSpec(
-            name="lst", type="SymbolList", strategy="symbol_list", length=3
-        )
+        gen = GeneratorSpec(name="lst", type="SymbolList", strategy="symbol_list", length=3)
         val = _generate_value(gen, "T", 0)
         assert val.startswith("{") and val.endswith("}")
 
     def test_symbol_list_correct_length(self):
-        gen = GeneratorSpec(
-            name="lst", type="SymbolList", strategy="symbol_list", length=4
-        )
+        gen = GeneratorSpec(name="lst", type="SymbolList", strategy="symbol_list", length=4)
         val = _generate_value(gen, "T", 0)
         # Count commas: N elements have N-1 commas
         inner = val[1:-1]
@@ -410,9 +405,7 @@ class TestRunPropertyFile:
         pf = _make_minimal_prop_file(tmp_path)
         primary = run_property_file(pf, AlwaysTrueAdapter())
         # Secondary with no results (empty file result)
-        secondary = PropertyFileResult(
-            file_path=str(pf.path), description="", results=[]
-        )
+        secondary = PropertyFileResult(file_path=str(pf.path), description="", results=[])
         _apply_cross_adapter_diff(primary, secondary, "julia", "python")
         r = primary.results[0]
         assert r.cross_adapter_diff is not None

@@ -14,6 +14,7 @@ Comparison flow per test case:
 Public API::
 
     from sxact.snapshot.compare import SnapshotComparator, SnapshotCompareResult
+
     cmp = SnapshotComparator(store)
     result = cmp.compare(meta_id, test_id, actual_result)
 """
@@ -25,7 +26,6 @@ from typing import Any, Literal
 
 from sxact.oracle.result import Result
 from sxact.snapshot.store import SnapshotStore
-
 
 # ---------------------------------------------------------------------------
 # Result type

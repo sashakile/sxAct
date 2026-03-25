@@ -19,27 +19,44 @@ import argparse
 import sys
 from pathlib import Path
 
-# Re-export everything the tests import from sxact.cli
+from .property import _cmd_property
+from .regen import _cmd_regen_oracle
+from .regen import _interactive_review as _interactive_review
+from .repl import _cmd_repl
 from .run import (
-    _RunResult as _RunResult,
     _REF_RE as _REF_RE,
+)
+from .run import (
+    _STATUS_LABEL as _STATUS_LABEL,
+)
+from .run import (
+    _cmd_run,
     _make_adapter,
     _make_adapter_by_name,
     _tc_matches_tag,
-    _sub_bindings as _sub_bindings,
-    _run_file_live as _run_file_live,
-    _run_file_snapshot as _run_file_snapshot,
-    _STATUS_LABEL as _STATUS_LABEL,
-    _print_terminal_run as _print_terminal_run,
+)
+from .run import (
     _print_json_run as _print_json_run,
-    _cmd_run,
+)
+from .run import (
+    _print_terminal_run as _print_terminal_run,
+)
+from .run import (
+    _run_file_live as _run_file_live,
+)
+from .run import (
+    _run_file_snapshot as _run_file_snapshot,
+)
+
+# Re-export everything the tests import from sxact.cli
+from .run import (
+    _RunResult as _RunResult,
+)
+from .run import (
+    _sub_bindings as _sub_bindings,
 )
 from .snapshot import _cmd_snapshot
-from .regen import _interactive_review as _interactive_review, _cmd_regen_oracle
-from .property import _cmd_property
-from .repl import _cmd_repl
 from .translate import _cmd_translate
-
 
 # ---------------------------------------------------------------------------
 # Subcommand: benchmark
@@ -56,7 +73,7 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
         load_baseline,
         save_baseline,
     )
-    from sxact.runner.loader import load_test_file, LoadError
+    from sxact.runner.loader import LoadError, load_test_file
 
     adapter_name = args.adapter
     adapter = _make_adapter(args)
@@ -83,9 +100,7 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
 
         for tc in test_file.tests:
             tag_filter = args.tag
-            if tag_filter and not _tc_matches_tag(
-                tc.tags, test_file.meta.tags, tag_filter
-            ):
+            if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
                 continue
 
             print(
@@ -168,8 +183,8 @@ def _cmd_benchmark_compare(
     args: argparse.Namespace, primary_adapter_name: str, baseline_path: Path
 ) -> int:
     """Run all available adapters on the test dir and print a comparison table."""
-    from sxact.benchmarks.runner import bench_test_case, BenchResult
-    from sxact.runner.loader import load_test_file, LoadError
+    from sxact.benchmarks.runner import BenchResult, bench_test_case
+    from sxact.runner.loader import LoadError, load_test_file
 
     adapter_names = ["wolfram", "julia", "python"]
     adapter_results: dict[str, list[BenchResult]] = {}
@@ -215,19 +230,13 @@ def _cmd_benchmark_compare(
     all_test_ids = sorted({r.test_id for rs in adapter_results.values() for r in rs})
 
     print("\n" + "=" * 70)
-    print(
-        f"{'test_id':<30} {'wolfram':>10} {'julia':>10} {'python':>10} {'j/w':>6} {'p/w':>6}"
-    )
+    print(f"{'test_id':<30} {'wolfram':>10} {'julia':>10} {'python':>10} {'j/w':>6} {'p/w':>6}")
     print("-" * 70)
 
     for tid in all_test_ids:
         row = f"{tid:<30}"
         wms = next(
-            (
-                r.median_ms
-                for r in adapter_results.get("wolfram", [])
-                if r.test_id == tid
-            ),
+            (r.median_ms for r in adapter_results.get("wolfram", []) if r.test_id == tid),
             None,
         )
         jms = next(
@@ -235,11 +244,7 @@ def _cmd_benchmark_compare(
             None,
         )
         pms = next(
-            (
-                r.median_ms
-                for r in adapter_results.get("python", [])
-                if r.test_id == tid
-            ),
+            (r.median_ms for r in adapter_results.get("python", []) if r.test_id == tid),
             None,
         )
 

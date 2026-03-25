@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from sxact.adapter.python_adapter import PythonAdapter
 from sxact.adapter.base import AdapterError
+from sxact.adapter.python_adapter import PythonAdapter
 
 # ---------------------------------------------------------------------------
 # Conformance suite
@@ -22,8 +22,7 @@ def adapter_factory():
 
 
 # Import conformance tests — they are discovered automatically by pytest
-from tests.test_adapter_conformance import *  # noqa: F401, F403, E402
-
+from tests.test_adapter_conformance import *  # noqa: F403, E402
 
 # ---------------------------------------------------------------------------
 # PythonAdapter-specific tests

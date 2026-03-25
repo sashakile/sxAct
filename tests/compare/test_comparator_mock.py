@@ -6,7 +6,6 @@ otherwise require a running Docker oracle.
 
 from __future__ import annotations
 
-
 from sxact.compare import compare
 from sxact.compare.comparator import EqualityMode
 from sxact.oracle.result import Result
@@ -115,9 +114,7 @@ class TestTier2WithMock:
     def test_evaluate_with_xact_uses_responses(self) -> None:
         oracle = MockOracleClient(
             {
-                "SomeExpr": Result(
-                    status="ok", type="Expr", repr="42", normalized="42"
-                ),
+                "SomeExpr": Result(status="ok", type="Expr", repr="42", normalized="42"),
             }
         )
         result = oracle.evaluate_with_xact("SomeExpr", context_id="test")

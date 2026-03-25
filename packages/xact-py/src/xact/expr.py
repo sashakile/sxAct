@@ -14,7 +14,7 @@ a typed expression (via _parse_to_texpr).
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from xact.api import Manifold
@@ -62,7 +62,7 @@ class DnIdx:
         return f"-{self.parent.label}"
 
 
-SlotIdx = Union[Idx, DnIdx]
+SlotIdx = Idx | DnIdx
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +265,7 @@ class TensorHead:
         else:
             idx_list = [indices]  # type: ignore[list-item]
         if self._nslots >= 0 and len(idx_list) != self._nslots:
-            raise IndexError(
-                f"{self.name} has {self._nslots} slots, got {len(idx_list)}"
-            )
+            raise IndexError(f"{self.name} has {self._nslots} slots, got {len(idx_list)}")
         return AppliedTensor(self, idx_list)
 
     def __repr__(self) -> str:
@@ -357,7 +355,7 @@ def tensor(name: str) -> TensorHead:
         If the tensor is not registered in the current Julia session.
     """
     # Lazy import to avoid circular dependency
-    from xact.api import _ensure_init  # noqa: PLC0415
+    from xact.api import _ensure_init
 
     _, mod = _ensure_init()
     if not bool(mod.TensorQ(name)):
@@ -380,7 +378,7 @@ def covd(name: str) -> CovDHead:
     ValueError
         If the covariant derivative is not registered in the current Julia session.
     """
-    from xact.api import _ensure_init  # noqa: PLC0415
+    from xact.api import _ensure_init
 
     _, mod = _ensure_init()
     if not bool(mod.CovDQ(name)):
@@ -529,9 +527,7 @@ def _texpr_parse_term(s: str) -> TExpr:
     if atom_start >= len(factors):
         return TScalar(coeff)
 
-    atoms = [
-        _texpr_parse_atom(factors[k].strip()) for k in range(atom_start, len(factors))
-    ]
+    atoms = [_texpr_parse_atom(factors[k].strip()) for k in range(atom_start, len(factors))]
     if len(atoms) == 1 and coeff == 1:
         return atoms[0]
     return _make_prod(int(coeff) if coeff.denominator == 1 else coeff, atoms)
@@ -553,13 +549,7 @@ def _texpr_parse_sum(s: str) -> TExpr:
         elif c in (")", "]"):
             depth -= 1
             i += 1
-        elif (
-            depth == 0
-            and c == " "
-            and i + 2 < n
-            and s[i + 1] in ("+", "-")
-            and s[i + 2] == " "
-        ):
+        elif depth == 0 and c == " " and i + 2 < n and s[i + 1] in ("+", "-") and s[i + 2] == " ":
             term_strs.append(s[seg_start:i].strip())
             signs.append(1 if s[i + 1] == "+" else -1)
             i += 3

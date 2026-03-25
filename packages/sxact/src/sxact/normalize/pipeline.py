@@ -9,7 +9,7 @@ The pipeline applies these transformations in order:
 
 import logging
 import re
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,8 @@ def ast_normalize(expr: str) -> str:
     from sxact.normalize.ast_parser import parse
     from sxact.normalize.passes import (
         canonicalize_indices as ast_canonicalize_indices,
+    )
+    from sxact.normalize.passes import (
         flatten_coefficients,
         sort_commutative,
     )

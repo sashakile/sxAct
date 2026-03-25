@@ -31,7 +31,6 @@ from sxact.runner.loader import (
     TestMeta,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -86,7 +85,7 @@ def _make_adapter(*results: Result) -> MagicMock:
     adapter.teardown.return_value = None
     adapter.execute.side_effect = list(results)
     adapter.normalize.side_effect = lambda expr: expr  # identity normalization
-    adapter.equals.side_effect = lambda a, b, mode, ctx=None: (a == b)
+    adapter.equals.side_effect = lambda a, b, mode, ctx=None: a == b
     return adapter
 
 
@@ -147,9 +146,8 @@ class TestContextManager:
     def test_teardown_called_on_exception(self):
         adapter = _make_adapter()
         tf = _make_file()
-        with pytest.raises(ValueError):
-            with IsolatedContext(adapter, tf):
-                raise ValueError("boom")
+        with pytest.raises(ValueError), IsolatedContext(adapter, tf):
+            raise ValueError("boom")
         adapter.teardown.assert_called_once()
 
     def test_run_test_outside_context_raises(self):
@@ -169,9 +167,7 @@ class TestContextManager:
 class TestSetupBindings:
     def test_setup_runs_before_tests(self):
         """Setup op is executed; its store_as value is available to tests."""
-        setup_op = Operation(
-            action="DefManifold", args={"name": "M"}, store_as="manifold"
-        )
+        setup_op = Operation(action="DefManifold", args={"name": "M"}, store_as="manifold")
         test_op = Operation(action="Evaluate", args={"expression": "$manifold"})
         tc = _make_tc(ops=[test_op])
         tf = _make_file(setup=[setup_op], tests=[tc])
@@ -195,12 +191,8 @@ class TestSetupBindings:
     def test_setup_bindings_available_to_all_tests(self):
         """Both tests can use the same setup binding."""
         setup_op = Operation(action="DefManifold", args={"name": "M"}, store_as="m")
-        tc1 = _make_tc(
-            id="t1", ops=[Operation(action="Evaluate", args={"expression": "$m"})]
-        )
-        tc2 = _make_tc(
-            id="t2", ops=[Operation(action="Evaluate", args={"expression": "$m"})]
-        )
+        tc1 = _make_tc(id="t1", ops=[Operation(action="Evaluate", args={"expression": "$m"})])
+        tc2 = _make_tc(id="t2", ops=[Operation(action="Evaluate", args={"expression": "$m"})])
         tf = _make_file(setup=[setup_op], tests=[tc1, tc2])
 
         captured: list[dict] = []
@@ -394,9 +386,7 @@ class TestExpectedComparison:
         tf = _make_file(tests=[tc])
         adapter = _make_adapter(_ok("T[-a,-b]", "T[-$1,-$2]"))
         # Override normalize to return the normalized field from the result
-        adapter.normalize.side_effect = lambda expr: (
-            "T[-$1,-$2]" if expr == "T[-a,-b]" else expr
-        )
+        adapter.normalize.side_effect = lambda expr: "T[-$1,-$2]" if expr == "T[-a,-b]" else expr
 
         with IsolatedContext(adapter, tf) as iso:
             result = iso.run_test(tc)
@@ -411,9 +401,7 @@ class TestExpectedComparison:
         )
         tf = _make_file(tests=[tc])
         adapter = _make_adapter(_ok("R[-a,-b]", "R[-$1,-$2]"))
-        adapter.normalize.side_effect = lambda expr: (
-            "R[-$1,-$2]" if "R" in expr else expr
-        )
+        adapter.normalize.side_effect = lambda expr: "R[-$1,-$2]" if "R" in expr else expr
 
         with IsolatedContext(adapter, tf) as iso:
             result = iso.run_test(tc)

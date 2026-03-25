@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Shared internal types
 # ---------------------------------------------------------------------------
@@ -96,18 +95,14 @@ def _sub_bindings(args: dict[str, Any], bindings: dict[str, str]) -> dict[str, A
 # ---------------------------------------------------------------------------
 
 
-def _run_file_live(
-    test_file: Any, adapter: Any, tag_filter: str | None
-) -> list[_RunResult]:
+def _run_file_live(test_file: Any, adapter: Any, tag_filter: str | None) -> list[_RunResult]:
     """Run a test file in live mode using IsolatedContext."""
     from sxact.runner.isolation import IsolatedContext
 
     results: list[_RunResult] = []
     with IsolatedContext(adapter, test_file) as iso:
         for tc in test_file.tests:
-            if tag_filter and not _tc_matches_tag(
-                tc.tags, test_file.meta.tags, tag_filter
-            ):
+            if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
                 continue
             tr = iso.run_test(tc)
             results.append(
@@ -143,9 +138,7 @@ def _run_file_snapshot(
                 bindings[op.store_as] = res.repr
 
         for tc in test_file.tests:
-            if tag_filter and not _tc_matches_tag(
-                tc.tags, test_file.meta.tags, tag_filter
-            ):
+            if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
                 continue
 
             if tc.skip:
@@ -172,9 +165,7 @@ def _run_file_snapshot(
             except Exception as exc:
                 error_msg = str(exc)
 
-            expects_error = tc.expected is not None and getattr(
-                tc.expected, "expect_error", False
-            )
+            expects_error = tc.expected is not None and getattr(tc.expected, "expect_error", False)
 
             if error_msg:
                 results.append(
@@ -339,8 +330,8 @@ def _print_json_run(all_results: list[tuple[str, list[_RunResult]]]) -> None:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    from sxact.runner.loader import load_test_file, LoadError
     from sxact.adapter.base import AdapterError
+    from sxact.runner.loader import LoadError, load_test_file
 
     test_path = Path(args.test_path)
     if not test_path.exists():
@@ -458,8 +449,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _print_terminal_run(all_results)
 
     any_failure = any(
-        r.status in ("fail", "error", "missing")
-        for _, results in all_results
-        for r in results
+        r.status in ("fail", "error", "missing") for _, results in all_results for r in results
     )
     return 1 if any_failure else 0

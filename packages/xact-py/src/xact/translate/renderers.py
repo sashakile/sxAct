@@ -413,7 +413,5 @@ def render(actions: list[ActionDict], fmt: str) -> str:
     """Render actions in the specified format ('json', 'julia', 'toml', 'python')."""
     renderer = _RENDERERS.get(fmt)
     if renderer is None:
-        raise ValueError(
-            f"Unknown format {fmt!r}. Choose from: {', '.join(_RENDERERS)}"
-        )
+        raise ValueError(f"Unknown format {fmt!r}. Choose from: {', '.join(_RENDERERS)}")
     return renderer(actions)

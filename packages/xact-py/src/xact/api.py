@@ -133,9 +133,7 @@ class Metric:
         indices: tuple[str, str] | None = None,
     ) -> None:
         if not isinstance(manifold, Manifold):
-            raise TypeError(
-                f"manifold must be a Manifold instance, got {type(manifold).__name__}"
-            )
+            raise TypeError(f"manifold must be a Manifold instance, got {type(manifold).__name__}")
         if not name or not name.isidentifier():
             raise ValueError(f"Metric name must be a valid identifier, got {name!r}")
         if signature not in (-1, 1):
@@ -157,7 +155,7 @@ class Metric:
         return f"Metric({self.name!r}, covd={self.covd!r})"
 
     def __getitem__(self, indices: object) -> Any:
-        from xact.expr import AppliedTensor, TensorHead  # noqa: PLC0415
+        from xact.expr import AppliedTensor, TensorHead
 
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -195,9 +193,7 @@ class Tensor:
         if not name or not name.isidentifier():
             raise ValueError(f"Tensor name must be a valid identifier, got {name!r}")
         if not isinstance(manifold, Manifold):
-            raise TypeError(
-                f"manifold must be a Manifold instance, got {type(manifold).__name__}"
-            )
+            raise TypeError(f"manifold must be a Manifold instance, got {type(manifold).__name__}")
         _, mod = _ensure_init()
         kwargs: dict[str, str] = {}
         if symmetry is not None:
@@ -208,7 +204,7 @@ class Tensor:
         self.manifold = manifold
 
     def __getitem__(self, indices: object) -> Any:
-        from xact.expr import AppliedTensor, TensorHead  # noqa: PLC0415
+        from xact.expr import AppliedTensor, TensorHead
 
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -249,9 +245,7 @@ class Perturbation:
         order: int = 1,
     ) -> None:
         if not isinstance(tensor, Tensor):
-            raise TypeError(
-                f"tensor must be a Tensor instance, got {type(tensor).__name__}"
-            )
+            raise TypeError(f"tensor must be a Tensor instance, got {type(tensor).__name__}")
         if not isinstance(background, (Metric, Tensor)):
             raise TypeError(
                 f"background must be a Metric or Tensor instance, got {type(background).__name__}"
@@ -265,10 +259,7 @@ class Perturbation:
         self.order = order
 
     def __repr__(self) -> str:
-        return (
-            f"Perturbation({self.tensor.name!r}, "
-            f"{self.background.name!r}, order={self.order})"
-        )
+        return f"Perturbation({self.tensor.name!r}, {self.background.name!r}, order={self.order})"
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +282,7 @@ def canonicalize(expr: str | Any) -> str | Any:
     >>> xact.canonicalize("T[-b,-a] - T[-a,-b]")
     '0'
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -312,7 +303,7 @@ def contract(expr: str | Any) -> str | Any:
     >>> xact.contract("V[a] * g[-a,-b]")
     'V[-b]'
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -332,7 +323,7 @@ def simplify(expr: str | Any) -> str | Any:
     -------
     >>> xact.simplify("T[-a,-b] * g[a,b]")
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -354,7 +345,7 @@ def perturb(expr: str | Any, order: int = 1) -> str | Any:
     >>> xact.perturb("g[-a,-b]", order=1)
     'h[-a,-b]'
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -376,7 +367,7 @@ def commute_covds(expr: str | Any, covd: str, index1: str, index2: str) -> str |
     index1, index2 : str
         The two derivative indices to commute.
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -397,16 +388,14 @@ def commute_covds(expr: str | Any, covd: str, index1: str, index2: str) -> str |
 
 def sort_covds(expr: str | Any, covd: str) -> str | Any:
     """Sort all covariant derivatives into canonical order."""
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
         expr = str(expr)
     jl, _ = _ensure_init()
     result = str(
-        jl_call(
-            jl, "XTensor.SortCovDs", jl_str(expr), jl_sym(covd, "covariant derivative")
-        )
+        jl_call(jl, "XTensor.SortCovDs", jl_str(expr), jl_sym(covd, "covariant derivative"))
     )
     return _parse_to_texpr(result) if is_typed else result
 
@@ -416,7 +405,7 @@ def ibp(expr: str | Any, covd: str) -> str | Any:
 
     When the input is a typed expression, the result is also a typed expression.
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -437,7 +426,7 @@ def var_d(expr: str | Any, field: str, covd: str) -> str | Any:
 
     When the input is a typed expression, the result is also a typed expression.
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -462,7 +451,7 @@ def riemann_simplify(expr: str | Any, covd: str, *, level: int = 6) -> str | Any
     level : int
         Simplification level (1-6). Default 6 (all identities).
     """
-    from xact.expr import TExpr, _parse_to_texpr  # noqa: PLC0415
+    from xact.expr import TExpr, _parse_to_texpr
 
     is_typed = isinstance(expr, TExpr)
     if is_typed:
@@ -593,7 +582,7 @@ class Chart:
     def __init__(
         self,
         name: str,
-        manifold: "Manifold | str",
+        manifold: Manifold | str,
         cnumbers: list[int],
         scalars: list[str],
     ) -> None:
@@ -605,9 +594,7 @@ class Chart:
         self.scalars = scalars
 
     def __repr__(self) -> str:
-        mname = (
-            self.manifold.name if isinstance(self.manifold, Manifold) else self.manifold
-        )
+        mname = self.manifold.name if isinstance(self.manifold, Manifold) else self.manifold
         return f"Chart({self.name!r}, {mname!r})"
 
 
@@ -624,9 +611,7 @@ def def_basis(name: str, vbundle: str, cnumbers: list[int]) -> None:
     )
 
 
-def def_chart(
-    name: str, manifold: str, cnumbers: list[int], scalars: list[str]
-) -> None:
+def def_chart(name: str, manifold: str, cnumbers: list[int], scalars: list[str]) -> None:
     """Define a coordinate chart with scalar coordinate symbols."""
     jl, _ = _ensure_init()
     cn_jl = "[" + ", ".join(jl_int(c) for c in cnumbers) + "]"
@@ -641,9 +626,7 @@ def def_chart(
     )
 
 
-def set_basis_change(
-    from_basis: str, to_basis: str, matrix: list[list[object]]
-) -> None:
+def set_basis_change(from_basis: str, to_basis: str, matrix: list[list[object]]) -> None:
     """Register the Jacobian matrix between two bases."""
     jl, _ = _ensure_init()
     mat_jl = _nested_list_to_julia(matrix)
@@ -675,9 +658,7 @@ def change_basis(expr: str, slot: int, from_basis: str, to_basis: str) -> str:
 def get_jacobian(basis1: str, basis2: str) -> str:
     """Return the Jacobian scalar between two bases."""
     jl, _ = _ensure_init()
-    result = jl_call(
-        jl, "XTensor.Jacobian", jl_sym(basis1, "basis1"), jl_sym(basis2, "basis2")
-    )
+    result = jl_call(jl, "XTensor.Jacobian", jl_sym(basis1, "basis1"), jl_sym(basis2, "basis2"))
     return str(result)
 
 
@@ -781,16 +762,10 @@ def _reshape_colmajor(flat: list[int | float], shape: tuple[int, ...]) -> list[A
     result_slices = [_reshape_colmajor(s, inner_shape) for s in slices]
     # Transpose outermost: Julia stores last index slowest
     n_first = shape[0]
-    return [
-        [
-            result_slices[k][i] if len(inner_shape) == 1 else result_slices[k][i]
-            for k in range(shape[-1])
-        ]
-        for i in range(n_first)
-    ]
+    return [[result_slices[k][i] for k in range(shape[-1])] for i in range(n_first)]
 
 
-def _ct_from_julia(ct_jl: Any) -> "CTensor":
+def _ct_from_julia(ct_jl: Any) -> CTensor:
     """Convert a Julia CTensorObj to a Python CTensor."""
     tensor_name = str(ct_jl.tensor).lstrip(":")
     array = _jl_to_list(ct_jl.array)
@@ -802,7 +777,7 @@ def _ct_from_julia(ct_jl: Any) -> "CTensor":
 
 def set_components(
     tensor: str, array: list[object], bases: list[str], *, weight: int = 0
-) -> "CTensor":
+) -> CTensor:
     """Set coordinate components of a tensor.
 
     Returns the resulting :class:`CTensor`.
@@ -812,13 +787,11 @@ def set_components(
     bases_jl = jl_sym_list(bases, "component bases")
     t_jl = jl_sym(tensor, "tensor")
     w_jl = jl_int(weight)
-    ct_jl = jl.seval(
-        f"XTensor.set_components!({t_jl}, {arr_jl}, {bases_jl}; weight={w_jl})"
-    )
+    ct_jl = jl.seval(f"XTensor.set_components!({t_jl}, {arr_jl}, {bases_jl}; weight={w_jl})")
     return _ct_from_julia(ct_jl)
 
 
-def get_components(tensor: str, bases: list[str]) -> "CTensor":
+def get_components(tensor: str, bases: list[str]) -> CTensor:
     """Return the component array of a tensor as a :class:`CTensor`."""
     jl, _ = _ensure_init()
     ct_jl = jl_call(
@@ -858,13 +831,13 @@ def ctensor_q(tensor: str, *bases: str) -> bool:
     return result is True or str(result).lower() == "true"
 
 
-def to_basis(expr: str | Any, basis: str) -> "CTensor":
+def to_basis(expr: str | Any, basis: str) -> CTensor:
     """Project an abstract expression into a coordinate basis.
 
     Accepts a string expression or a typed :class:`~xact.expr.TExpr`.
     Returns a :class:`CTensor` with the component array.
     """
-    from xact.expr import TExpr  # noqa: PLC0415
+    from xact.expr import TExpr
 
     if isinstance(expr, TExpr):
         expr = str(expr)
@@ -888,7 +861,7 @@ def from_basis(tensor: str, bases: list[str]) -> str:
     return str(result)
 
 
-def trace_basis_dummy(tensor: str, bases: list[str]) -> "CTensor":
+def trace_basis_dummy(tensor: str, bases: list[str]) -> CTensor:
     """Trace dummy indices in component tensor.
 
     Returns a :class:`CTensor` with the traced component array.
@@ -903,9 +876,7 @@ def trace_basis_dummy(tensor: str, bases: list[str]) -> "CTensor":
     return _ct_from_julia(ct_jl)
 
 
-def christoffel(
-    metric: str, basis: str, *, metric_derivs: list[object] | None = None
-) -> "CTensor":
+def christoffel(metric: str, basis: str, *, metric_derivs: list[object] | None = None) -> CTensor:
     """Compute Christoffel symbols from metric components.
 
     Returns a :class:`CTensor` of shape ``(dim, dim, dim)`` representing
@@ -936,9 +907,7 @@ def collect_tensors(expr: str) -> str:
 def all_contractions(expr: str, metric: str) -> list[str]:
     """Enumerate all possible contractions of an expression."""
     jl, _ = _ensure_init()
-    result = jl_call(
-        jl, "XTensor.AllContractions", jl_str(expr), jl_sym(metric, "metric")
-    )
+    result = jl_call(jl, "XTensor.AllContractions", jl_str(expr), jl_sym(metric, "metric"))
     return [str(x) for x in result]
 
 
@@ -951,9 +920,7 @@ def symmetry_of(expr: str) -> str:
 def make_trace_free(expr: str, metric: str) -> str:
     """Project an expression to its trace-free part."""
     jl, _ = _ensure_init()
-    return str(
-        jl_call(jl, "XTensor.MakeTraceFree", jl_str(expr), jl_sym(metric, "metric"))
-    )
+    return str(jl_call(jl, "XTensor.MakeTraceFree", jl_str(expr), jl_sym(metric, "metric")))
 
 
 # ---------------------------------------------------------------------------
@@ -968,9 +935,7 @@ def check_metric_consistency(metric: str) -> bool:
     return result is True or str(result).lower() == "true"
 
 
-def perturb_curvature(
-    covd: str, perturbation: str, *, order: int = 1
-) -> dict[str, str]:
+def perturb_curvature(covd: str, perturbation: str, *, order: int = 1) -> dict[str, str]:
     """Return first-order perturbations of curvature tensors.
 
     Returns a dict with keys ``"Christoffel1"``, ``"Riemann1"``,

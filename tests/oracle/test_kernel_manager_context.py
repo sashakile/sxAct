@@ -7,11 +7,10 @@ They verify that:
   - Two different context_ids produce different context namespaces.
 """
 
-import sys
 import os
+import sys
 import types
 from unittest.mock import MagicMock
-
 
 # Stub wolframclient before importing kernel_manager.
 _wc = types.ModuleType("wolframclient")
@@ -52,9 +51,7 @@ class TestContextIdWrapping:
         km.evaluate("1 + 1", timeout_s=5, with_xact=False, context_id="abc-123")
         args, _ = km._session.evaluate.call_args
         wrapped = args[0]
-        assert wrapped != "1 + 1", (
-            "Expression should be wrapped when context_id is given"
-        )
+        assert wrapped != "1 + 1", "Expression should be wrapped when context_id is given"
 
     def test_context_id_value_appears_in_wrapped_expr(self):
         """The sanitized context_id value appears in the wrapped expression."""

@@ -159,9 +159,7 @@ def _antisymmetrize(
 
     def _sign(p: tuple[int, ...]) -> int:
         """Compute permutation sign via inversion count."""
-        inversions = sum(
-            1 for i in range(len(p)) for j in range(i + 1, len(p)) if p[i] > p[j]
-        )
+        inversions = sum(1 for i in range(len(p)) for j in range(i + 1, len(p)) if p[i] > p[j])
         return 1 if inversions % 2 == 0 else -1
 
     rank = arr.ndim

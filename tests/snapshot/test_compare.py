@@ -8,12 +8,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 from sxact.oracle.result import Result
 from sxact.snapshot.compare import SnapshotComparator, SnapshotCompareResult
 from sxact.snapshot.runner import compute_oracle_hash
 from sxact.snapshot.store import SnapshotStore
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -216,18 +214,14 @@ class TestNormalizedMismatch:
 
 class TestPropertyMismatch:
     def test_wrong_rank_fails(self, tmp_path):
-        _write_snapshot(
-            tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2}
-        )
+        _write_snapshot(tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2})
         cmp = _make_comparator(tmp_path)
         result = cmp.compare("a/b", "tc", _ok("X", {"rank": 4}))
         assert result.outcome == "fail"
         assert "rank" in result.details
 
     def test_missing_property_key_fails(self, tmp_path):
-        _write_snapshot(
-            tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2}
-        )
+        _write_snapshot(tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2})
         cmp = _make_comparator(tmp_path)
         # actual has no properties at all
         result = cmp.compare("a/b", "tc", _ok("X", {}))
@@ -235,9 +229,7 @@ class TestPropertyMismatch:
 
     def test_multiple_property_mismatches_reported(self, tmp_path):
         snap_props = {"rank": 2, "type": "Tensor"}
-        _write_snapshot(
-            tmp_path, "a/b", "tc", normalized_output="X", properties=snap_props
-        )
+        _write_snapshot(tmp_path, "a/b", "tc", normalized_output="X", properties=snap_props)
         cmp = _make_comparator(tmp_path)
         result = cmp.compare("a/b", "tc", _ok("X", {"rank": 4, "type": "Scalar"}))
         assert "rank" in result.details
@@ -245,9 +237,7 @@ class TestPropertyMismatch:
 
     def test_extra_actual_properties_ignored(self, tmp_path):
         """Actual having MORE properties than snapshot should still pass."""
-        _write_snapshot(
-            tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2}
-        )
+        _write_snapshot(tmp_path, "a/b", "tc", normalized_output="X", properties={"rank": 2})
         cmp = _make_comparator(tmp_path)
         result = cmp.compare("a/b", "tc", _ok("X", {"rank": 2, "manifold": "M"}))
         assert result.outcome == "pass"

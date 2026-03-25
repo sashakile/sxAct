@@ -84,7 +84,11 @@ class TestAdapter(abc.ABC, Generic[ContextT]):
     :meth:`execute`) is defined in ``tests/schema/test-schema.json`` and
     mirrors the spec §5.1::
 
-        DefManifold, DefMetric, DefTensor,
+        (
+            DefManifold,
+            DefMetric,
+            DefTensor,
+        )
         Evaluate, ToCanonical, Simplify, Contract, Assert
     """
 

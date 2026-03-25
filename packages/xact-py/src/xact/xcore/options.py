@@ -22,7 +22,6 @@ from typing import Any
 
 from . import _runtime
 
-
 # ---------------------------------------------------------------------------
 # 3. Options
 # ---------------------------------------------------------------------------
@@ -53,9 +52,7 @@ def check_options(*opts: Any) -> list[tuple[Any, Any]]:
                             f"check_options: expected (key, value) pair, got {item!r}"
                         )
         else:
-            raise ValueError(
-                f"check_options: expected dict or (key, value) pair, got {o!r}"
-            )
+            raise ValueError(f"check_options: expected dict or (key, value) pair, got {o!r}")
     return flat
 
 

@@ -6,4 +6,4 @@ from sxact.compare.comparator import (
     compare,
 )
 
-__all__ = ["compare", "CompareResult", "EqualityMode"]
+__all__ = ["CompareResult", "EqualityMode", "compare"]

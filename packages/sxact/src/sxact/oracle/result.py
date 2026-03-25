@@ -1,7 +1,7 @@
 """Result dataclass for Oracle responses."""
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 @dataclass
@@ -24,4 +24,4 @@ class Result:
     normalized: str
     properties: dict[str, Any] = field(default_factory=dict)
     diagnostics: dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    error: str | None = None

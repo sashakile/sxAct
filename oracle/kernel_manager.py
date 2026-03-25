@@ -25,9 +25,7 @@ class KernelManager:
     def start(self) -> None:
         """Start the kernel and load xAct."""
         if not self._kernel_path:
-            raise RuntimeError(
-                "WolframKernel not found on PATH; set an explicit kernel path."
-            )
+            raise RuntimeError("WolframKernel not found on PATH; set an explicit kernel path.")
         self._session = WolframLanguageSession(kernel_path=self._kernel_path)
         self._session.start()
         self._xact_loaded = False

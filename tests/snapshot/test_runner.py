@@ -29,15 +29,12 @@ from sxact.snapshot.runner import (
     run_file,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _ok_result(
-    repr: str, normalized: str = "", properties: dict | None = None
-) -> Result:
+def _ok_result(repr: str, normalized: str = "", properties: dict | None = None) -> Result:
     return Result(
         status="ok",
         type="Expr",
@@ -143,10 +140,7 @@ class TestSubRefs:
         assert _sub_refs("$lhs2", {"lhs": "X"}) == "$lhs2"
 
     def test_ref_in_middle(self):
-        assert (
-            _sub_refs("ToCanonical[$expr]", {"expr": "T[-a,-b]"})
-            == "ToCanonical[T[-a,-b]]"
-        )
+        assert _sub_refs("ToCanonical[$expr]", {"expr": "T[-a,-b]"}) == "ToCanonical[T[-a,-b]]"
 
 
 class TestSubstituteBindings:
@@ -245,9 +239,7 @@ class TestRunFile:
 
     def test_store_as_bindings_propagate(self):
         """store_as from one op should be substitutable in the next."""
-        op1 = Operation(
-            action="Evaluate", args={"expression": "T[-a,-b]"}, store_as="lhs"
-        )
+        op1 = Operation(action="Evaluate", args={"expression": "T[-a,-b]"}, store_as="lhs")
         op2 = Operation(action="ToCanonical", args={"expression": "$lhs"})
 
         tc = _make_test_case(id="tc", ops=[op1, op2])
@@ -273,9 +265,7 @@ class TestRunFile:
         assert captured_args[1]["expression"] == "result"
 
     def test_teardown_called_on_success(self):
-        tc = _make_test_case(
-            id="tc", ops=[Operation(action="Evaluate", args={"expression": "1"})]
-        )
+        tc = _make_test_case(id="tc", ops=[Operation(action="Evaluate", args={"expression": "1"})])
         tf = _make_test_file(tests=[tc])
         adapter = _make_adapter([_ok_result("1")])
 
@@ -284,9 +274,7 @@ class TestRunFile:
 
     def test_teardown_called_on_adapter_error(self):
         """teardown must run even if execute raises."""
-        tc = _make_test_case(
-            id="tc", ops=[Operation(action="Evaluate", args={"expression": "1"})]
-        )
+        tc = _make_test_case(id="tc", ops=[Operation(action="Evaluate", args={"expression": "1"})])
         tf = _make_test_file(tests=[tc])
 
         adapter = MagicMock()

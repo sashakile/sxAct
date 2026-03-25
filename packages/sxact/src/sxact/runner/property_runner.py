@@ -18,11 +18,10 @@ from __future__ import annotations
 import random
 import re
 import string
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-import sys
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -207,8 +206,7 @@ def _generate_value(gen: GeneratorSpec, prefix: str, sample_idx: int) -> str:
     if gen.strategy == "symbol_list":
         pool_size = gen.length if not gen.allow_duplicates else gen.length * 2
         pool = [
-            _fresh_symbol(f"px{prefix}{gen.name}", sample_idx * 100 + i)
-            for i in range(pool_size)
+            _fresh_symbol(f"px{prefix}{gen.name}", sample_idx * 100 + i) for i in range(pool_size)
         ]
         if gen.allow_duplicates:
             # Mix in some duplicates deterministically
@@ -323,8 +321,7 @@ def _run_property(
         # Generate bindings for all generators
         try:
             bindings: dict[str, str] = {
-                gen.name: _generate_value(gen, prefix, sample_idx)
-                for gen in spec.generators
+                gen.name: _generate_value(gen, prefix, sample_idx) for gen in spec.generators
             }
         except Exception as exc:
             return PropertyResult(

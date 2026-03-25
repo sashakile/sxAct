@@ -8,9 +8,9 @@ from pathlib import Path
 
 
 def _cmd_snapshot(args: argparse.Namespace) -> int:
-    from sxact.adapter.wolfram import WolframAdapter
     from sxact.adapter.base import AdapterError
-    from sxact.runner.loader import load_test_file, LoadError
+    from sxact.adapter.wolfram import WolframAdapter
+    from sxact.runner.loader import LoadError, load_test_file
     from sxact.snapshot.runner import run_file
     from sxact.snapshot.writer import write_oracle_dir
 

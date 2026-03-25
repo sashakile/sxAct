@@ -28,9 +28,7 @@ try:
 except Exception:
     pass
 
-pytestmark = pytest.mark.skipif(
-    not _julia_available, reason="Julia runtime not available"
-)
+pytestmark = pytest.mark.skipif(not _julia_available, reason="Julia runtime not available")
 
 
 # ---------------------------------------------------------------------------
@@ -62,9 +60,7 @@ class TestRoundTrip:
         assert result.status == "ok"
 
     def test_def_metric(self, adapter: JuliaAdapter, ctx: object) -> None:
-        actions = wl_to_actions(
-            "DefManifold[M, 4, {a, b, c, d}]; DefMetric[-1, g[-a,-b], CD]"
-        )
+        actions = wl_to_actions("DefManifold[M, 4, {a, b, c, d}]; DefMetric[-1, g[-a,-b], CD]")
         for ad in actions:
             result = adapter.execute(ctx, ad["action"], ad["args"])
             assert result.status == "ok", f"{ad['action']} failed: {result.error}"

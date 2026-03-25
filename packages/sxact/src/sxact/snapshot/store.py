@@ -7,6 +7,7 @@ requiring a live Wolfram Engine.
 Public API::
 
     from sxact.snapshot.store import SnapshotStore
+
     store = SnapshotStore(Path("oracle/"))
     snap = store.load("xcore/basic", "def_manifold_ok")
     ok = store.verify_hash(snap)
@@ -16,7 +17,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from sxact.snapshot.runner import TestSnapshot, compute_oracle_hash
 
@@ -46,7 +46,7 @@ class SnapshotStore:
     # Snapshot lookup
     # ------------------------------------------------------------------
 
-    def load(self, meta_id: str, test_id: str) -> Optional[TestSnapshot]:
+    def load(self, meta_id: str, test_id: str) -> TestSnapshot | None:
         """Load a snapshot by (meta_id, test_id).
 
         Snapshots are cached; repeated calls return the same object.
@@ -137,15 +137,11 @@ def _load_json(path: Path) -> TestSnapshot:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
-        raise SnapshotLoadError(
-            f"Cannot read snapshot {path}: {exc}", path=path
-        ) from exc
+        raise SnapshotLoadError(f"Cannot read snapshot {path}: {exc}", path=path) from exc
 
     missing = [f for f in ("test_id", "normalized_output", "hash") if f not in raw]
     if missing:
-        raise SnapshotLoadError(
-            f"Snapshot {path} missing required fields: {missing}", path=path
-        )
+        raise SnapshotLoadError(f"Snapshot {path} missing required fields: {missing}", path=path)
 
     return TestSnapshot(
         test_id=raw["test_id"],

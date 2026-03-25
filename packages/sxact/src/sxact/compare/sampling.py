@@ -27,9 +27,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
+    from sxact.compare.tensor_objects import Manifold, Metric, TensorField
     from sxact.oracle import OracleClient
     from sxact.oracle.result import Result
-    from sxact.compare.tensor_objects import Manifold, Metric, TensorField
 
 
 # ---------------------------------------------------------------------------
@@ -69,16 +69,12 @@ class SamplingResult:
     equal: bool
 
     @classmethod
-    def from_samples(
-        cls, samples: list[Sample], threshold: float = 0.95
-    ) -> "SamplingResult":
+    def from_samples(cls, samples: list[Sample], threshold: float = 0.95) -> SamplingResult:
         if not samples:
             return cls(samples=[], confidence=0.0, equal=False)
         matches = sum(1 for s in samples if s.match)
         confidence = matches / len(samples)
-        return cls(
-            samples=samples, confidence=confidence, equal=confidence >= threshold
-        )
+        return cls(samples=samples, confidence=confidence, equal=confidence >= threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -99,19 +95,15 @@ class TensorContext:
         tensors:    Tensor objects keyed by name, with their numeric arrays.
     """
 
-    manifolds: dict[str, "Manifold"] = field(default_factory=dict)
-    metric_arrays: dict[str, np.ndarray[Any, np.dtype[Any]]] = field(
-        default_factory=dict
-    )
-    tensor_arrays: dict[str, np.ndarray[Any, np.dtype[Any]]] = field(
-        default_factory=dict
-    )
+    manifolds: dict[str, Manifold] = field(default_factory=dict)
+    metric_arrays: dict[str, np.ndarray[Any, np.dtype[Any]]] = field(default_factory=dict)
+    tensor_arrays: dict[str, np.ndarray[Any, np.dtype[Any]]] = field(default_factory=dict)
 
 
 def build_tensor_context(
-    manifolds: list["Manifold"],
-    metrics: list["Metric"],
-    tensors: list["TensorField"],
+    manifolds: list[Manifold],
+    metrics: list[Metric],
+    tensors: list[TensorField],
     rng: np.random.Generator | None = None,
 ) -> TensorContext:
     """Generate random component arrays for all provided tensor objects.
@@ -147,9 +139,9 @@ def build_tensor_context(
 
 
 def sample_numeric(
-    lhs: "Result",
-    rhs: "Result",
-    oracle: "OracleClient",
+    lhs: Result,
+    rhs: Result,
+    oracle: OracleClient,
     n: int = 10,
     seed: int = 42,
     tensor_ctx: TensorContext | None = None,
@@ -301,7 +293,7 @@ def _evaluate_numeric_diff(
     lhs_expr: str,
     rhs_expr: str,
     substitution: dict[str, float],
-    oracle: "OracleClient",
+    oracle: OracleClient,
     tolerance: float = 1e-10,
 ) -> Sample | None:
     """Evaluate the numeric difference between two scalar expressions via oracle."""
@@ -339,7 +331,7 @@ def _evaluate_with_tensor_ctx(
     lhs_expr: str,
     rhs_expr: str,
     ctx: TensorContext,
-    oracle: "OracleClient",
+    oracle: OracleClient,
     tolerance: float = 1e-10,
 ) -> Sample | None:
     """Evaluate tensor expressions by substituting numeric component arrays.

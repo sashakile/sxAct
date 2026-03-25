@@ -19,7 +19,6 @@ from xact.translate.action_recognizer import ActionDict, recognize
 from xact.translate.renderers import render, to_julia
 from xact.translate.wl_parser import WLParseError, parse_session
 
-
 # ---------------------------------------------------------------------------
 # REPL commands
 # ---------------------------------------------------------------------------
@@ -128,9 +127,7 @@ class REPLSession:
                     return str(result.repr)
                 # For definitions, show a summary
                 if action == "DefManifold":
-                    return (
-                        f"  Manifold {args.get('name')} (dim={args.get('dimension')})"
-                    )
+                    return f"  Manifold {args.get('name')} (dim={args.get('dimension')})"
                 if action == "DefMetric":
                     return f"  Metric {args.get('metric')} with covd {args.get('covd')}"
                 if action == "DefTensor":
@@ -209,9 +206,7 @@ def _run_repl(session: REPLSession) -> int:
             if cmd.startswith(":to "):
                 fmt = cmd[4:].strip()
                 if fmt not in ("julia", "toml", "python", "json"):
-                    print(
-                        f"  Unknown format: {fmt!r}. Use julia, toml, python, or json."
-                    )
+                    print(f"  Unknown format: {fmt!r}. Use julia, toml, python, or json.")
                     continue
                 print(session.export_session(fmt))
                 continue

@@ -8,7 +8,6 @@ import pytest
 
 from sxact.cli.repl import REPLSession
 
-
 # ===================================================================
 # REPLSession in translate-only mode
 # ===================================================================
@@ -46,9 +45,7 @@ class TestREPLSessionNoEval:
         assert any("ParseError" in line for line in output)
 
     def test_semicolon_multiple(self, session: REPLSession) -> None:
-        output = session.execute_line(
-            "DefManifold[M, 4, {a,b}]; DefMetric[-1, g[-a,-b], CD]"
-        )
+        output = session.execute_line("DefManifold[M, 4, {a,b}]; DefMetric[-1, g[-a,-b], CD]")
         assert len(output) == 2
         assert session.counter == 2
 

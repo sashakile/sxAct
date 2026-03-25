@@ -29,17 +29,14 @@ class TestCleanupEndpoint:
         is_clean, leaked = oracle.check_clean_state()
         assert is_clean, f"State should be clean after cleanup; leaked: {leaked}"
 
-    def test_check_state_dirty_after_define_manifold(
-        self, oracle: OracleClient
-    ) -> None:
+    def test_check_state_dirty_after_define_manifold(self, oracle: OracleClient) -> None:
         # Define a manifold directly (no context_id → stays in Global/xAct registry)
         manifold_name = f"IsoTest{uuid.uuid4().hex[:4].upper()}"
         oracle.evaluate_with_xact(f"DefManifold[{manifold_name}, 4, {{a,b,c,d}}]")
 
         is_clean, leaked = oracle.check_clean_state()
         assert not is_clean, (
-            f"State should be dirty after defining manifold {manifold_name}; "
-            f"leaked: {leaked}"
+            f"State should be dirty after defining manifold {manifold_name}; leaked: {leaked}"
         )
         assert any(manifold_name in s for s in leaked), (
             f"Leaked symbols should include {manifold_name}; got: {leaked}"
@@ -54,9 +51,7 @@ class TestCleanupEndpoint:
 class TestAdapterIsolation:
     """Verify WolframAdapter teardown/initialize provides file-level isolation."""
 
-    def test_same_manifold_name_usable_in_consecutive_contexts(
-        self, oracle: OracleClient
-    ) -> None:
+    def test_same_manifold_name_usable_in_consecutive_contexts(self, oracle: OracleClient) -> None:
         """Defining the same manifold name in two consecutive adapter contexts
         must not raise 'symbol already defined' errors in the second context.
         """
@@ -92,9 +87,7 @@ class TestAdapterIsolation:
         )
         adapter.teardown(ctx2)
 
-    def test_initialize_warns_and_restarts_on_dirty_kernel(
-        self, oracle: OracleClient
-    ) -> None:
+    def test_initialize_warns_and_restarts_on_dirty_kernel(self, oracle: OracleClient) -> None:
         """If the kernel is dirty when initialize() is called (e.g. previous
         teardown failed), it should emit a RuntimeWarning and trigger restart.
         """
@@ -153,7 +146,6 @@ class TestCrossFileSymbolLeakage:
         )
         assert result.status == "ok", f"Evaluate failed: {result.error}"
         assert result.repr.strip() == "False", (
-            f"FileAManifold leaked from file A into file B; "
-            f"MemberQ returned: {result.repr!r}"
+            f"FileAManifold leaked from file A into file B; MemberQ returned: {result.repr!r}"
         )
         adapter.teardown(ctx_b)

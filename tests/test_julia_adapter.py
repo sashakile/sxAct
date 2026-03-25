@@ -15,8 +15,7 @@ def adapter_factory():
 
 
 # Pull in all conformance tests
-from tests.test_adapter_conformance import *  # noqa: E402,F401,F403
-
+from tests.test_adapter_conformance import *  # noqa: E402, F403
 
 # ---------------------------------------------------------------------------
 # Regression: _execute_assert must not swallow Julia exceptions (sxAct-bko5)
@@ -41,9 +40,7 @@ class TestExecuteAssertExceptionDiagnostics:
         )
 
     def test_exception_includes_error_message(self):
-        adapter = self._make_adapter_with_failing_seval(
-            TypeError("cannot convert JuliaObject")
-        )
+        adapter = self._make_adapter_with_failing_seval(TypeError("cannot convert JuliaObject"))
         result = adapter._execute_assert("TensorQ[x]", None)
         assert result.error is not None
         assert "cannot convert JuliaObject" in result.error
@@ -136,10 +133,7 @@ class TestWlPatternStripping:
     def test_snake_case_preserved(self):
         from sxact.adapter.julia_stub import _preprocess_wl_patterns
 
-        assert (
-            _preprocess_wl_patterns("check_perturbation_order")
-            == "check_perturbation_order"
-        )
+        assert _preprocess_wl_patterns("check_perturbation_order") == "check_perturbation_order"
 
     def test_snake_case_in_call_preserved(self):
         from sxact.adapter.julia_stub import _preprocess_wl_patterns

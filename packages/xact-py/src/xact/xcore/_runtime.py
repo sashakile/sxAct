@@ -54,7 +54,7 @@ def _ensure_initialized() -> None:
 
 def _init_julia() -> None:
     global _jl, _xcore
-    import juliacall  # noqa: PLC0415  (deferred import for lazy init)
+    import juliacall
 
     jl = juliacall.Main
 
@@ -68,7 +68,7 @@ def _init_julia() -> None:
         # Fallback for development if juliapkg hasn't resolved it yet,
         # or if we're running from source without a formal install.
         try:
-            from xact._bridge import jl_escape  # noqa: PLC0415
+            from xact._bridge import jl_escape
 
             julia_dir = (Path(__file__).parent.parent / "julia").resolve()
             if (julia_dir / "Project.toml").exists():

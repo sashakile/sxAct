@@ -20,8 +20,9 @@ import statistics
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -106,9 +107,7 @@ def bench_xtension_dispatch(jl: Any, xcore_mod: Any) -> dict[str, Any]:
     # Register 10 hooks
     jl.seval("empty!(XCore._xtensions)")
     for i in range(10):
-        jl.seval(
-            f'XCore.xTension!("Pkg{i}", :BenchCmd, "Beginning", (_...) -> nothing)'
-        )
+        jl.seval(f'XCore.xTension!("Pkg{i}", :BenchCmd, "Beginning", (_...) -> nothing)')
 
     def _call() -> None:
         xcore_mod.MakexTensions(xcore_mod.Symbol("BenchCmd"), "Beginning")

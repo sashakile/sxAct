@@ -49,7 +49,7 @@ class MachineInfo:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "MachineInfo":
+    def from_dict(cls, d: dict[str, Any]) -> MachineInfo:
         return cls(**d)
 
 
@@ -150,7 +150,7 @@ class BenchResult:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "BenchResult":
+    def from_dict(cls, d: dict[str, Any]) -> BenchResult:
         return cls(**d)
 
 
@@ -160,9 +160,9 @@ class BenchResult:
 
 
 def bench_test_case(
-    adapter: "TestAdapter[Any]",
-    test_file: "TestFile",
-    tc: "TestCase",
+    adapter: TestAdapter[Any],
+    test_file: TestFile,
+    tc: TestCase,
     *,
     n_warmup: int = N_WARMUP_DEFAULT,
     n_measure: int = N_MEASURE_DEFAULT,

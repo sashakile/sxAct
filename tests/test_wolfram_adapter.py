@@ -22,7 +22,7 @@ from sxact.adapter.wolfram import WolframAdapter
 
 # Re-export the entire conformance suite so pytest collects it against
 # WolframAdapter when running this file.
-from tests.test_adapter_conformance import *  # noqa: F401,F403
+from tests.test_adapter_conformance import *  # noqa: F403
 
 
 @pytest.fixture
@@ -93,9 +93,7 @@ class TestWolframBuildExpr:
 
     def test_simplify_with_assumptions(self):
         adapter = WolframAdapter()
-        expr = adapter._build_expr(
-            "Simplify", {"expression": "Sqrt[x^2]", "assumptions": "x > 0"}
-        )
+        expr = adapter._build_expr("Simplify", {"expression": "Sqrt[x^2]", "assumptions": "x > 0"})
         assert expr == "Simplify[Sqrt[x^2], x > 0]"
 
     def test_contract(self):

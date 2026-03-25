@@ -18,7 +18,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -103,9 +102,7 @@ class TestConcurrentInit:
                     errors.append(e)
 
             with patch("xact.xcore._runtime.get_julia", side_effect=slow_get_julia):
-                threads = [
-                    threading.Thread(target=worker, name=f"init-{i}") for i in range(8)
-                ]
+                threads = [threading.Thread(target=worker, name=f"init-{i}") for i in range(8)]
                 for t in threads:
                     t.start()
                 for t in threads:
@@ -178,9 +175,7 @@ class TestConcurrentInit:
                     errors.append(e)
 
             with patch.object(rt, "_init_julia", side_effect=counting_init):
-                threads = [
-                    threading.Thread(target=worker, name=f"rt-{i}") for i in range(6)
-                ]
+                threads = [threading.Thread(target=worker, name=f"rt-{i}") for i in range(6)]
                 for t in threads:
                     t.start()
                 for t in threads:
@@ -239,9 +234,7 @@ class TestDoubleCheckedLocking:
             # Both must return the same objects
             assert results[0] is not None
             assert results[1] is not None
-            assert results[0][1] is results[1][1], (
-                "Both threads must see same xAct module"
-            )
+            assert results[0][1] is results[1][1], "Both threads must see same xAct module"
             assert call_count == 1, f"get_julia called {call_count} times"
 
         finally:
@@ -420,9 +413,7 @@ class TestResetRace:
                         errors.append(e)
                         break
 
-            workers = [
-                threading.Thread(target=busy_worker, name=f"busy-{i}") for i in range(3)
-            ]
+            workers = [threading.Thread(target=busy_worker, name=f"busy-{i}") for i in range(3)]
             reset_thread = threading.Thread(target=resetter, name="resetter")
 
             for w in workers:
