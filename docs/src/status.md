@@ -113,7 +113,7 @@ The `sxact` Python package provides a multi-tier verification suite.
 | Normalization Pipeline | DONE | Whitespace and dummy index canonicalization |
 | Three-tier Comparison Engine | DONE | String, Symbolic, and Numeric verification |
 | Oracle Snapshot Mode | DONE | Deterministic hash-based regression testing |
-| Property-based Testing | PARTIAL | 29 properties across 3 suites |
+| Property-based Testing | DONE | 29 properties across 3 suites; 27/29 pass Julia, 2 skip (not exposed) |
 | Performance Benchmarking | PARTIAL | Baseline tracking for core operations |
 
 ---
@@ -127,7 +127,7 @@ The `sxact` Python package provides a multi-tier verification suite.
 | TExpr Julia Unit Tests | 238 | PASS | Typed expression layer |
 | XInvar Julia Unit Tests | 648,825 | PASS | Riemann invariant phases 2-11 |
 | Python Runner Tests | 909 | PASS | Adapter, normalization, CLI, TExpr |
-| Property Tests (Layer 2) | 29 | PARTIAL | Riemann symmetries, tensor algebra, xCore laws |
+| Property Tests (Layer 2) | 29 | PASS | Riemann symmetries, tensor algebra, xCore laws (27 pass, 2 skip) |
 
 ---
 

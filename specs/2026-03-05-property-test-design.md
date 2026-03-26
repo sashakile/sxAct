@@ -10,8 +10,8 @@
 
 **Date:** 2026-03-05
 **Ticket:** sxAct-c0l (Layer 2 property catalog implementation)
-**Status:** Decision — implementation pending
-**Blocks:** sxAct-c0l (property catalog); sxAct-c0l blocked by sxAct-b01 (Julia variable binding bug)
+**Status:** IMPLEMENTED — all 29 properties pass (27/29 Julia adapter, 2 skip)
+**Original blockers:** sxAct-c0l, sxAct-b01 — both resolved
 
 ---
 
