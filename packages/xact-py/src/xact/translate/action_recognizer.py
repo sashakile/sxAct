@@ -13,6 +13,7 @@ the sxAct action and extracts structured arguments.  Handles:
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from typing import Any
 
 from xact.translate.wl_parser import WLExpr, WLLeaf, WLNode, parse, parse_session
@@ -198,260 +199,17 @@ def _recognize_chained(head_name: str, inner_node: WLNode, outer_args: list[WLEx
 
 
 def _recognize_simple(head: str, args: list[WLExpr]) -> ActionDict:
-    """Recognize a simple Head[args...] call."""
-    # --- Definitions ---
-    if head == "DefManifold":
-        return {
-            "action": "DefManifold",
-            "args": {
-                "name": _ser(args[0]) if len(args) > 0 else "",
-                "dimension": _to_int_or_str(args[1]) if len(args) > 1 else 0,
-                "indices": _list_to_strings(args[2]) if len(args) > 2 else [],
-            },
-        }
-
-    if head == "DefMetric":
-        result: ActionDict = {
-            "action": "DefMetric",
-            "args": {
-                "signdet": _to_int_or_str(args[0]) if len(args) > 0 else 0,
-                "metric": _ser(args[1]) if len(args) > 1 else "",
-                "covd": _ser(args[2]) if len(args) > 2 else "",
-            },
-        }
-        if len(args) > 3:
-            result["args"]["extra"] = _ser(args[3])
-        return result
-
-    if head == "DefTensor":
-        return _extract_def_tensor(args)
-
-    if head == "DefBasis":
-        return {
-            "action": "DefBasis",
-            "args": {
-                "name": _ser(args[0]) if len(args) > 0 else "",
-                "vbundle": _ser(args[1]) if len(args) > 1 else "",
-                "cnumbers": _list_to_values(args[2]) if len(args) > 2 else [],
-            },
-        }
-
-    if head == "DefChart":
-        return {
-            "action": "DefChart",
-            "args": {
-                "name": _ser(args[0]) if len(args) > 0 else "",
-                "manifold": _ser(args[1]) if len(args) > 1 else "",
-                "cnumbers": _list_to_values(args[2]) if len(args) > 2 else [],
-                "scalars": _list_to_strings(args[3]) if len(args) > 3 else [],
-            },
-        }
-
-    if head == "DefPerturbation":
-        return {
-            "action": "DefPerturbation",
-            "args": {
-                "name": _ser(args[0]) if len(args) > 0 else "",
-                "metric": _ser(args[1]) if len(args) > 1 else "",
-                "parameter": _ser(args[2]) if len(args) > 2 else "",
-            },
-        }
-
-    # --- Expression / computation actions ---
-
-    if head == "ToCanonical":
-        return {
-            "action": "ToCanonical",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-
-    if head == "Simplify":
-        result = {
-            "action": "Simplify",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["assumptions"] = _ser(args[1])
-        return result
-
-    if head == "ContractMetric":
-        return {
-            "action": "Contract",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-
-    if head == "CommuteCovDs":
-        result = {
-            "action": "CommuteCovDs",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["covd"] = _ser(args[1])
-        if len(args) > 2:
-            result["args"]["indices"] = _ser(args[2])
-        return result
-
-    if head == "SortCovDs":
-        result = {
-            "action": "SortCovDs",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["covd"] = _ser(args[1])
-        return result
-
-    if head == "Perturb":
-        result = {
-            "action": "Perturb",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["order"] = _to_int_or_str(args[1])
-        return result
-
-    if head == "Perturbation":
-        # Perturbation[expr, order] → PerturbCurvature
-        result = {
-            "action": "PerturbCurvature",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["order"] = _to_int_or_str(args[1])
-        return result
-
+    """Recognize a simple Head[args...] call via dispatch table."""
+    # Check PerturbCurvature keys first (dynamic set)
     if head in _PERTURB_CURVATURE_KEYS:
         return {
             "action": "PerturbCurvature",
-            "args": {
-                "key": head,
-                "covd": _ser(args[0]) if args else "",
-            },
+            "args": {"key": head, "covd": _ser(args[0]) if args else ""},
         }
 
-    if head == "PerturbationOrder":
-        return {
-            "action": "PerturbationOrder",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-
-    if head == "PerturbationAtOrder":
-        result = {
-            "action": "PerturbationAtOrder",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["order"] = _to_int_or_str(args[1])
-        return result
-
-    if head == "CheckMetricConsistency":
-        result = {
-            "action": "CheckMetricConsistency",
-            "args": {"metric": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["covd"] = _ser(args[1])
-        return result
-
-    if head == "IBP":
-        result = {
-            "action": "IntegrateByParts",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["covd"] = _ser(args[1])
-        return result
-
-    if head == "TotalDerivativeQ":
-        result = {
-            "action": "TotalDerivativeQ",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
-        if len(args) > 1:
-            result["args"]["covd"] = _ser(args[1])
-        return result
-
-    if head == "SetBasisChange":
-        return {
-            "action": "SetBasisChange",
-            "args": {
-                "basis1": _ser(args[0]) if len(args) > 0 else "",
-                "basis2": _ser(args[1]) if len(args) > 1 else "",
-                "matrix": _ser(args[2]) if len(args) > 2 else "",
-            },
-        }
-
-    if head == "ChangeBasis":
-        return {
-            "action": "ChangeBasis",
-            "args": {
-                "expression": _ser(args[0]) if args else "",
-                "target_basis": _ser(args[1]) if len(args) > 1 else "",
-            },
-        }
-
-    if head == "Jacobian":
-        return {
-            "action": "GetJacobian",
-            "args": {
-                "basis1": _ser(args[0]) if len(args) > 0 else "",
-                "basis2": _ser(args[1]) if len(args) > 1 else "",
-            },
-        }
-
-    if head == "BasisChangeQ":
-        return {
-            "action": "BasisChangeQ",
-            "args": {
-                "basis1": _ser(args[0]) if len(args) > 0 else "",
-                "basis2": _ser(args[1]) if len(args) > 1 else "",
-            },
-        }
-
-    if head == "SetComponents":
-        return {
-            "action": "SetComponents",
-            "args": {
-                "tensor": _ser(args[0]) if len(args) > 0 else "",
-                "components": _ser(args[1]) if len(args) > 1 else "",
-            },
-        }
-
-    if head == "GetComponents":
-        return {
-            "action": "GetComponents",
-            "args": {
-                "tensor": _ser(args[0]) if len(args) > 0 else "",
-                "basis": _ser(args[1]) if len(args) > 1 else "",
-            },
-        }
-
-    if head == "ComponentValue":
-        return {
-            "action": "ComponentValue",
-            "args": {
-                "tensor": _ser(args[0]) if len(args) > 0 else "",
-                "indices": _list_to_values(args[1]) if len(args) > 1 else [],
-                "basis": _ser(args[2]) if len(args) > 2 else "",
-            },
-        }
-
-    if head == "CTensorQ":
-        return {
-            "action": "CTensorQ",
-            "args": {"tensor": _ser(args[0]) if args else ""},
-        }
-
-    if head == "ChristoffelP":
-        return {
-            "action": "Christoffel",
-            "args": {"covd": _ser(args[0]) if args else ""},
-        }
-
-    if head == "TraceBasisDummy":
-        return {
-            "action": "TraceBasisDummy",
-            "args": {"expression": _ser(args[0]) if args else ""},
-        }
+    handler = _HEAD_HANDLERS.get(head)
+    if handler is not None:
+        return handler(args)
 
     # --- Unrecognized head → Evaluate with warning ---
     _INTERNAL_HEADS = {"Plus", "Times", "Power", "List", "Rule", "Greater", "Less"}
@@ -468,6 +226,211 @@ def _recognize_simple(head: str, args: list[WLExpr]) -> ActionDict:
         "action": "Evaluate",
         "args": {"expression": _ser(WLNode(head=head, args=args))},
     }
+
+
+# ---------------------------------------------------------------------------
+# Handler functions for _HEAD_HANDLERS dispatch table
+# ---------------------------------------------------------------------------
+
+
+def _h_def_manifold(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "DefManifold",
+        "args": {
+            "name": _ser(args[0]) if len(args) > 0 else "",
+            "dimension": _to_int_or_str(args[1]) if len(args) > 1 else 0,
+            "indices": _list_to_strings(args[2]) if len(args) > 2 else [],
+        },
+    }
+
+
+def _h_def_metric(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "DefMetric",
+        "args": {
+            "signdet": _to_int_or_str(args[0]) if len(args) > 0 else 0,
+            "metric": _ser(args[1]) if len(args) > 1 else "",
+            "covd": _ser(args[2]) if len(args) > 2 else "",
+        },
+    }
+    if len(args) > 3:
+        result["args"]["extra"] = _ser(args[3])
+    return result
+
+
+def _h_def_basis(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "DefBasis",
+        "args": {
+            "name": _ser(args[0]) if len(args) > 0 else "",
+            "vbundle": _ser(args[1]) if len(args) > 1 else "",
+            "cnumbers": _list_to_values(args[2]) if len(args) > 2 else [],
+        },
+    }
+
+
+def _h_def_chart(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "DefChart",
+        "args": {
+            "name": _ser(args[0]) if len(args) > 0 else "",
+            "manifold": _ser(args[1]) if len(args) > 1 else "",
+            "cnumbers": _list_to_values(args[2]) if len(args) > 2 else [],
+            "scalars": _list_to_strings(args[3]) if len(args) > 3 else [],
+        },
+    }
+
+
+def _h_def_perturbation(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "DefPerturbation",
+        "args": {
+            "name": _ser(args[0]) if len(args) > 0 else "",
+            "metric": _ser(args[1]) if len(args) > 1 else "",
+            "parameter": _ser(args[2]) if len(args) > 2 else "",
+        },
+    }
+
+
+def _h_simplify(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "Simplify",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["assumptions"] = _ser(args[1])
+    return result
+
+
+def _h_commute_covds(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "CommuteCovDs",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["covd"] = _ser(args[1])
+    if len(args) > 2:
+        result["args"]["indices"] = _ser(args[2])
+    return result
+
+
+def _h_sort_covds(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "SortCovDs",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["covd"] = _ser(args[1])
+    return result
+
+
+def _h_perturb(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "Perturb",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["order"] = _to_int_or_str(args[1])
+    return result
+
+
+def _h_perturbation(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "PerturbCurvature",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["order"] = _to_int_or_str(args[1])
+    return result
+
+
+def _h_perturbation_at_order(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "PerturbationAtOrder",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["order"] = _to_int_or_str(args[1])
+    return result
+
+
+def _h_check_metric_consistency(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "CheckMetricConsistency",
+        "args": {"metric": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["covd"] = _ser(args[1])
+    return result
+
+
+def _h_ibp(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "IntegrateByParts",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["covd"] = _ser(args[1])
+    return result
+
+
+def _h_total_derivative_q(args: list[WLExpr]) -> ActionDict:
+    result: ActionDict = {
+        "action": "TotalDerivativeQ",
+        "args": {"expression": _ser(args[0]) if args else ""},
+    }
+    if len(args) > 1:
+        result["args"]["covd"] = _ser(args[1])
+    return result
+
+
+def _h_set_basis_change(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "SetBasisChange",
+        "args": {
+            "basis1": _ser(args[0]) if len(args) > 0 else "",
+            "basis2": _ser(args[1]) if len(args) > 1 else "",
+            "matrix": _ser(args[2]) if len(args) > 2 else "",
+        },
+    }
+
+
+def _h_component_value(args: list[WLExpr]) -> ActionDict:
+    return {
+        "action": "ComponentValue",
+        "args": {
+            "tensor": _ser(args[0]) if len(args) > 0 else "",
+            "indices": _list_to_values(args[1]) if len(args) > 1 else [],
+            "basis": _ser(args[2]) if len(args) > 2 else "",
+        },
+    }
+
+
+_ActionHandler = Callable[[list[WLExpr]], ActionDict]
+
+
+def _h_expr(action: str, key: str = "expression") -> _ActionHandler:
+    """Factory: single-arg handler returning {action, args: {key: ser(arg0)}}."""
+
+    def handler(args: list[WLExpr]) -> ActionDict:
+        return {"action": action, "args": {key: _ser(args[0]) if args else ""}}
+
+    return handler
+
+
+def _h_two_arg(action: str, k1: str, k2: str) -> _ActionHandler:
+    """Factory: two-arg handler returning {action, args: {k1: ser(0), k2: ser(1)}}."""
+
+    def handler(args: list[WLExpr]) -> ActionDict:
+        return {
+            "action": action,
+            "args": {
+                k1: _ser(args[0]) if len(args) > 0 else "",
+                k2: _ser(args[1]) if len(args) > 1 else "",
+            },
+        }
+
+    return handler
 
 
 # ---------------------------------------------------------------------------
@@ -505,6 +468,46 @@ def _extract_def_tensor(args: list[WLExpr]) -> ActionDict:
         result["args"]["symmetry"] = _ser(args[2])
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Dispatch table: WL head name → handler(args) → ActionDict
+# ---------------------------------------------------------------------------
+
+_HEAD_HANDLERS: dict[str, _ActionHandler] = {
+    # Definitions
+    "DefManifold": _h_def_manifold,
+    "DefMetric": _h_def_metric,
+    "DefTensor": _extract_def_tensor,
+    "DefBasis": _h_def_basis,
+    "DefChart": _h_def_chart,
+    "DefPerturbation": _h_def_perturbation,
+    # Single-expression actions
+    "ToCanonical": _h_expr("ToCanonical"),
+    "ContractMetric": _h_expr("Contract"),
+    "PerturbationOrder": _h_expr("PerturbationOrder"),
+    "TraceBasisDummy": _h_expr("TraceBasisDummy"),
+    "CTensorQ": _h_expr("CTensorQ", key="tensor"),
+    "ChristoffelP": _h_expr("Christoffel", key="covd"),
+    # Two-arg actions
+    "ChangeBasis": _h_two_arg("ChangeBasis", "expression", "target_basis"),
+    "Jacobian": _h_two_arg("GetJacobian", "basis1", "basis2"),
+    "BasisChangeQ": _h_two_arg("BasisChangeQ", "basis1", "basis2"),
+    "SetComponents": _h_two_arg("SetComponents", "tensor", "components"),
+    "GetComponents": _h_two_arg("GetComponents", "tensor", "basis"),
+    # Complex handlers
+    "Simplify": _h_simplify,
+    "CommuteCovDs": _h_commute_covds,
+    "SortCovDs": _h_sort_covds,
+    "Perturb": _h_perturb,
+    "Perturbation": _h_perturbation,
+    "PerturbationAtOrder": _h_perturbation_at_order,
+    "CheckMetricConsistency": _h_check_metric_consistency,
+    "IBP": _h_ibp,
+    "TotalDerivativeQ": _h_total_derivative_q,
+    "SetBasisChange": _h_set_basis_change,
+    "ComponentValue": _h_component_value,
+}
 
 
 # ---------------------------------------------------------------------------
