@@ -20,4 +20,8 @@ The flat parser silently drops CovD operands: `ToCanonical("CD[-a][V[-b]]")` ret
 
 - Affected specs: expression-parser (new capability)
 - Affected code: `src/XTensor/Canonical.jl` (primary), callers of `_parse_expression` and `_extract_covd_chain`
-- Risk: moderate — `ToCanonical`, `Contract`, `Simplify`, `SortCovDs`, `CommuteCovDs` all depend on the parser. Extensive existing tests (567 XTensor + 4951 fuzz) provide a safety net.
+- Three CovD code paths to unify:
+  1. `_parse_expression` / `FactorAST` — flat parser, silently drops CovD operands
+  2. `_extract_covd_chain` / `_split_expression_terms` — string-based CovD chain parser
+  3. `_preprocess_covd_reductions` — regex string rewrites for metric compatibility and second Bianchi identity (runs before parsing)
+- Risk: moderate — `ToCanonical`, `Contract`, `Simplify`, `SortCovDs`, `CommuteCovDs` all depend on the parser. Extensive existing tests provide a safety net.

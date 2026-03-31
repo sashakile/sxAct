@@ -3,24 +3,27 @@
 - [ ] 1.2 Add test: `ToCanonical("CD[-a][V[-b]]")` raises error (not silently drops)
 - [ ] 1.3 Add test: `Contract("CD[-a][V[-b]]")` raises error
 - [ ] 1.4 Verify existing CovD tests still pass (`SortCovDs`, `CommuteCovDs` use separate parser)
-- [ ] 1.5 Verify all 567 XTensor + 4951 fuzz tests pass
+- [ ] 1.5 Verify full XTensor + fuzz test suites pass
 
 ## 2. Phase B — Unified AST
-- [ ] 2.1 Define `TensorFactor`, `CovDFactor`, `FactorNode` types alongside existing `FactorAST`
-- [ ] 2.2 Update `_parse_monomial` to produce `FactorNode` (recognize `Name[idx][operand]` → `CovDFactor`)
-- [ ] 2.3 Update `_term_key_str` to serialize `CovDFactor` as `"CD[-a][V[-b]]"` format
-- [ ] 2.4 Update `_serialize` / `_serialize_terms` to emit CovD bracket notation
-- [ ] 2.5 Update `_canonicalize_term` to pass `CovDFactor` through (canonicalize inner operand only)
-- [ ] 2.6 Rename all `FactorAST` references to `TensorFactor` (or alias for backward compat)
-- [ ] 2.7 Update `TermAST` to use `Vector{FactorNode}`
-- [ ] 2.8 Add tests: `ToCanonical("CD[-a][S[-b,-c]]")` preserves CovD, canonicalizes inner `S`
-- [ ] 2.9 Add tests: round-trip `ToCanonical(ToCanonical("CD[-a][V[-b]]"))` is idempotent
-- [ ] 2.10 Add fuzz tests: random CovD expressions survive ToCanonical round-trip
-- [ ] 2.11 Verify all existing tests pass (zero regressions)
+- [ ] 2.1 Define `TensorFactor` as a rename of `FactorAST`; rename all references
+- [ ] 2.2 Update `TermAST` to use `Vector{FactorNode}` where `FactorNode = Union{TensorFactor, CovDFactor}`
+- [ ] 2.3 Define `CovDFactor` type with `covd_name`, `deriv_index`, `operand::Vector{FactorNode}`
+- [ ] 2.4 Update `_parse_monomial` to recognize `Name[idx][operand]` as CovD when `CovDQ(Name)` is true; factor out inner coefficient to outer TermAST
+- [ ] 2.5 Update `_term_key_str` to serialize `CovDFactor` as `"CD[-a][V[-b]]"` format
+- [ ] 2.6 Update `_serialize` / `_serialize_terms` to emit CovD bracket notation
+- [ ] 2.7 Update `_canonicalize_term` to recursively canonicalize the inner operand of `CovDFactor`
+- [ ] 2.8 Add test: `ToCanonical("CD[-a][S[-c,-b]]")` → `"CD[-a][S[-b,-c]]"` (inner operand canonicalized)
+- [ ] 2.9 Add test: round-trip `ToCanonical(ToCanonical("CD[-a][V[-b]]"))` is idempotent
+- [ ] 2.10 Add test: mixed CovD+product `ToCanonical("CD[-a][V[-b]] S[-d,-c]")` → `"CD[-a][V[-b]] S[-c,-d]"`
+- [ ] 2.11 Add test: CovD of sum `ToCanonical("CD[-a][V[-b] + W[-b]]")` raises error suggesting linearity expansion
+- [ ] 2.12 Add fuzz tests: random CovD expressions survive ToCanonical round-trip
+- [ ] 2.13 Verify full XTensor + fuzz test suites pass (zero regressions)
 
 ## 3. Phase C — Retire string-based CovD parser
 - [ ] 3.1 Rewrite `SortCovDs` to parse via `_parse_expression` (unified AST) instead of `_extract_covd_chain`
 - [ ] 3.2 Rewrite `CommuteCovDs` to use unified AST
-- [ ] 3.3 Remove `_extract_covd_chain`, `_split_expression_terms`, and helpers
-- [ ] 3.4 Verify all SortCovDs/CommuteCovDs tests pass with new parser backend
-- [ ] 3.5 Verify full test suite: 567 XTensor + 4951 fuzz + 35 SortCovDs tests
+- [ ] 3.3 Migrate `_preprocess_covd_reductions` (`_reduce_metric_compatibility`, `_reduce_second_bianchi`) from string-regex to AST-level identity application
+- [ ] 3.4 Remove `_extract_covd_chain`, `_split_expression_terms`, and string-based helpers
+- [ ] 3.5 Verify all SortCovDs/CommuteCovDs tests pass with new parser backend
+- [ ] 3.6 Verify full test suite passes
