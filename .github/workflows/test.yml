@@ -72,6 +72,8 @@ jobs:
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
       - name: Run pytest (Unit)
+        env:
+          PYTHON_JULIAPKG_OFFLINE: "yes"
         run: uv run pytest tests/ -q -m "not slow" --ignore=tests/integration --ignore=tests/properties --ignore=tests/xperm --ignore=tests/xtensor
 
   julia-tests:
@@ -109,7 +111,9 @@ jobs:
         run: uv sync --extra dev
 
       - name: Instantiate Julia project
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.instantiate()'
+          julia --project=tooling -e 'using Pkg; Pkg.instantiate()'
 
       - name: Run Julia tests (Unit + Logic)
         run: julia --project=. test/runtests.jl
