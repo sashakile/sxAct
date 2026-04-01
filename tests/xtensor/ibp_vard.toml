@@ -181,6 +181,9 @@ expression = "IBphi[] RicciScalarIBD[]"
 field      = "IBphi"
 covd       = "IBD"
 
+[tests.expected]
+expr = "RicciScalarIBD[]"
+
 # ---------------------------------------------------------------------------
 
 # Test 8: VarD of phi * div(V) w.r.t. phi → div(V)
@@ -195,6 +198,9 @@ store_as = "result"
 expression = "IBphi[] IBD[-iba][IBV[iba]]"
 field      = "IBphi"
 covd       = "IBD"
+
+[tests.expected]
+expr = "IBD[-iba][IBV[iba]]"
 
 # ---------------------------------------------------------------------------
 
@@ -211,6 +217,9 @@ expression = "IBV[iba] IBD[-iba][IBphi[]]"
 field      = "IBphi"
 covd       = "IBD"
 
+[tests.expected]
+expr = "-IBD[-iba][IBV[iba]]"
+
 # ---------------------------------------------------------------------------
 
 # Test 10: VarD of phi^2 → 2 phi
@@ -225,3 +234,6 @@ store_as = "result"
 expression = "IBphi[] IBphi[]"
 field      = "IBphi"
 covd       = "IBD"
+
+[tests.expected]
+expr = "2 IBphi[]"

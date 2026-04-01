@@ -81,6 +81,19 @@
         @test ToCanonical("") == "0"
     end
 
+    @testset "ToCanonical — CovD bracket syntax raises error" begin
+        reset_state!()
+        def_manifold!(:Cbm, 4, [:cba, :cbb, :cbc, :cbd])
+        def_metric!(-1, "Cbg[-cba,-cbb]", :CBD)
+        def_tensor!(:CbV, ["-cba"], :Cbm)
+
+        # ToCanonical must error on CovD bracket syntax, not silently drop operands
+        @test_throws ErrorException ToCanonical("CBD[-cba][CbV[-cbb]]")
+
+        # Contract must also error
+        @test_throws ErrorException Contract("CBD[-cba][CbV[-cbb]]")
+    end
+
     @testset "ToCanonical — symmetric swap" begin
         reset_state!()
         def_manifold!(:Cnm, 4, [:cna, :cnb, :cnc, :cnd])
@@ -100,9 +113,17 @@
         def_manifold!(:Cnm, 4, [:cna, :cnb, :cnc, :cnd])
         def_tensor!(:Cna, ["-cna", "-cnb"], :Cnm; symmetry_str="Antisymmetric[{-cna,-cnb}]")
 
+        # Guard: individual terms are non-zero (trivial-zeroing defense)
+        @test ToCanonical("Cna[-cna,-cnb]") != "0"
+
         # Cna[-cna,-cnb] + Cna[-cnb,-cna] == 0
         result = ToCanonical("Cna[-cna,-cnb] + Cna[-cnb,-cna]")
         @test result == "0"
+
+        # Negative test: non-symmetric tensor sum is NOT zero
+        def_tensor!(:CnNs, ["-cna", "-cnb"], :Cnm)
+        @test ToCanonical("CnNs[-cna,-cnb] + CnNs[-cnb,-cna]") != "0"
+        @test ToCanonical("CnNs[-cna,-cnb] - CnNs[-cnb,-cna]") != "0"
     end
 
     @testset "ToCanonical — idempotency" begin
@@ -122,6 +143,9 @@
         def_manifold!(:Cnm, 4, [:cna, :cnb, :cnc, :cnd])
         def_metric!(-1, "Cng[-cna,-cnb]", :Cnd)
 
+        # Guard: individual Riemann term is non-zero (trivial-zeroing defense)
+        @test ToCanonical("RiemannCnd[-cna,-cnb,-cnc,-cnd]") != "0"
+
         # R[-a,-b,-c,-d] + R[-b,-a,-c,-d] == 0
         result = ToCanonical(
             "RiemannCnd[-cna,-cnb,-cnc,-cnd] + RiemannCnd[-cnb,-cna,-cnc,-cnd]"
@@ -139,6 +163,11 @@
             "RiemannCnd[-cna,-cnb,-cnc,-cnd] - RiemannCnd[-cnc,-cnd,-cna,-cnb]"
         )
         @test result3 == "0"
+
+        # Negative test: non-Bianchi cyclic sum is NOT zero (e.g. wrong sign)
+        @test ToCanonical(
+            "RiemannCnd[-cna,-cnb,-cnc,-cnd] - RiemannCnd[-cnb,-cna,-cnc,-cnd]"
+        ) != "0"
     end
 
     @testset "ToCanonical — Riemann idempotency" begin
@@ -214,11 +243,17 @@
         # Lower index: g_{ab} v^b → v_{-a} (result: Cv[-ca])
         @test Contract("Cg[-ca,-cb] Cv[cb]") == "Cv[-ca]"
 
-        # Weyl tracelessness: g^{ac} W_{abcd} = 0
+        # Guard: Weyl tensor is non-zero before tracing (trivial-zeroing defense)
         reset_state!()
         def_manifold!(:Cm4, 4, [:cxa, :cxb, :cxc, :cxd, :cxe, :cxf])
         def_metric!(-1, "CIg[-cxa,-cxb]", :CxD)
+        @test ToCanonical("WeylCxD[-cxa,-cxb,-cxc,-cxd]") != "0"
+
+        # Weyl tracelessness: g^{ac} W_{abcd} = 0
         @test Contract("CIg[cxa,cxc] WeylCxD[-cxa,-cxb,-cxc,-cxd]") == "0"
+
+        # Negative test: metric trace gives dimension, not zero
+        @test Contract("CIg[cxa,cxb] CIg[-cxa,-cxb]") == "4"
 
         # Einstein trace in 4D: g^{ab} G_{ab} = -R
         @test Contract("CIg[cxa,cxb] EinsteinCxD[-cxa,-cxb]") == "-RicciScalarCxD[]"

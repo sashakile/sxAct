@@ -70,6 +70,29 @@ bases   = ["ChC", "ChC", "ChC"]
 expr = "0.0"
 
 # ============================================================
+# Assert: Christoffel of flat metric has ALL zero components
+# ============================================================
+
+[[tests]]
+id          = "christoffel_minkowski_all_zero"
+description = "Assert: all Christoffel components are zero for flat Minkowski metric"
+dependencies = ["christoffel_minkowski"]
+
+[[tests.operations]]
+action = "ComponentValue"
+store_as = "gamma_212"
+[tests.operations.args]
+tensor  = "ChristoffelChd"
+indices = [2, 1, 2]
+bases   = ["ChC", "ChC", "ChC"]
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$gamma_212 == 0.0"
+message   = "Flat-metric Christoffel Γ^2_{12} must be zero"
+
+# ============================================================
 # Test: CTensorQ true for Christoffel after computation
 # ============================================================
 
@@ -140,6 +163,7 @@ dependencies = ["christoffel_nontrivial"]
 
 [[tests.operations]]
 action = "ComponentValue"
+store_as = "gamma_221"
 [tests.operations.args]
 tensor  = "ChristoffelChd"
 indices = [2, 2, 1]
@@ -147,6 +171,29 @@ bases   = ["ChC", "ChC", "ChC"]
 
 [tests.expected]
 expr = "0.25"
+
+# ============================================================
+# Assert: Christoffel symmetry Γ^1_{22} = 0.25 (cross-check)
+# ============================================================
+
+[[tests]]
+id          = "christoffel_cross_check"
+description = "Assert: Γ^1_{22} matches hand-computed value from metric derivatives"
+dependencies = ["christoffel_nontrivial"]
+
+[[tests.operations]]
+action = "ComponentValue"
+store_as = "gamma_122"
+[tests.operations.args]
+tensor  = "ChristoffelChd"
+indices = [1, 2, 2]
+bases   = ["ChC", "ChC", "ChC"]
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$gamma_122 == 0.25"
+message   = "Γ^1_{22} = -(1/2) g^{11} ∂_1 g_{22} = -(1/2)(-1/2)(1) = 0.25"
 
 # ============================================================
 # Test: Error — Christoffel for non-existent metric

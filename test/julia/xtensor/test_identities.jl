@@ -61,6 +61,9 @@
         def_manifold!(:MB, 4, [:ba, :bb, :bc, :bd, :be, :bf, :bg, :bh])
         def_metric!(-1, "gB[-ba,-bb]", "DB")
 
+        # Guard: individual Riemann term is non-zero (trivial-zeroing defense)
+        @test ToCanonical("RiemannDB[-ba,-bb,-bc,-bd]") != "0"
+
         # The first Bianchi identity: R[-a,-b,-c,-d] + R[-b,-c,-a,-d] + R[-c,-a,-b,-d] = 0
         r1 = ToCanonical(
             "RiemannDB[-ba,-bb,-bc,-bd] + RiemannDB[-bb,-bc,-ba,-bd] + RiemannDB[-bc,-ba,-bb,-bd]",
@@ -92,6 +95,9 @@
         @test haskey(XTensor._identity_registry, :RiemannDM)
         @test haskey(XTensor._identity_registry, :WeylDM)
 
+        # Guard: individual Weyl term is non-zero (trivial-zeroing defense)
+        @test ToCanonical("WeylDM[-ma,-mb,-mc,-md]") != "0"
+
         # Bianchi should work for Weyl too
         weyl_bianchi = ToCanonical(
             "WeylDM[-ma,-mb,-mc,-md] + WeylDM[-mb,-mc,-ma,-md] + WeylDM[-mc,-ma,-mb,-md]"
@@ -112,6 +118,9 @@
         )
         @test haskey(XTensor._identity_registry, :UserRiem)
         @test XTensor._identity_registry[:UserRiem][1].name == :FirstBianchi
+
+        # Guard: individual term is non-zero (trivial-zeroing defense)
+        @test ToCanonical("UserRiem[-ua,-ub,-uc,-ud]") != "0"
 
         # Bianchi identity should apply
         result = ToCanonical(

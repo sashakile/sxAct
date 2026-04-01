@@ -58,3 +58,6 @@ docs/.CondaPkg/
 
 # Invar database (downloaded, not committed — 350MB)
 resources/xAct/Invar/Riemann/
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key

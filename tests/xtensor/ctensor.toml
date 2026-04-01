@@ -130,6 +130,7 @@ dependencies = ["set_components_metric"]
 
 [[tests.operations]]
 action = "ComponentValue"
+store_as = "g11"
 [tests.operations.args]
 tensor  = "Ctg"
 indices = [1, 1]
@@ -149,6 +150,7 @@ dependencies = ["set_components_metric"]
 
 [[tests.operations]]
 action = "ComponentValue"
+store_as = "g22"
 [tests.operations.args]
 tensor  = "Ctg"
 indices = [2, 2]
@@ -156,6 +158,29 @@ bases   = ["C1", "C1"]
 
 [tests.expected]
 expr = "1"
+
+# ============================================================
+# Assert: Metric off-diagonal component is zero (symmetry check)
+# ============================================================
+
+[[tests]]
+id          = "metric_offdiag_zero"
+description = "Assert: off-diagonal g_{12} = 0 for diagonal Minkowski metric"
+dependencies = ["set_components_metric"]
+
+[[tests.operations]]
+action = "ComponentValue"
+store_as = "g12"
+[tests.operations.args]
+tensor  = "Ctg"
+indices = [1, 2]
+bases   = ["C1", "C1"]
+
+[[tests.operations]]
+action = "Assert"
+[tests.operations.args]
+condition = "$g12 == 0"
+message   = "Minkowski g_{12} must be zero (diagonal metric)"
 
 # ============================================================
 # Test: Error — wrong dimensions

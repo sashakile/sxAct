@@ -212,6 +212,19 @@ function _parse_monomial(s::AbstractString)::Vector{FactorAST}
 
         indices = _parse_index_list(idx_str)
         push!(factors, FactorAST(tensor_name, indices))
+
+        # Detect CovD bracket syntax: Name[idx][operand] — not supported here
+        typos = pos
+        while typos <= n && isspace(s[typos])
+            typos += 1
+        end
+        if typos <= n && s[typos] == '['
+            error(
+                "CovD bracket syntax $(tensor_name)[...][...] is not supported by " *
+                "ToCanonical/Contract. Use SortCovDs or CommuteCovDs for covariant " *
+                "derivative expressions.",
+            )
+        end
     end
 
     factors
