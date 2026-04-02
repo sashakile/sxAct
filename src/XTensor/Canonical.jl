@@ -2,20 +2,31 @@
 # Tensor expression parser
 # ============================================================
 
-struct FactorAST
+struct TensorFactor
     tensor_name::Symbol
     indices::Vector{String}
 end
 
+struct CovDFactor
+    covd_name::Symbol
+    deriv_index::String
+    operand::Vector{Union{TensorFactor,CovDFactor}}
+end
+
+"""
+A factor is either a plain tensor or a CovD application.
+"""
+const FactorNode = Union{TensorFactor,CovDFactor}
+
 struct TermAST
     coeff::Rational{Int}
-    factors::Vector{FactorAST}
+    factors::Vector{FactorNode}
 end
 
 """
 Zero-coefficient sentinel: returned instead of `nothing` to keep TermAST endomorphism.
 """
-const ZERO_TERM = TermAST(0 // 1, FactorAST[])
+const ZERO_TERM = TermAST(0 // 1, FactorNode[])
 _is_zero_term(t::TermAST) = t.coeff == 0 && isempty(t.factors)
 
 """
@@ -24,9 +35,20 @@ Serialize a structured key to a canonical string for O(1) Dict hashing.
 function _term_key_str(factors::_StructKey)::String
     join(["$(n)[$(join(idxs,","))]" for (n, idxs) in factors], " ")
 end
-_term_key_str(factors::Vector{FactorAST})::String = _term_key_str([
-    (f.tensor_name, f.indices) for f in factors
-])
+function _term_key_str(factors::Vector{FactorNode})::String
+    parts = String[]
+    for f in factors
+        if f isa TensorFactor
+            push!(parts, "$(f.tensor_name)[$(join(f.indices, ","))]")
+        elseif f isa CovDFactor
+            push!(
+                parts,
+                "$(f.covd_name)[$(f.deriv_index)][$(_term_key_str(FactorNode[o for o in f.operand]))]",
+            )
+        end
+    end
+    join(parts, " ")
+end
 
 """
     _parse_expression(expr_str) → Vector{TermAST}
@@ -167,8 +189,23 @@ function _parse_term(chunk::AbstractString, outer_sign::Int)::TermAST
     TermAST(coeff, factors)
 end
 
-function _parse_monomial(s::AbstractString)::Vector{FactorAST}
-    factors = FactorAST[]
+"""
+Check if a string contains a top-level `+` or `-` (not inside brackets).
+"""
+function _has_top_level_sum(s::AbstractString)::Bool
+    depth = 0
+    for (i, c) in enumerate(s)
+        c == '[' && (depth += 1)
+        c == ']' && (depth -= 1)
+        if depth == 0 && i > 1 && (c == '+' || c == '-')
+            return true
+        end
+    end
+    false
+end
+
+function _parse_monomial(s::AbstractString)::Vector{FactorNode}
+    factors = FactorNode[]
     pos = 1
     n = length(s)
 
@@ -211,19 +248,47 @@ function _parse_monomial(s::AbstractString)::Vector{FactorAST}
         pos += 1  # consume ']'
 
         indices = _parse_index_list(idx_str)
-        push!(factors, FactorAST(tensor_name, indices))
 
-        # Detect CovD bracket syntax: Name[idx][operand] — not supported here
+        # Check for CovD bracket syntax: Name[idx][operand]
         typos = pos
         while typos <= n && isspace(s[typos])
             typos += 1
         end
         if typos <= n && s[typos] == '['
-            error(
-                "CovD bracket syntax $(tensor_name)[...][...] is not supported by " *
-                "ToCanonical/Contract. Use SortCovDs or CommuteCovDs for covariant " *
-                "derivative expressions.",
+            # Double brackets: must be a registered CovD
+            if !CovDQ(tensor_name)
+                error(
+                    "Double bracket syntax $(tensor_name)[...][...] but $(tensor_name) " *
+                    "is not a registered covariant derivative. Only CovD names " *
+                    "can use bracket application syntax.",
+                )
+            end
+            length(indices) != 1 && error(
+                "CovD $(tensor_name) must have exactly 1 derivative index, got $(length(indices))",
             )
+            pos = typos + 1  # consume '['
+            # Find the matching ']' for the operand bracket
+            op_start = pos
+            op_depth = 1
+            while pos <= n && op_depth > 0
+                s[pos] == '[' && (op_depth += 1)
+                s[pos] == ']' && (op_depth -= 1)
+                op_depth > 0 && (pos += 1)
+            end
+            operand_str = strip(s[op_start:(pos - 1)])
+            pos += 1  # consume ']'
+            # Reject sums inside CovD brackets
+            if _has_top_level_sum(operand_str)
+                error(
+                    "CovD of a sum is not supported: $(tensor_name)[$(indices[1])][...]. " *
+                    "Expand using linearity: CD[-a][V + W] → CD[-a][V] + CD[-a][W]",
+                )
+            end
+            # Recursively parse the operand as a monomial
+            operand_factors = _parse_monomial(operand_str)
+            push!(factors, CovDFactor(tensor_name, indices[1], operand_factors))
+        else
+            push!(factors, TensorFactor(tensor_name, indices))
         end
     end
 
@@ -247,19 +312,25 @@ function _expand_einstein_terms(terms::Vector{TermAST})::Vector{TermAST}
     expanded = TermAST[]
     for term in terms
         # Find an Einstein factor in this term (if any)
-        ei_idx = findfirst(f -> haskey(_einstein_expansion, f.tensor_name), term.factors)
+        ei_idx = findfirst(
+            f -> f isa TensorFactor && haskey(_einstein_expansion, f.tensor_name),
+            term.factors,
+        )
         if isnothing(ei_idx)
             push!(expanded, term)
             continue
         end
         ef = term.factors[ei_idx]
-        other_factors = [term.factors[i] for i in eachindex(term.factors) if i != ei_idx]
+        other_factors = FactorNode[
+            term.factors[i] for i in eachindex(term.factors) if i != ei_idx
+        ]
         ricci_name, metric_name, scalar_name = _einstein_expansion[ef.tensor_name]
         # Ricci term: same coefficient, replace Einstein factor with Ricci
         push!(
             expanded,
             TermAST(
-                term.coeff, [other_factors..., FactorAST(ricci_name, copy(ef.indices))]
+                term.coeff,
+                FactorNode[other_factors..., TensorFactor(ricci_name, copy(ef.indices))],
             ),
         )
         # -1/2 metric * RicciScalar term
@@ -267,10 +338,10 @@ function _expand_einstein_terms(terms::Vector{TermAST})::Vector{TermAST}
             expanded,
             TermAST(
                 term.coeff * (-1 // 2),
-                [
+                FactorNode[
                     other_factors...,
-                    FactorAST(metric_name, copy(ef.indices)),
-                    FactorAST(scalar_name, String[]),
+                    TensorFactor(metric_name, copy(ef.indices)),
+                    TensorFactor(scalar_name, String[]),
                 ],
             ),
         )
@@ -1168,7 +1239,9 @@ function ToCanonical(expression::AbstractString)::String
         skey = _term_key_str(term.factors)
         if !haskey(coeff_map, skey)
             coeff_map[skey] = 0 // 1
-            struct_map[skey] = [(f.tensor_name, copy(f.indices)) for f in term.factors]
+            struct_map[skey] = [
+                (f.tensor_name, copy(f.indices)) for f in term.factors if f isa TensorFactor
+            ]
             push!(key_order, skey)
         end
         coeff_map[skey] += term.coeff
@@ -1193,13 +1266,25 @@ Canonicalize a single term; returns nothing if the term is zero.
 """
 function _canonicalize_term(term::TermAST)::TermAST
     running_sign = term.coeff
-    new_factors = FactorAST[]
+    new_factors = FactorNode[]
 
     for f in term.factors
+        if f isa CovDFactor
+            # Recursively canonicalize the inner operand
+            inner_term = TermAST(1 // 1, f.operand)
+            canon_inner = _canonicalize_term(inner_term)
+            if _is_zero_term(canon_inner)
+                return ZERO_TERM
+            end
+            running_sign *= canon_inner.coeff
+            push!(new_factors, CovDFactor(f.covd_name, f.deriv_index, canon_inner.factors))
+            continue
+        end
+
         t = get(_tensors, f.tensor_name, nothing)
         if isnothing(t)
             # Unknown tensor: treat as NoSymmetry, pass through unchanged
-            push!(new_factors, FactorAST(f.tensor_name, copy(f.indices)))
+            push!(new_factors, TensorFactor(f.tensor_name, copy(f.indices)))
             continue
         end
 
@@ -1207,7 +1292,7 @@ function _canonicalize_term(term::TermAST)::TermAST
         sym = t.symmetry
 
         if isempty(sym.slots) || sym.type == :NoSymmetry
-            push!(new_factors, FactorAST(f.tensor_name, current))
+            push!(new_factors, TensorFactor(f.tensor_name, current))
             continue
         end
 
@@ -1220,13 +1305,16 @@ function _canonicalize_term(term::TermAST)::TermAST
         end
 
         running_sign *= (factor_sign // 1)
-        push!(new_factors, FactorAST(f.tensor_name, canon_indices))
+        push!(new_factors, TensorFactor(f.tensor_name, canon_indices))
     end
 
     # Sort factors within the term for canonical factor ordering.
-    # In abstract index notation, tensor factors commute (tensor product is symmetric),
-    # so we canonicalize factor order by tensor name then index list.
-    sort!(new_factors; by=f -> (string(f.tensor_name), f.indices))
+    # CovDFactor sorts by covd_name + deriv_index; TensorFactor by tensor_name + indices.
+    _factor_sort_key(f::TensorFactor) = (string(f.tensor_name), f.indices)
+    _factor_sort_key(f::CovDFactor) = (
+        string(f.covd_name) * "[" * f.deriv_index * "]", String[]
+    )
+    sort!(new_factors; by=_factor_sort_key)
 
     TermAST(running_sign, new_factors)
 end

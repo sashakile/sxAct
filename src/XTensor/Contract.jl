@@ -51,7 +51,7 @@ Returns (covd_key, MetricObj, :contravariant | :covariant) or nothing.
 :contravariant — g^{ab}: both indices up (no '-' prefix) → raises indices
 :covariant     — g_{ab}: both indices down ('-' prefix)   → lowers indices
 """
-function _factor_as_metric(f::FactorAST)::Union{Tuple{Symbol,MetricObj,Symbol},Nothing}
+function _factor_as_metric(f::TensorFactor)::Union{Tuple{Symbol,MetricObj,Symbol},Nothing}
     length(f.indices) == 2 || return nothing
     covd = get(_metric_name_index, f.tensor_name, nothing)
     isnothing(covd) && return nothing
@@ -65,6 +65,8 @@ function _factor_as_metric(f::FactorAST)::Union{Tuple{Symbol,MetricObj,Symbol},N
     end
     nothing
 end
+# CovDFactor is never a metric
+_factor_as_metric(::CovDFactor)::Nothing = nothing
 
 """
 Apply ContractMetric to a single term.
@@ -99,8 +101,8 @@ Dispatch trace rules through registries. Returns:
 """
 function _apply_trace_rules(
     term::TermAST,
-    factors::Vector{FactorAST},
-    new_other::FactorAST,
+    factors::Vector{FactorNode},
+    new_other::TensorFactor,
     metric_pos::Int,
     other_pos::Int,
     has_1::Bool,
@@ -121,13 +123,13 @@ function _apply_trace_rules(
         ]
         if isempty(remaining_free)
             (scalar_name, coeff_int) = _trace_scalars[new_other.tensor_name]
-            new_factors = FactorAST[]
+            new_factors = FactorNode[]
             for (k, ff) in enumerate(factors)
                 k == metric_pos && continue
                 k == other_pos && continue
                 push!(new_factors, ff)
             end
-            push!(new_factors, FactorAST(scalar_name, String[]))
+            push!(new_factors, TensorFactor(scalar_name, String[]))
             return (:replaced, TermAST(term.coeff * coeff_int, new_factors))
         end
     end
@@ -193,6 +195,8 @@ function _contract_one_metric(term::TermAST)::TermAST
     # Find another factor that has matching index(es) of the opposite variance
     for (j, other) in enumerate(factors)
         j == metric_pos && continue
+        # CovDFactor cannot be contracted via metric (needs Phase C unification)
+        other isa CovDFactor && continue
 
         if metric_var == :contravariant
             # g^{ab} contracts with down (-) indices in other factors
@@ -245,7 +249,7 @@ function _contract_one_metric(term::TermAST)::TermAST
         end
 
         # Build the new factor with updated indices
-        new_other = FactorAST(other.tensor_name, new_indices)
+        new_other = TensorFactor(other.tensor_name, new_indices)
 
         # Detect traces:
         # 1. Double contraction (has_1 && has_2 against the same factor) is always a trace.
@@ -276,7 +280,7 @@ function _contract_one_metric(term::TermAST)::TermAST
         end
 
         # Remove the metric factor, replace `other` with `new_other`
-        new_factors = FactorAST[]
+        new_factors = FactorNode[]
         for (k, ff) in enumerate(factors)
             k == metric_pos && continue
             if k == j

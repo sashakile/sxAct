@@ -321,15 +321,15 @@ function MakeTraceFree(expression::AbstractString, metric_name::Symbol)::String
     # where T_{cd} has free indices replaced by dummies
     sub_terms = TermAST[]
     for term in terms
-        new_factors = FactorAST[]
+        new_factors = FactorNode[]
         # Add g_{ab} (same variance as free indices)
-        push!(new_factors, FactorAST(metric_name, [g_a, g_b]))
+        push!(new_factors, TensorFactor(metric_name, [g_a, g_b]))
         # Add g^{cd} (opposite variance for contraction)
         m_da = startswith(g_a, "-") ? d1 : "-$d1"
         m_db = startswith(g_b, "-") ? d2 : "-$d2"
         contra_d1 = startswith(g_a, "-") ? d1 : "-$d1"
         contra_d2 = startswith(g_b, "-") ? d2 : "-$d2"
-        push!(new_factors, FactorAST(metric_name, [contra_d1, contra_d2]))
+        push!(new_factors, TensorFactor(metric_name, [contra_d1, contra_d2]))
         # Add original factors with free indices replaced by dummies
         for f in term.factors
             new_idxs = String[]
@@ -344,7 +344,7 @@ function MakeTraceFree(expression::AbstractString, metric_name::Symbol)::String
                     push!(new_idxs, idx)
                 end
             end
-            push!(new_factors, FactorAST(f.tensor_name, new_idxs))
+            push!(new_factors, TensorFactor(f.tensor_name, new_idxs))
         end
         push!(sub_terms, TermAST(-term.coeff * (1 // dim), new_factors))
     end

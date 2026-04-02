@@ -81,17 +81,32 @@
         @test ToCanonical("") == "0"
     end
 
-    @testset "ToCanonical — CovD bracket syntax raises error" begin
+    @testset "ToCanonical — CovD bracket round-trip" begin
         reset_state!()
         def_manifold!(:Cbm, 4, [:cba, :cbb, :cbc, :cbd])
         def_metric!(-1, "Cbg[-cba,-cbb]", :CBD)
         def_tensor!(:CbV, ["-cba"], :Cbm)
+        def_tensor!(:CbS, ["-cba", "-cbb"], :Cbm; symmetry_str="Symmetric[{-cba,-cbb}]")
 
-        # ToCanonical must error on CovD bracket syntax, not silently drop operands
-        @test_throws ErrorException ToCanonical("CBD[-cba][CbV[-cbb]]")
+        # Single CovD preserves bracket structure
+        @test ToCanonical("CBD[-cba][CbV[-cbb]]") == "CBD[-cba][CbV[-cbb]]"
 
-        # Contract must also error
-        @test_throws ErrorException Contract("CBD[-cba][CbV[-cbb]]")
+        # Inner operand gets canonicalized (sym swap)
+        @test ToCanonical("CBD[-cba][CbS[-cbb,-cba]]") == "CBD[-cba][CbS[-cba,-cbb]]"
+
+        # Round-trip is idempotent
+        r1 = ToCanonical("CBD[-cba][CbV[-cbb]]")
+        @test ToCanonical(r1) == r1
+
+        # Mixed CovD + product: outer factors canonicalized too (lexicographic sort: CBD < CbS)
+        @test ToCanonical("CBD[-cba][CbV[-cbb]] CbS[-cbd,-cbc]") ==
+            "CBD[-cba][CbV[-cbb]] CbS[-cbc,-cbd]"
+
+        # Non-CovD double brackets still error
+        @test_throws ErrorException ToCanonical("CbV[-cba][CbV[-cbb]]")
+
+        # CovD of sum errors with helpful message
+        @test_throws ErrorException ToCanonical("CBD[-cba][CbV[-cbb] + CbV[-cbb]]")
     end
 
     @testset "ToCanonical — symmetric swap" begin
