@@ -758,6 +758,82 @@ end
 
     # ── 19. Performance smoke test ──────────────────────────────────────────
 
+    # ────────────────────────────────────────────────────────────────────────
+    # 20. CovD expression idempotency
+    # ────────────────────────────────────────────────────────────────────────
+
+    @testset "CovD ToCanonical idempotency (N=$N_TRIALS)" begin
+        reset_state!()
+        setup_standard!()
+        rng = MersenneTwister(SEED + 200)
+        for trial in 1:N_TRIALS
+            # Pick a CovD index and an inner tensor expression using disjoint indices
+            covd_idx = pick_indices(rng, 1; pool=ALL_INDICES)[1]
+            remaining = filter(i -> i != covd_idx, ALL_INDICES)
+            inner = if rand(rng, Bool)
+                i2 = pick_indices(rng, 2; pool=remaining)
+                "S[$(lower(i2[1])),$(lower(i2[2]))]"
+            else
+                i1 = pick_indices(rng, 1; pool=remaining)
+                "V[$(lower(i1[1]))]"
+            end
+            expr = "CD[$(lower(covd_idx))][$inner]"
+            r1 = ToCanonical(expr)
+            r2 = ToCanonical(r1)
+            @test r1 == r2
+        end
+    end
+
+    @testset "CovD + product mixed idempotency (N=$N_TRIALS)" begin
+        reset_state!()
+        setup_standard!()
+        rng = MersenneTwister(SEED + 201)
+        for trial in 1:N_TRIALS
+            # CD[-a][V[-b]] T[-c,-d]  (CovD uses 2 indices, product uses 2 more)
+            idxs = pick_indices(rng, 4; pool=ALL_INDICES)
+            covd_part = "CD[$(lower(idxs[1]))][V[$(lower(idxs[2]))]]"
+            prod_part = "T[$(lower(idxs[3])),$(lower(idxs[4]))]"
+            expr = if rand(rng, Bool)
+                "$covd_part $prod_part"
+            else
+                "$prod_part $covd_part"
+            end
+            r1 = ToCanonical(expr)
+            r2 = ToCanonical(r1)
+            @test r1 == r2
+        end
+    end
+
+    @testset "Nested CovD chain idempotency (N=$N_TRIALS)" begin
+        reset_state!()
+        setup_standard!()
+        rng = MersenneTwister(SEED + 202)
+        for trial in 1:N_TRIALS
+            # CD[-a][CD[-b][V[-c]]]  (nested CovD chain)
+            idxs = pick_indices(rng, 3; pool=ALL_INDICES)
+            expr = "CD[$(lower(idxs[1]))][CD[$(lower(idxs[2]))][V[$(lower(idxs[3]))]]]"
+            r1 = ToCanonical(expr)
+            r2 = ToCanonical(r1)
+            @test r1 == r2
+        end
+    end
+
+    @testset "CovD inner canonicalization (N=$N_TRIALS)" begin
+        reset_state!()
+        setup_standard!()
+        rng = MersenneTwister(SEED + 203)
+        for trial in 1:N_TRIALS
+            # CD[-a][S[-c,-b]] — inner symmetric tensor should be canonicalized
+            idxs = pick_indices(rng, 3; pool=ALL_INDICES)
+            expr = "CD[$(lower(idxs[1]))][S[$(lower(idxs[2])),$(lower(idxs[3]))]]"
+            result = ToCanonical(expr)
+            # The inner S indices should be sorted (symmetric canonical form)
+            sorted_inner = sort([string(idxs[2]), string(idxs[3])])
+            expected = "CD[$(lower(idxs[1]))][S[-$(sorted_inner[1]),-$(sorted_inner[2])]]"
+            @test result == expected
+        end
+    end
+
     @testset "Performance: 200 random ToCanonical calls < 2s" begin
         reset_state!()
         setup_standard!()

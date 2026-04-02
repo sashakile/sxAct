@@ -17,7 +17,7 @@
 - [x] 2.9 Add test: round-trip `ToCanonical(ToCanonical("CD[-a][V[-b]]"))` is idempotent
 - [x] 2.10 Add test: mixed CovD+product `ToCanonical("CD[-a][V[-b]] S[-d,-c]")` → `"CD[-a][V[-b]] S[-c,-d]"`
 - [x] 2.11 Add test: CovD of sum `ToCanonical("CD[-a][V[-b] + W[-b]]")` raises error suggesting linearity expansion
-- [ ] 2.12 Add fuzz tests: random CovD expressions survive ToCanonical round-trip
+- [x] 2.12 Add fuzz tests: random CovD expressions survive ToCanonical round-trip
 - [x] 2.13 Verify full XTensor + fuzz test suites pass (zero regressions)
 
 ## 3. Phase C — Retire string-based CovD parser
