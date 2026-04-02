@@ -127,6 +127,54 @@ AST-level operations, after which the preprocessing step is removed.
 - **Rollback**: Phase A is independently revertable (one error check). Phase B should be
   a single commit or squashed PR so it can be reverted atomically if regressions appear.
 
+## Known call sites affected by CovD bracket blindness
+
+Audit performed 2026-04-02 after fixing SortCovDs term collection (69754a2).
+Phase A (error guard) is deployed — these now throw instead of silently corrupting,
+but callers still need to handle the error or gain bracket support.
+
+### P1 — Reachable from TOML test runner today
+
+| Caller | File | Issue |
+|--------|------|-------|
+| `Simplify()` | `Pert.jl:387` | Calls `Contract` → `ToCanonical` in loop; crashes on brackets |
+| `Contract()` | `Canonical.jl` | Same flat parser as `ToCanonical`; crashes on brackets |
+| `_contract()` adapter | `julia_stub.py:489` | Unprotected — same pattern as the `_to_canonical` bug fixed in 69754a2 |
+| `_simplify()` adapter | `julia_stub.py:558` | Unprotected — same pattern |
+
+**Interim mitigation (already deployed):** `_to_canonical` has try/catch + SortCovDs fallback.
+`_contract` and `_simplify` do NOT have this fallback — they will crash if a TOML test
+passes CovD bracket expressions to Contract or Simplify actions. No current TOML test
+does this, but it's a latent bug.
+
+### P2 — Reachable from user-facing API
+
+| Caller | File | Issue |
+|--------|------|-------|
+| `SymmetryOf()` | `XTras.jl:117` | Calls `ToCanonical` directly |
+| `AllContractions()` | `XTras.jl:62,73` | Calls `Simplify`/`Contract` |
+| `MakeTraceFree()` | `XTras.jl:357` | Calls `Simplify` |
+| `CollectTensors()` | `XTras.jl:15` | Delegates to `ToCanonical` |
+
+These are higher-level functions that rarely receive CovD expressions in practice,
+but they will crash if they do.
+
+### Already safe
+
+| Caller | Why safe |
+|--------|----------|
+| `_safe_simplify()` (Pert.jl:757) | Regex guard detects brackets, returns unchanged |
+| `SortCovDs()` | Native bracket support, now with term collection |
+| `CommuteCovDs()` | Native bracket support |
+| `_to_canonical()` adapter | try/catch + SortCovDs fallback |
+
+### Resolution
+
+Phase B (unified AST) eliminates all of these — once `_parse_monomial` can produce
+`CovDFactor` nodes, `ToCanonical`/`Contract`/`Simplify` handle brackets natively.
+Until then, the P1 adapter handlers could get the same try/catch fallback as
+`_to_canonical`, but this is piecemeal — prefer shipping Phase B instead.
+
 ## Open Questions
 
 - Should `Contract` and `Simplify` attempt to contract through CovD brackets

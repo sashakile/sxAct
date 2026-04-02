@@ -1,9 +1,9 @@
 ## 1. Phase A — Error guard (eliminates silent data loss)
-- [ ] 1.1 Add detection in `_parse_monomial`: after parsing `Name[indices]`, if next char is `[`, raise `error("CovD bracket syntax CD[...][...] is not supported by ToCanonical. Use SortCovDs/CommuteCovDs for covariant derivative expressions.")`
-- [ ] 1.2 Add test: `ToCanonical("CD[-a][V[-b]]")` raises error (not silently drops)
-- [ ] 1.3 Add test: `Contract("CD[-a][V[-b]]")` raises error
-- [ ] 1.4 Verify existing CovD tests still pass (`SortCovDs`, `CommuteCovDs` use separate parser)
-- [ ] 1.5 Verify full XTensor + fuzz test suites pass
+- [x] 1.1 Add detection in `_parse_monomial`: after parsing `Name[indices]`, if next char is `[`, raise `error("CovD bracket syntax CD[...][...] is not supported by ToCanonical. Use SortCovDs/CommuteCovDs for covariant derivative expressions.")` — done in 567ab18
+- [x] 1.2 Add test: `ToCanonical("CD[-a][V[-b]]")` raises error (not silently drops) — done in 567ab18
+- [x] 1.3 Add test: `Contract("CD[-a][V[-b]]")` raises error — done in 567ab18
+- [x] 1.4 Verify existing CovD tests still pass (`SortCovDs`, `CommuteCovDs` use separate parser)
+- [x] 1.5 Verify full XTensor + fuzz test suites pass
 
 ## 2. Phase B — Unified AST
 - [ ] 2.1 Define `TensorFactor` as a rename of `FactorAST`; rename all references
