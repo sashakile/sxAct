@@ -19,9 +19,9 @@ def convert(qmd_path: str) -> None:
     path = Path(qmd_path)
     ipynb_path = path.with_suffix(".ipynb")
 
-    # Run quarto convert
+    # Run quarto convert (via uvx so quarto need not be installed globally)
     result = subprocess.run(
-        ["quarto", "convert", str(path)],
+        ["uvx", "--from", "quarto-cli", "quarto", "convert", str(path)],
         capture_output=True,
         text=True,
     )
