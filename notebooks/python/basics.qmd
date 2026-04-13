@@ -25,8 +25,18 @@ If running on Google Colab, install the package first.
 
 ```{python}
 #| eval: false
-# Run this cell on Google Colab or Binder:
-!pip install xact-py
+import importlib, sys
+if "google.colab" in sys.modules or "BINDER_SERVICE_HOST" in __import__("os").environ:
+    !pip install -q xact-py
+    # juliacall 0.9.x caps Julia at 1.11 via OpenSSL_jll — remove the constraint
+    import json, site
+    from pathlib import Path
+    for p in Path(site.getsitepackages()[0]).rglob("juliacall/juliapkg.json"):
+        d = json.loads(p.read_text())
+        d.get("packages", {}).pop("OpenSSL_jll", None)
+        p.write_text(json.dumps(d, indent=4))
+elif importlib.util.find_spec("xact") is None:
+    !pip install -q xact-py
 ```
 
 Load the module.
