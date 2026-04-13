@@ -2081,7 +2081,7 @@ wheels = [
 
 [[package]]
 name = "sxact"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "packages/sxact" }
 dependencies = [
     { name = "jsonschema" },
@@ -2103,7 +2103,7 @@ requires-dist = [
 
 [[package]]
 name = "sxact-workspace"
-version = "0.4.1"
+version = "0.4.2"
 source = { virtual = "." }
 dependencies = [
     { name = "sxact" },
@@ -2370,7 +2370,7 @@ wheels = [
 
 [[package]]
 name = "xact-py"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "packages/xact-py" }
 dependencies = [
     { name = "juliacall" },

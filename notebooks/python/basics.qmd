@@ -24,8 +24,9 @@ construction time rather than deep inside the engine.
 If running on Google Colab, install the package first.
 
 ```{python}
-# Uncomment if running on Google Colab (not yet on PyPI, install from GitHub):
-# !pip install "git+https://github.com/sashakile/sxAct.git#subdirectory=packages/xact-py"
+#| eval: false
+# Run this cell on Google Colab or Binder:
+!pip install xact-py
 ```
 
 Load the module.
