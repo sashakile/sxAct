@@ -126,7 +126,7 @@ jobs:
           julia --project=tooling -e 'using Pkg; Pkg.instantiate()'
 
       - name: Run Julia tests (Unit + Logic)
-        run: julia --project=. test/runtests.jl
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
 
       - name: Run TOML regression tests (xperm + xtensor)
         run: |

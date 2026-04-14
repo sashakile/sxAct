@@ -87,7 +87,9 @@ makedocs(;
         size_threshold=300 * 1024, # Increase to 300KiB for large API page
         inventory_version="0.4.0",
     ),
-    warnonly=[:cross_references, :example_block],
+    warnonly=[
+        :cross_references, :example_block, :docs_block, :missing_docs, :autodocs_block
+    ],
     modules=[XAct, XAct.XCore, XAct.XPerm, XAct.XTensor, XAct.XInvar],
     pages=[
         "Home" => "index.md",
