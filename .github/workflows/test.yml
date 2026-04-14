@@ -87,9 +87,12 @@ jobs:
         run: uv run pytest tests/ -q -m "not slow" --ignore=tests/integration --ignore=tests/properties --ignore=tests/xperm --ignore=tests/xtensor
 
   julia-tests:
-    name: Julia Tests
+    name: Julia Tests (${{ matrix.julia-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      matrix:
+        julia-version: ["1.10", "1.11", "1.12"]
     steps:
       - uses: actions/checkout@v4
 
@@ -106,7 +109,7 @@ jobs:
 
       - uses: julia-actions/setup-julia@v2
         with:
-          version: "1.12"
+          version: ${{ matrix.julia-version }}
 
       - name: Cache Julia packages
         uses: actions/cache@v4
@@ -114,11 +117,22 @@ jobs:
           path: |
             ~/.julia/packages
             ~/.julia/compiled
-          key: julia-1.12-${{ hashFiles('Project.toml', 'tooling/Manifest.toml') }}
-          restore-keys: julia-1.12-
+          key: julia-${{ matrix.julia-version }}-${{ hashFiles('Project.toml', 'tooling/Manifest.toml') }}
+          restore-keys: julia-${{ matrix.julia-version }}-
 
       - name: Install Python dependencies
         run: uv sync --extra dev
+
+      - name: Patch juliacall OpenSSL_jll constraint
+        if: matrix.julia-version == '1.12'
+        run: |
+          python -c "
+          import json, glob
+          for p in glob.glob('.venv/**/juliacall/juliapkg.json', recursive=True):
+              d = json.loads(open(p).read())
+              d.get('packages', {}).pop('OpenSSL_jll', None)
+              open(p, 'w').write(json.dumps(d, indent=4))
+          "
 
       - name: Instantiate Julia project
         run: |
