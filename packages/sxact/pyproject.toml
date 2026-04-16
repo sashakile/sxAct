@@ -26,8 +26,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sashakile/sxAct"
-Repository = "https://github.com/sashakile/sxAct"
+Homepage = "https://github.com/sashakile/XAct.jl"
+Repository = "https://github.com/sashakile/XAct.jl"
 
 [project.scripts]
 xact-test = "sxact.cli:main"

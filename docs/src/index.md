@@ -1,7 +1,7 @@
 # XAct.jl
 
 !!! info "Project Profile for AI Agents (LLM TL;DR)"
-    - **Name**: XAct.jl (Repository: `sxAct`)
+    - **Name**: XAct.jl (Repository: `XAct.jl`)
     - **Primary Language**: Julia (Computational Core)
     - **Function**: Symbolic tensor algebra and curvature calculus for General Relativity.
     - **Ecosystem**: Native Julia port of the Wolfram [xAct](http://xact.es/) suite by José M. Martín-García et al.
@@ -34,7 +34,7 @@ everywhere and can be mixed freely.
 
 ## Project Overview
 
-The `XAct.jl` project (hosted in the `sxAct` repository) provides the native Julia implementation of the [xAct](http://xact.es/) tensor calculus suite originally created by José M. Martín-García and collaborators for Wolfram Mathematica. It is designed as the modern, open-source successor — a complete rewrite rather than a wrapper.
+The `XAct.jl` project provides the native Julia implementation of the [xAct](http://xact.es/) tensor calculus suite originally created by José M. Martín-García and collaborators for Wolfram Mathematica. It is designed as the modern, open-source successor — a complete rewrite rather than a wrapper.
 
 ### Components
 - **XAct.jl** (Core): The computational engine written in native Julia — covers canonicalization (Butler-Portugal/xPerm), contraction, covariant derivatives, perturbation theory, coordinate components (xCoba), Riemann invariants (Invar), and more.

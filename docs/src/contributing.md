@@ -4,13 +4,13 @@ We welcome contributions to `xAct.jl` (the Julia core) and the `sxact` verificat
 
 ## Getting Started
 
-Please see the root [CONTRIBUTING.md](https://github.com/sashakile/sxAct/blob/main/CONTRIBUTING.md) for full details on environment setup, code style, and workflow.
+Please see the root [CONTRIBUTING.md](https://github.com/sashakile/XAct.jl/blob/main/CONTRIBUTING.md) for full details on environment setup, code style, and workflow.
 
 ### Quick Setup
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sashakile/sxAct.git
+git clone https://github.com/sashakile/XAct.jl.git
 cd sxAct
 
 # 2. Install Python dependencies

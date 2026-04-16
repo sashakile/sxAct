@@ -2081,7 +2081,7 @@ wheels = [
 
 [[package]]
 name = "sxact"
-version = "0.4.2"
+version = "0.7.0"
 source = { editable = "packages/sxact" }
 dependencies = [
     { name = "jsonschema" },
@@ -2370,7 +2370,7 @@ wheels = [
 
 [[package]]
 name = "xact-py"
-version = "0.4.2"
+version = "0.7.0"
 source = { editable = "packages/xact-py" }
 dependencies = [
     { name = "juliacall" },

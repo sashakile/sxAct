@@ -257,8 +257,8 @@ Supported: `canonicalize`, `contract`, `simplify`, `perturb`, `commute_covds`,
 
 Pre-built Jupyter notebooks are available in the repository:
 
-- **Julia**: [`notebooks/julia/basics.ipynb`](https://github.com/sashakile/sxAct/blob/main/notebooks/julia/basics.ipynb)
-- **Python**: [`notebooks/python/basics.ipynb`](https://github.com/sashakile/sxAct/blob/main/notebooks/python/basics.ipynb)
+- **Julia**: [`notebooks/julia/basics.ipynb`](https://github.com/sashakile/XAct.jl/blob/main/notebooks/julia/basics.ipynb)
+- **Python**: [`notebooks/python/basics.ipynb`](https://github.com/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb)
 
 ---
 

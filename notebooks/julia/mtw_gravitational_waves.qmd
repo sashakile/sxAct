@@ -16,7 +16,7 @@ If running on Google Colab or a fresh environment, install the required packages
 ```{julia}
 # Uncomment the lines below if running on Google Colab:
 # using Pkg
-# Pkg.add(url="https://github.com/sashakile/sxAct.git")
+# Pkg.add(url="https://github.com/sashakile/XAct.jl.git")
 # Pkg.add("Plots")
 ```
 

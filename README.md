@@ -1,7 +1,7 @@
 # XAct.jl
 
-[![Build Status](https://github.com/sashakile/sxAct/actions/workflows/test.yml/badge.svg)](https://github.com/sashakile/sxAct/actions/workflows/test.yml)
-[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://saxa.xyz/sxAct)
+[![Build Status](https://github.com/sashakile/XAct.jl/actions/workflows/test.yml/badge.svg)](https://github.com/sashakile/XAct.jl/actions/workflows/test.yml)
+[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://saxa.xyz/XAct.jl)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 > [!WARNING]
@@ -32,7 +32,7 @@ xact.canonicalize("T[-b,-a] - T[-a,-b]")  # returns "0"
 ## Status
 
 > [!NOTE]
-> **Early adopter stage.** XAct.jl has parity-level test coverage against the Wolfram engine (1200+ Julia tests, 900+ Python tests) but has only been used by the author so far. If you try it on a real problem and something breaks, please [open an issue](https://github.com/sashakile/sxAct/issues) — that's the most valuable contribution right now.
+> **Early adopter stage.** XAct.jl has parity-level test coverage against the Wolfram engine (1200+ Julia tests, 900+ Python tests) but has only been used by the author so far. If you try it on a real problem and something breaks, please [open an issue](https://github.com/sashakile/XAct.jl/issues) — that's the most valuable contribution right now.
 
 ### What's ported
 
@@ -69,7 +69,7 @@ The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic A
 
 ## Documentation
 
-Full documentation at [saxa.xyz/sxAct](https://saxa.xyz/sxAct), including the full [status and roadmap](https://saxa.xyz/sxAct/status/).
+Full documentation at [saxa.xyz/XAct.jl](https://saxa.xyz/XAct.jl), including the full [status and roadmap](https://saxa.xyz/XAct.jl/status/).
 
 ## AI Attribution
 

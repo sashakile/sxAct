@@ -1,5 +1,5 @@
 !!! tip "Run this notebook"
-    Download the [Jupyter notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/python/basics.ipynb) or open it in Google Colab.
+    Download the [Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb) or open it in Google Colab.
 
 # sxAct — Getting Started (Python)
 
@@ -18,7 +18,7 @@ is performed by the Julia engine — but the API is fully Pythonic.
 
 ```python
 # Uncomment if running on Google Colab (not yet on PyPI, install from GitHub):
-# !pip install "git+https://github.com/sashakile/sxAct.git#subdirectory=packages/xact-py"
+# !pip install "git+https://github.com/sashakile/XAct.jl.git#subdirectory=packages/xact-py"
 
 import xact
 

@@ -1,6 +1,6 @@
 !!! tip "Run this notebook"
-    - [Download the Jupyter notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/julia/foundations_sphere.ipynb)
-    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/sxAct/blob/main/notebooks/julia/foundations_sphere.ipynb)
+    - [Download the Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/julia/foundations_sphere.ipynb)
+    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/julia/foundations_sphere.ipynb)
 
 # Tutorial: Surface Geometry - The 2-Sphere
 
@@ -22,7 +22,7 @@ If running on Google Colab or a fresh environment, install the required packages
 ```@example foundations_sphere_julia
 # Uncomment the lines below if running on Google Colab:
 # using Pkg
-# Pkg.add(url="https://github.com/sashakile/sxAct.git")
+# Pkg.add(url="https://github.com/sashakile/XAct.jl.git")
 # Pkg.add("Plots")
 ```
 

@@ -24,10 +24,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sashakile/sxAct"
-Repository = "https://github.com/sashakile/sxAct"
-Documentation = "https://saxa.xyz/sxAct"
-Changelog = "https://github.com/sashakile/sxAct/releases"
+Homepage = "https://github.com/sashakile/XAct.jl"
+Repository = "https://github.com/sashakile/XAct.jl"
+Documentation = "https://saxa.xyz/XAct.jl"
+Changelog = "https://github.com/sashakile/XAct.jl/releases"
 
 [project.optional-dependencies]
 translate = []

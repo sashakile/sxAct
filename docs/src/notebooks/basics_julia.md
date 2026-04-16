@@ -1,5 +1,5 @@
 !!! tip "Run this notebook"
-    Download the [Jupyter notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/julia/basics.ipynb) or open it in Google Colab.
+    Download the [Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/julia/basics.ipynb) or open it in Google Colab.
 
 # sxAct.jl — Getting Started
 
@@ -22,7 +22,7 @@ In the Docker image or a local dev checkout this cell is a no-op.
 ```julia
 # Uncomment the lines below if running on Google Colab:
 # using Pkg
-# Pkg.add(url="https://github.com/sashakile/sxAct.git")
+# Pkg.add(url="https://github.com/sashakile/XAct.jl.git")
 
 using xAct
 ```

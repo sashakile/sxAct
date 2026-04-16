@@ -256,4 +256,4 @@ slot positions. The typed layer never reaches into them.
 
 
 For the full design rationale, see the
-[TExpr design spec](https://github.com/sashakile/sxAct/blob/main/plans/2026-03-17-typed-expression-api.md).
+[TExpr design spec](https://github.com/sashakile/XAct.jl/blob/main/plans/2026-03-17-typed-expression-api.md).

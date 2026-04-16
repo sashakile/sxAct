@@ -218,7 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Perturbation theory (xPert)**
 - **IBP, VarD, CommuteCovDs** for variational calculus
 
-See [v0.3.0 release](https://github.com/sashakile/sxAct/releases/tag/v0.3.0) for details.
+See [v0.3.0 release](https://github.com/sashakile/XAct.jl/releases/tag/v0.3.0) for details.
 
 ---
 

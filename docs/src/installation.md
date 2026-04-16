@@ -14,7 +14,7 @@ Open your Julia REPL and run:
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/sashakile/sxAct.git")
+Pkg.add(url="https://github.com/sashakile/XAct.jl.git")
 ```
 
 Wait for the installation to finish, then you can start using it:
@@ -35,7 +35,7 @@ The Python wrapper provides an idiomatic interface to the Julia core. For the fu
 The Python wrapper is not yet published to PyPI. Install from the repository:
 
 ```bash
-git clone https://github.com/sashakile/sxAct.git
+git clone https://github.com/sashakile/XAct.jl.git
 cd sxAct
 uv pip install packages/xact-py
 ```
@@ -55,7 +55,7 @@ The full suite includes a Python wrapper and a Dockerized Wolfram Oracle for pro
 
 ### Step A: Clone and Sync
 ```bash
-git clone https://github.com/sashakile/sxAct.git
+git clone https://github.com/sashakile/XAct.jl.git
 cd sxAct
 uv sync
 ```

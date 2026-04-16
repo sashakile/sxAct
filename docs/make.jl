@@ -67,8 +67,8 @@ for (subdir, lang_label) in [("julia", "Julia"), ("python", "Python")]
         # Add a note linking to the .ipynb and Colab
         header = """
 !!! tip "Run this notebook"
-    - [Download the Jupyter notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/$subdir/$name.ipynb)
-    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/sxAct/blob/main/notebooks/$subdir/$name.ipynb)
+    - [Download the Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/$subdir/$name.ipynb)
+    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/$subdir/$name.ipynb)
 
 """
         outpath = joinpath(pluto_output, "$(name)_$(lowercase(lang_label)).md")
@@ -81,7 +81,7 @@ makedocs(;
     sitename="XAct.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", nothing) == "true",
-        canonical="https://saxa.xyz/sxAct/",
+        canonical="https://saxa.xyz/XAct.jl/",
         edit_link="main",
         assets=String[],
         size_threshold=300 * 1024, # Increase to 300KiB for large API page

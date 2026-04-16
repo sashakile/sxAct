@@ -1,7 +1,7 @@
 # Getting Started with xAct.jl
 
 !!! info "LLM TL;DR"
-    - Install: `Pkg.add(url="https://github.com/sashakile/sxAct")`
+    - Install: `Pkg.add(url="https://github.com/sashakile/XAct.jl")`
     - Julia entry point: `using xAct`, then `def_manifold!`, `def_metric!`, `@indices`, `tensor()`
     - Typed API recommended; string API (`ToCanonical("expr")`) works everywhere
     - Python: `import xact`, snake_case wrappers, same semantics as Julia
@@ -17,7 +17,7 @@ Open the Julia REPL and run:
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/sashakile/sxAct")
+Pkg.add(url="https://github.com/sashakile/XAct.jl")
 ```
 
 !!! note "Julia General Registry"
@@ -112,7 +112,7 @@ T_h = xact.tensor("T")          # tensor handle (same role as Julia tensor(:T))
 xact.canonicalize(T_h[-b,-a] - T_h[-a,-b])   # "0"
 ```
 
-For a full walkthrough, see the [Python notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/python/basics.ipynb).
+For a full walkthrough, see the [Python notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb).
 
 ---
 

@@ -1,6 +1,6 @@
 !!! tip "Run this notebook"
-    - [Download the Jupyter notebook](https://github.com/sashakile/sxAct/blob/main/notebooks/julia/wald_cosmology.ipynb)
-    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/sxAct/blob/main/notebooks/julia/wald_cosmology.ipynb)
+    - [Download the Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/julia/wald_cosmology.ipynb)
+    - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/julia/wald_cosmology.ipynb)
 
 # Wald: FLRW Cosmology and Friedmann Equations
 
@@ -16,7 +16,7 @@ If running on Google Colab or a fresh environment, install the required packages
 ```@example wald_cosmology_julia
 # Uncomment the lines below if running on Google Colab:
 # using Pkg
-# Pkg.add(url="https://github.com/sashakile/sxAct.git")
+# Pkg.add(url="https://github.com/sashakile/XAct.jl.git")
 # Pkg.add("Plots")
 ```
 
