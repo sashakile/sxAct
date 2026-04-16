@@ -1,9 +1,9 @@
-# xAct.jl Feature Completion Matrix
+# XAct.jl Feature Completion Matrix
 
 !!! info "Status TL;DR for AI Agents"
-    All core features DONE: XPerm (canonicalization), XTensor (algebra, CovD, perturbation, IBP, VarD, Session isolation, TExpr typed expressions Stage 2), xCoba (coordinates, Christoffel), xTras (utilities), XInvar (Riemann invariant engine, all 11 phases). 1200+ Julia unit tests + 900+ Python tests passing. Gaps: spinors, exterior calculus, LaTeX rendering.
+    All core xAct modules ported: XPerm (canonicalization), XTensor (algebra, CovD, perturbation, IBP, VarD, Session isolation, TExpr typed expressions Stage 2), xCoba (coordinates, Christoffel), xTras (utilities), XInvar (Riemann invariant engine, all 11 phases). 1200+ Julia unit tests + 900+ Python tests passing. Architecture note: engine operates on strings (not typed AST); TExpr layer adds typed input/output but serializes internally. Gaps: spinors, exterior calculus, LaTeX rendering.
 
-This page tracks the implementation status of xAct features in the Julia core (`xAct.jl`) and their verification status against the Wolfram Language implementation.
+This page tracks the implementation status of features ported from the Wolfram [xAct](http://xact.es/) suite to `XAct.jl`, and their verification status against the Wolfram Language implementation.
 
 ---
 
@@ -131,12 +131,102 @@ The `sxact` Python package provides a multi-tier verification suite.
 
 ---
 
-## Roadmap & Known Gaps
+## Maturity & Known Limitations
 
-- **Spinors / NP / GHP**: Spinor index type not yet implemented.
-- **xTerior**: Exterior calculus (differential forms, wedge, Hodge, d).
-- **Harmonics**: Spherical harmonic decomposition for perturbation theory.
-- **TexAct**: LaTeX rendering of tensor expressions.
-- **DifferentialEquations.jl**: Geodesic equations and ODE integration.
-- **TExpr Stage 3**: Rich display — Unicode REPL, LaTeX for Jupyter.
-- **TExpr Stage 4**: Introspection — `free_indices()`, `rank()`, `terms()`.
+!!! warning "Early adopter stage"
+    XAct.jl has been developed and tested by a single author. It has not yet
+    been used in production research by the broader community. We encourage
+    early adopters to **try it on real problems and report issues** — that is
+    the most valuable contribution at this stage.
+
+### Architecture: string-based engine
+
+The current engine (`ToCanonical`, `Contract`, `Simplify`, etc.) operates on
+**string representations** of tensor expressions. Every call parses the input
+string into an internal coefficient map, performs the operation, and serializes
+back to a string. This mirrors the original Wolfram xAct design but is not
+idiomatic Julia — it prevents type dispatch, compiler optimizations, and
+zero-allocation workflows.
+
+The **TExpr typed expression layer** (Stage 2, complete) provides a typed
+front-end (`@indices`, `tensor()`, `T[-a,-b]` syntax) that validates at
+construction time, but currently serializes to string before calling the engine.
+A future refactor will make TExpr the native representation throughout the
+pipeline, eliminating the parse/serialize round-trips.
+
+### Python wrapper
+
+The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic
+API backed by the Julia engine via
+[juliacall](https://github.com/JuliaPy/PythonCall.jl). It makes XAct.jl
+accessible to researchers who prefer Python without sacrificing the Julia
+engine's performance.
+
+---
+
+## Roadmap
+
+### Coverage of the original xAct suite
+
+The table below maps the original Wolfram [xAct](http://xact.es/) packages
+(by José M. Martín-García et al.) to their XAct.jl status.
+
+| Wolfram xAct package | XAct.jl module | Status | Notes |
+|:---------------------|:---------------|:-------|:------|
+| **xCore** | `XCore.jl` | **Ported** | Symbol registry, utility layer |
+| **xPerm** | `XPerm.jl` | **Ported** | Butler-Portugal canonicalization, Schreier-Sims, Young tableaux |
+| **xTensor** | `XTensor.jl` | **Ported** | Abstract tensor algebra, CovD, perturbation, IBP, VarD |
+| **xCoba** | `XTensor/Coba.jl` | **Ported** | Coordinate bases, Christoffel, component arrays |
+| **Invar** | `XInvar.jl` | **Ported** | All 11 phases — Riemann invariant classification and simplification |
+| **xPert** | (in `XTensor.jl`) | **Partial** | `perturb()`, `PerturbCurvature` done; high-order gauge not yet |
+| **xTras** | (in `XTensor.jl`) | **Partial** | `CollectTensors`, `AllContractions`, `SymmetryOf`, `MakeTraceFree` |
+| **Spinors** / **SpinFrames** | — | Not started | Requires spinor index type |
+| **xTerior** | — | Not started | Exterior calculus (forms, wedge, Hodge, d) |
+| **Harmonics** | — | Not started | Tensor spherical harmonics |
+| **TexAct** | — | Not started | LaTeX rendering |
+| **xPrint** | — | Not started | Formatted input interface |
+| **SymManipulator** | — | Not started | Symmetrized expressions |
+| Other packages (xPand, FieldsX, xPPN, etc.) | — | Not planned | Domain-specific; community contributions welcome |
+
+### Planned work (prioritized)
+
+**Near-term — internal quality**
+
+1. **TExpr as native engine representation**: Eliminate the string
+   parse/serialize round-trip. Make `TExpr` the internal representation that
+   `ToCanonical`, `Contract`, and `Simplify` operate on directly. This is the
+   single most impactful architectural improvement.
+2. **Session isolation completion**: Reader functions (`ToCanonical`, `Contract`,
+   `Simplify`) still access some global state; migrate remaining references to
+   the `Session` struct.
+3. **Rich display (TExpr Stage 3)**: Unicode REPL output and LaTeX rendering
+   for Jupyter/Pluto notebooks.
+
+**Medium-term — new capabilities**
+
+4. **Spinors / NP / GHP**: Spinor index type, Newman-Penrose and
+   Geroch-Held-Penrose formalisms.
+5. **xTerior**: Exterior calculus — differential forms, wedge product, Hodge
+   star, exterior derivative.
+6. **DifferentialEquations.jl integration**: Geodesic equations, numerical
+   integration of component ODEs from xCoba output.
+
+**Long-term — ecosystem**
+
+7. **Harmonics**: Tensor spherical harmonic decomposition for cosmological
+   perturbation theory.
+8. **TexAct**: Publication-quality LaTeX output.
+9. **TExpr Stage 4**: Introspection API — `free_indices()`, `rank()`,
+   `terms()`, pattern matching.
+
+### How to contribute
+
+The most impactful contributions right now:
+
+- **Use it and file issues.** The library has parity-level test coverage against
+  the Wolfram engine, but edge cases in real research workflows are the best way
+  to find gaps.
+- **Report confusing APIs.** If something feels un-Julian or the error messages
+  are unhelpful, that's a bug.
+- **Benchmark against Wolfram.** Performance comparisons on real-world
+  expressions help prioritize optimization work.
