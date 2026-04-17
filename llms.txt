@@ -6,9 +6,9 @@ High-performance Julia implementation of the xAct tensor algebra suite for Gener
 sxAct provides a modern, open-source, and verified alternative to the Wolfram Language xAct suite, enabling high-performance tensor calculus in both Julia and Python.
 
 ## Technical Stack
-- **Core**: Julia (XCore, XPerm, XTensor, XInvar)
+- **Core**: Julia (`XAct` module bundling XCore, XPerm, XTensor, XInvar, and TExprLayer)
 - **Engine**: Butler-Portugal canonicalization algorithm
-- **Python Wrapper**: `xact-py` (via `PythonCall.jl`)
+- **Python Wrapper**: `xact-py` (import as `xact`, backed by `juliacall`)
 - **Verification**: `sxact` (Python parity testing framework)
 - **Oracle**: Dockerized Wolfram Engine (for parity checks)
 
@@ -19,22 +19,24 @@ sxAct provides a modern, open-source, and verified alternative to the Wolfram La
 - **Verification-First**: Every core operation is parity-tested against the Wolfram Oracle.
 
 ## Repository Structure
-- `src/`: Julia core implementation.
-- `packages/sxact-py/`: Python wrapper.
+- `src/`: Julia core implementation (`src/XAct.jl` is the main module entry point).
+- `packages/xact-py/`: Python wrapper package.
+- `packages/sxact/`: Verification and migration tooling (`xact-test`, adapters, normalization, comparison).
 - `tests/`: Multi-tier test suite (TOML-based parity tests).
-- `docs/`: Julia-centric documentation using `Documenter.jl` and `Literate.jl`.
+- `docs/src/`: Documentation sources for `Documenter.jl`.
 - `oracle/`: Docker and server configuration for the Wolfram Engine bridge.
 
 ## Documentation Map
-- `index.md`: Overview and Rosetta Stone.
-- `getting-started.md`: Quick start for Julia and Python.
-- `concepts.md`: Symbol registry, TExpr, and architecture.
-- `theory/STATUS.md`: Feature completion matrix.
-- `api-julia.md` / `api-python.md`: API References.
-- `verification-tools.md`: How the parity testing works.
+- `docs/src/index.md`: Overview and Rosetta Stone.
+- `docs/src/getting-started.md`: Quick start for Julia and Python.
+- `docs/src/concepts.md`: Symbol registry and TExpr concepts.
+- `docs/src/status.md`: Feature completion matrix.
+- `docs/src/api-julia.md` / `docs/src/api-python.md`: API references.
+- `docs/src/verification-tools.md`: How the parity testing works.
 
 ## LLM Guidance
 - Prefer the **Typed Expression API** (`TExpr`) for new examples.
+- Use `using XAct` in Julia and `import xact` in Python.
 - Use `reset_state!()` in Julia and `xact.reset()` in Python for clean session starts.
-- Refer to `theory/STATUS.md` for implemented vs. planned features.
+- Refer to `docs/src/status.md` for implemented vs. planned features.
 - Verification tests use TOML files in `tests/` which are processed by `uv run xact-test`.
