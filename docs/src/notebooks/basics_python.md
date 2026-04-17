@@ -21,7 +21,7 @@ construction time rather than deep inside the engine.
 
 ## 1. Setup
 
-If running on Google Colab, install the latest published `xact-py` release first. If you are working from a local checkout of this repository, you can instead install `packages/xact-py` in editable mode.
+If `xact` is not already installed, install the published [`xact-py`](https://pypi.org/project/xact-py/) release first. Only use a local checkout of this repository if you explicitly need unreleased changes while developing.
 
 ```python
 # | eval: false
