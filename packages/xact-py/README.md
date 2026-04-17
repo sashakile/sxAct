@@ -10,11 +10,21 @@ Python wrapper for [xAct.jl](https://github.com/sashakile/sxAct) — a high-perf
 
 ## Installation
 
+Install the latest published release from PyPI:
+
 ```bash
 pip install xact-py
 ```
 
-Julia is installed automatically via [juliacall](https://github.com/JuliaPy/PythonCall.jl).
+If you need unreleased changes from this repository, install from a local checkout:
+
+```bash
+git clone https://github.com/sashakile/sxAct.git
+cd sxAct
+uv pip install packages/xact-py
+```
+
+Julia is managed automatically via [juliacall](https://github.com/JuliaPy/PythonCall.jl).
 
 ## Quick Start
 

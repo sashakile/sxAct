@@ -20,6 +20,8 @@ ToCanonical("T[-b,-a] - T[-a,-b]")  # returns "0"
 
 ### Python
 
+Install the latest Python wrapper with `pip install xact-py`, then:
+
 ```python
 import xact
 
@@ -49,7 +51,7 @@ The engine currently operates on **string representations** of tensor expression
 
 ### Python wrapper
 
-The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic API backed by the Julia engine via [juliacall](https://github.com/JuliaPy/PythonCall.jl), making XAct.jl accessible without writing Julia.
+The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic API backed by the Julia engine via [juliacall](https://github.com/JuliaPy/PythonCall.jl), making XAct.jl accessible without writing Julia. Install the published release with `pip install xact-py`, or install from `packages/xact-py` in this repository if you need unreleased changes from `main`.
 
 ## Try It
 

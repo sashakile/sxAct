@@ -32,7 +32,13 @@ The Python wrapper provides an idiomatic interface to the Julia core. For the fu
 - [uv](https://docs.astral.sh/uv/) (recommended)
 
 ### Installation
-The Python wrapper is not yet published to PyPI. Install from the repository:
+`xact-py` is published to PyPI. For most users, install the latest release with:
+
+```bash
+pip install xact-py
+```
+
+If you want the current unreleased `main` branch instead, install from a checkout of this repository:
 
 ```bash
 git clone https://github.com/sashakile/sxAct.git
@@ -40,7 +46,7 @@ cd sxAct
 uv pip install packages/xact-py
 ```
 
-*Note: The wrapper will automatically manage its Julia dependencies using `juliapkg`.*
+*Note: The wrapper automatically manages its Julia dependencies using `juliapkg`.*
 
 ---
 
