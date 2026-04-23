@@ -35,17 +35,9 @@ RUN pip install --no-cache-dir \
 ENV JULIA_DEPOT_PATH="/opt/julia-depot"
 ENV JULIA_PKG_PRECOMPILE_AUTO=1
 
-# Instantiate XAct.jl and all its dependencies from the General registry
-RUN julia --project=/opt/julia-depot -e '
-    using Pkg
-    Pkg.add("XAct")
-    Pkg.add("IJulia")
-    Pkg.add("Plots")
-    Pkg.precompile()
-    # Warm the compiled cache for XAct specifically
-    using XAct
-    println("XAct loaded OK, version: ", pkgversion(XAct))
-'
+# Instantiate XAct.jl and all its dependencies from the General registry,
+# then warm the compiled cache so Binder sessions start in seconds.
+RUN julia --project=/opt/julia-depot -e 'using Pkg; Pkg.add(["XAct", "IJulia", "Plots"]); Pkg.precompile(); using XAct; println("XAct loaded OK, version: ", pkgversion(XAct))'
 
 # Register the IJulia kernel so Jupyter can find it
 RUN julia -e 'using IJulia; IJulia.installkernel("Julia", "--project=/opt/julia-depot")'
