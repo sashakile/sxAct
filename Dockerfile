@@ -39,9 +39,6 @@ ENV JULIA_PKG_PRECOMPILE_AUTO=1
 # then warm the compiled cache so Binder sessions start in seconds.
 RUN julia --project=/opt/julia-depot -e 'using Pkg; Pkg.add(["XAct", "IJulia", "Plots"]); Pkg.precompile(); using XAct; println("XAct loaded OK, version: ", pkgversion(XAct))'
 
-# Register the IJulia kernel so Jupyter can find it
-RUN julia -e 'using IJulia; IJulia.installkernel("Julia", "--project=/opt/julia-depot")'
-
 # Strip test/, docs/, .git/ from pre-installed depot packages to save space
 RUN find /opt/julia-depot/packages -mindepth 4 -maxdepth 4 \
         \( -name "test" -o -name "docs" -o -name ".git" \) \
@@ -70,6 +67,10 @@ ENV JULIA_DEPOT_PATH="/opt/julia-depot"
 # Copy the Python venv (Jupyter + xact-py + IJulia)
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Register the IJulia kernel now that both Julia binary and depot are in place.
+# Must run before switching to non-root user so the kernel lands in a system path.
+RUN julia --project=/opt/julia-depot -e 'using IJulia; IJulia.installkernel("Julia", "--project=/opt/julia-depot")'
 
 # Non-root user for Binder / security
 RUN useradd --create-home --shell /bin/bash jovyan
