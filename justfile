@@ -27,3 +27,15 @@ test: test-julia test-python test-regression
 # Launch JupyterLab with Julia + Python kernels, opening the notebooks directory
 lab:
     uv run jupyter lab --notebook-dir=notebooks
+
+# Build the Docker image locally (tag defaults to "dev")
+docker-build tag="dev":
+    docker build -t ghcr.io/sashakile/xact.jl:{{tag}} .
+
+# Build and load the Docker image locally without pushing
+docker-build-load tag="dev":
+    docker buildx build --load -t ghcr.io/sashakile/xact.jl:{{tag}} .
+
+# Run the Docker image locally, exposing JupyterLab on port 8888
+docker-run tag="dev":
+    docker run --rm -p 8888:8888 ghcr.io/sashakile/xact.jl:{{tag}}
