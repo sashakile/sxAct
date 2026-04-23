@@ -124,6 +124,7 @@ makedocs(;
         "Theory" => ["Differential Geometry Primer" => "differential-geometry-primer.md"],
         "Advanced" => ["Oracle Quirks" => "theory/oracle-quirks.md"],
         "Architecture" => "architecture.md",
+        "How It Was Built" => "internals.md",
         "Reference" => [
             "Julia API" => "api-julia.md",
             "Python API" => "api-python.md",
