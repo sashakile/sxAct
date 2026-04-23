@@ -29,7 +29,7 @@
     julia_version = "1.12.5"
 -->
 
-<div class="markdown"><h1 id="sXAct.jl-—-Interactive-Tutorial">sXAct.jl — Interactive Tutorial</h1><p>This Pluto notebook introduces the core workflow of <code>XAct.jl</code>: manifolds, metrics, canonicalization, and curvature.</p><p>Expressions are written using the <strong>typed API</strong> — <code>@indices</code> declares index objects, <code>tensor()</code> looks up handles, and <code>T[-a,-b]</code> builds expressions with slot-count and manifold validation at construction time.</p><p>Each cell is <strong>reactive</strong> — editing a definition automatically re-evaluates all dependent cells.</p></div>
+<div class="markdown"><h1 id="XAct.jl-—-Interactive-Tutorial">XAct.jl — Interactive Tutorial</h1><p>This Pluto notebook introduces the core workflow of <code>XAct.jl</code>: manifolds, metrics, canonicalization, and curvature.</p><p>Expressions are written using the <strong>typed API</strong> — <code>@indices</code> declares index objects, <code>tensor()</code> looks up handles, and <code>T[-a,-b]</code> builds expressions with slot-count and manifold validation at construction time.</p><p>Each cell is <strong>reactive</strong> — editing a definition automatically re-evaluates all dependent cells.</p></div>
 
 <pre class='language-julia'><code class='language-julia'>begin
     import Pkg

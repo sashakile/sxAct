@@ -6,7 +6,7 @@
     - This page is the migration workflow guide
     - For command mappings and function tables, use [Wolfram Translation Reference](wolfram-translation-reference.md)
 
-This guide shows how to move an existing Wolfram xAct workflow into the sxAct ecosystem. You should already have completed [Installation](installation.md) and have a Wolfram expression, notebook, or `.wl` file ready to translate.
+This guide shows how to move an existing Wolfram xAct workflow into the XAct.jl ecosystem. You should already have completed [Installation](installation.md) and have a Wolfram expression, notebook, or `.wl` file ready to translate.
 
 ## Choose the migration mode
 

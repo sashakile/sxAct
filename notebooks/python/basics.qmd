@@ -2,7 +2,7 @@
 jupyter: python3
 ---
 
-# sxAct — Getting Started (Python)
+# XAct.jl — Getting Started (Python)
 
 > **Note:** Auto-generated from `notebooks/python/basics.qmd` via Quarto.
 > Edit the source `.qmd` file, not the `.ipynb`.

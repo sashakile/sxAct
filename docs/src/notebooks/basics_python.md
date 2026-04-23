@@ -3,7 +3,7 @@
     - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb)
     - [Open in Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/python/basics.ipynb)
 
-# sxAct — Getting Started (Python)
+# XAct.jl — Getting Started (Python)
 
 > **Note:** Auto-generated from `notebooks/python/basics.qmd` via Quarto.
 > Edit the source `.qmd` file, not the `.ipynb`.

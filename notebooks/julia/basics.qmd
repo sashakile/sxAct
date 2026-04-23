@@ -2,7 +2,7 @@
 jupyter: julia-1.12
 ---
 
-# sXAct.jl — Getting Started
+# XAct.jl — Getting Started
 
 > **Note:** Auto-generated from `notebooks/julia/basics.qmd` via Quarto.
 > Edit the source `.qmd` file, not the `.ipynb`.

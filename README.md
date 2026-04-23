@@ -14,10 +14,10 @@ A native Julia port of the [xAct](http://xact.es/) tensor algebra suite for gene
 
 For the canonical newcomer path, follow:
 
-1. [Installation](https://saxa.xyz/sxAct/installation/) — set up Julia, Python, or the verification stack
-2. [Getting Started](https://saxa.xyz/sxAct/getting-started/) — first successful tensor workflow in Julia or Python
-3. [Typed Expressions (TExpr)](https://saxa.xyz/sxAct/guide/TExpr/) — recommended expression-building API
-4. [Tutorials and notebooks](https://saxa.xyz/sxAct/examples/basics/) — longer guided examples
+1. [Installation](https://saxa.xyz/XAct.jl/installation/) — set up Julia, Python, or the verification stack
+2. [Getting Started](https://saxa.xyz/XAct.jl/getting-started/) — first successful tensor workflow in Julia or Python
+3. [Typed Expressions (TExpr)](https://saxa.xyz/XAct.jl/guide/TExpr/) — recommended expression-building API
+4. [Tutorials and notebooks](https://saxa.xyz/XAct.jl/examples/basics/) — longer guided examples
 
 ## Quick Start (Julia)
 
@@ -58,13 +58,13 @@ xact.canonicalize(T_h[-b,-a] - T_h[-a,-b])  # returns "0"
 
 | Name | Kind | Meaning |
 |:--|:--|:--|
-| `sxAct` | Git repository | The repository you clone from GitHub |
+| `XAct.jl` | Git repository | The repository you clone from GitHub |
 | `XAct.jl` / `XAct` | Julia package and module | The native Julia tensor algebra engine |
 | `xact-py` | Python package name | The package published to PyPI |
 | `xact` | Python import name | The public Python API you write in code |
 | `sxact` | Python verification framework | The parity-testing and oracle-comparison tooling |
 
-The docs landing page has the same map in the ["What is what?"](https://saxa.xyz/sxAct/#what-is-what) section.
+The docs landing page has the same map in the ["What is what?"](https://saxa.xyz/XAct.jl/#what-is-what) section.
 
 ## Status
 
@@ -114,4 +114,4 @@ The majority of this codebase was developed with AI assistance using [Claude Cod
 
 ## License
 
-`XAct.jl` is copyright (c) 2024-2026 sxAct Contributors and released under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for the full text.
+`XAct.jl` is copyright (c) 2024-2026 XAct.jl Contributors and released under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for the full text.

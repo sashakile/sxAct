@@ -1,4 +1,4 @@
-# sxAct Setup Guide
+# XAct.jl Setup Guide
 
 This repository contains tools for experimenting with the xAct library (Wolfram Language tensor algebra package) and exploring migration to open-source languages.
 
@@ -75,7 +75,7 @@ Located in `resources/xAct/`:
 ## Project Structure
 
 ```
-sxAct/
+XAct.jl/
 ├── docker-compose.yml          # Docker setup with Wolfram Engine
 ├── pyproject.toml              # Python dependencies (uv)
 ├── .venv/                      # Python virtual environment

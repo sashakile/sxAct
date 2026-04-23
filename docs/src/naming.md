@@ -1,7 +1,7 @@
 # Naming and product map
 
 !!! info "LLM TL;DR"
-    - `sxAct` is the repository
+    - `XAct.jl` is the repository
     - `XAct.jl` / `XAct` is the Julia package and module
     - `xact-py` is the Python package name
     - `xact` is the Python import
@@ -13,7 +13,7 @@ This page explains the names used across the project. Use it when you need to un
 
 | Name | Kind | Meaning |
 | :--- | :--- | :--- |
-| `sxAct` | Repository | The Git repository that contains the whole project |
+| `XAct.jl` | Repository | The Git repository that contains the whole project |
 | `XAct.jl` | Julia package | The Julia package users add to their environment |
 | `XAct` | Julia module | The module imported with `using XAct` |
 | `xact-py` | Python package | The distribution published to PyPI |
@@ -24,7 +24,7 @@ This page explains the names used across the project. Use it when you need to un
 
 | If you are doing… | Use… |
 | :--- | :--- |
-| Cloning the repo | `sxAct` |
+| Cloning the repo | `XAct.jl` |
 | Importing the Julia module | `using XAct` |
 | Installing from PyPI | `pip install xact-py` |
 | Importing in Python | `import xact` |

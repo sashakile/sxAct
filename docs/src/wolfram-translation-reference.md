@@ -31,7 +31,7 @@ This page lists the direct mappings used during migration from Wolfram xAct. It 
 | :--- | :--- | :--- |
 | JSON | `--to json` | Machine-readable action dicts |
 | Julia | `--to julia` | REPL sessions and Julia scripts |
-| TOML | `--to toml` | sxAct verification test files |
+| TOML | `--to toml` | XAct.jl verification test files |
 | Python | `--to python` | Python adapter scripts |
 
 ## Supported definition translations

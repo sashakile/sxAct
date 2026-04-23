@@ -1,6 +1,6 @@
 # Contributing to XAct.jl
 
-This repository contains both the `XAct.jl` Julia package and the `sxact-py` verification framework.
+This repository contains both the `XAct.jl` Julia package and the `sxact` verification framework.
 
 ## 1. Julia Development (XAct.jl)
 

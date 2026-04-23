@@ -13,7 +13,7 @@ end
 
 # ╔═╡ a1000002-0000-0000-0000-000000000002
 md"""
-# sXAct.jl — Interactive Tutorial
+# XAct.jl — Interactive Tutorial
 
 This Pluto notebook introduces the core workflow of `XAct.jl`:
 manifolds, metrics, canonicalization, and curvature.

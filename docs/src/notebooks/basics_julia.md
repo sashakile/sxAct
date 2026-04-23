@@ -3,7 +3,7 @@
     - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/julia/basics.ipynb)
     - [Open in Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/julia/basics.ipynb)
 
-# sXAct.jl — Getting Started
+# XAct.jl — Getting Started
 
 > **Note:** Auto-generated from `notebooks/julia/basics.qmd` via Quarto.
 > Edit the source `.qmd` file, not the `.ipynb`.

@@ -99,7 +99,7 @@ RS = tensor(:RicciScalarCD)
 
 # Variational derivative of R w.r.t metric g:
 # G_ab = VarD(R, g)
-# (Note: In sxAct, we use the abstract tensor names)
+# (Note: In XAct.jl, we use the abstract tensor names)
 G_derived = VarD(RS[], :g, :CD)
 
 println("Derived Einstein tensor formula:")
