@@ -1,4 +1,8 @@
-## ADDED Requirements
+# xact-py-runtime-installation Specification
+
+## Purpose
+TBD - created by archiving change update-xact-py-registry-install. Update Purpose after archive.
+## Requirements
 ### Requirement: xact-py resolves XAct from Julia registries
 `xact-py` SHALL declare the Julia `XAct` dependency using Julia package metadata that resolves the registered package by UUID and version compatibility, not by an embedded local source path.
 
@@ -21,3 +25,4 @@ The project SHALL document how contributors can use local repository sources dur
 #### Scenario: Contributor installs editable checkout
 - **WHEN** a contributor installs `packages/xact-py` from a local checkout
 - **THEN** the documentation explains the additional setup required for `xact-py` to use local Julia sources during development
+
