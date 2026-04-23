@@ -3,4 +3,4 @@
 #
 # The image is built and pushed on every GitHub release via
 # .github/workflows/release-container.yml
-FROM ghcr.io/sashakile/xact.jl:latest
+FROM ghcr.io/sashakile/xact.jl:dev
