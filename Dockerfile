@@ -58,7 +58,7 @@ RUN python3 -m venv /opt/venv && \
         jupyterlab==4.* \
         notebook==7.* \
         jupytext \
-        xact
+        xact-py
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Register the IJulia kernel now that both Julia binary and depot are in place.
