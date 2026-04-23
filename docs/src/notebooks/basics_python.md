@@ -1,6 +1,7 @@
 !!! tip "Run this notebook"
     - [Download the Jupyter notebook](https://github.com/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb)
     - [Open in Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb)
+    - [Open in Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/python/basics.ipynb)
 
 # sxAct — Getting Started (Python)
 
