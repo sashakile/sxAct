@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import os
 import threading
-from pathlib import Path
 from typing import Any
 
 _lock = threading.Lock()
@@ -77,43 +76,16 @@ def _init_julia() -> None:
 
     jl = juliacall.Main
 
-    # Attempt to load xAct. If juliapkg.json worked, it should be available.
     try:
         jl.seval("using XAct")
-        # Only set globals after full success
         _jl = jl
         _xcore = jl.XAct
         _init_pid = os.getpid()
-    except Exception:
-        # Fallback for development if juliapkg hasn't resolved it yet,
-        # or if we're running from source without a formal install.
-        try:
-            from xact._bridge import jl_escape
-
-            julia_dir = (Path(__file__).parent.parent / "julia").resolve()
-            if (julia_dir / "Project.toml").exists():
-                escaped_dir = jl_escape(str(julia_dir))
-                jl.seval(f'import Pkg; Pkg.activate("{escaped_dir}"; io=devnull)')
-                xact_main = julia_dir / "src" / "XAct.jl"
-                if xact_main.exists():
-                    escaped_main = jl_escape(str(xact_main))
-                    jl.seval(f'include("{escaped_main}")')
-                    jl.seval("using .XAct")
-                    # Only set globals after full success
-                    _jl = jl
-                    _xcore = jl.XAct
-                    _init_pid = os.getpid()
-                else:
-                    raise ImportError(f"XAct.jl not found at {xact_main}")
-            else:
-                raise ImportError(
-                    "XAct Julia package not found. Ensure juliapkg.json is respected "
-                    "or Project.toml is present at root."
-                )
-        except ImportError:
-            raise
-        except Exception as exc:
-            # Reset to clean state so retries don't see a half-initialized runtime
-            _jl = None
-            _xcore = None
-            raise ImportError(f"Failed to load XAct Julia package: {exc}") from exc
+    except Exception as exc:
+        _jl = None
+        _xcore = None
+        raise ImportError(
+            "Could not load Julia package XAct. Ensure Julia can resolve "
+            "XAct v0.7.1 via the configured registries or shared juliapkg "
+            f"project. Original error: {exc}"
+        ) from exc

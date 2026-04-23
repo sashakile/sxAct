@@ -42,12 +42,16 @@ The Python wrapper provides an idiomatic interface to the Julia core. For the fu
 pip install xact-py
 ```
 
-Only install from a repository checkout if you explicitly need unreleased changes from `main` or are contributing to the wrapper:
+On first import, `xact-py` resolves `XAct` from the Julia registries via `juliapkg`.
+
+Only install from a repository checkout if you explicitly need unreleased changes from `main` or are contributing to the wrapper. In that case, install the Python package in editable mode and point `juliapkg` at a shared Julia project that develops the local repository checkout:
 
 ```bash
 git clone https://github.com/sashakile/XAct.jl.git
-cd sxAct
+cd XAct.jl
 uv pip install -e packages/xact-py
+export PYTHON_JULIAPKG_PROJECT="$PWD/.juliapkg-xact"
+julia --project="$PYTHON_JULIAPKG_PROJECT" -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 ```
 
 *Note: The wrapper automatically manages its Julia dependencies using `juliapkg`.*

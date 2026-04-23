@@ -35,6 +35,10 @@ The Python source is located in the `packages/` directory:
 # Install all dependencies for the workspace
 uv sync --extra dev
 
+# Point juliapkg at a shared Julia project that uses the local checkout
+export PYTHON_JULIAPKG_PROJECT="$PWD/.juliapkg-xact"
+julia --project="$PYTHON_JULIAPKG_PROJECT" -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+
 # Start the oracle server (needed for integration tests)
 docker compose up -d
 ```

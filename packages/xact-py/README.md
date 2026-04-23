@@ -16,12 +16,16 @@ Install the latest published release from PyPI:
 pip install xact-py
 ```
 
-If you need unreleased changes from this repository, install from a local checkout in editable mode:
+On first import, `xact-py` resolves the Julia package `XAct` from the Julia registries via `juliapkg`/`juliacall`.
+
+If you need unreleased changes from this repository, install from a local checkout in editable mode and point `juliapkg` at a shared Julia project that develops the local `XAct.jl` checkout:
 
 ```bash
 git clone https://github.com/sashakile/XAct.jl.git
 cd XAct.jl
 uv pip install -e packages/xact-py
+export PYTHON_JULIAPKG_PROJECT="$PWD/.juliapkg-xact"
+julia --project="$PYTHON_JULIAPKG_PROJECT" -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
 ```
 
 Julia is managed automatically via [juliacall](https://github.com/JuliaPy/PythonCall.jl).

@@ -6,12 +6,33 @@ half-initialized state (_jl set, _xcore None).
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 
-def test_failed_init_resets_jl():
+def test_juliapkg_metadata_uses_registered_xact() -> None:
+    """xact-py should declare the registered Julia XAct package, not a local path."""
+    juliapkg_path = (
+        Path(__file__).resolve().parents[2]
+        / "packages"
+        / "xact-py"
+        / "src"
+        / "xact"
+        / "juliapkg.json"
+    )
+    data = json.loads(juliapkg_path.read_text())
+
+    xact = data["packages"]["XAct"]
+    assert xact["uuid"] == "61ed89dc-cc38-478d-be53-e1ee1d7160f1"
+    assert xact["version"] == "0.7.1"
+    assert "path" not in xact
+    assert "dev" not in xact
+
+
+def test_failed_init_resets_jl() -> None:
     """If xAct loading fails, _jl must be reset to None so retries work cleanly."""
     import xact.xcore._runtime as rt
 
@@ -28,8 +49,10 @@ def test_failed_init_resets_jl():
         mock_main.seval.side_effect = RuntimeError("xAct load failed")
 
         with patch.dict("sys.modules", {"juliacall": MagicMock(Main=mock_main)}):
-            with pytest.raises(ImportError):
+            with pytest.raises(ImportError, match="Could not load Julia package XAct"):
                 rt._init_julia()
+
+        mock_main.seval.assert_called_once_with("using XAct")
 
         # After failure, _jl must be None (not half-set)
         assert rt._jl is None, "_jl should be None after failed init"

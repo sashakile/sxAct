@@ -3,8 +3,7 @@
   "packages": {
     "XAct": {
       "uuid": "61ed89dc-cc38-478d-be53-e1ee1d7160f1",
-      "path": "julia",
-      "dev": true
+      "version": "0.7.1"
     }
   }
 }

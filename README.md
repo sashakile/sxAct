@@ -39,7 +39,7 @@ still works everywhere.
 
 ### Quick Start (Python)
 
-Install the published Python wrapper from [PyPI](https://pypi.org/project/xact-py/) with `pip install xact-py`, then:
+Install the published Python wrapper from [PyPI](https://pypi.org/project/xact-py/) with `pip install xact-py`. On first import, `xact-py` resolves the Julia package `XAct` from the Julia registries via `juliapkg`, then:
 
 ```python
 import xact
@@ -85,7 +85,7 @@ The engine currently operates on **string representations** of tensor expression
 
 ### Python wrapper
 
-The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic API backed by the Julia engine via [juliacall](https://github.com/JuliaPy/PythonCall.jl), making XAct.jl accessible without writing Julia. For normal use, install the published PyPI release with `pip install xact-py`. Use `packages/xact-py` from this repository only if you explicitly need unreleased changes from `main`.
+The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic API backed by the Julia engine via [juliacall](https://github.com/JuliaPy/PythonCall.jl), making XAct.jl accessible without writing Julia. For normal use, install the published PyPI release with `pip install xact-py`; it resolves `XAct` from the Julia registries on first import. Use `packages/xact-py` from this repository only if you explicitly need unreleased changes from `main`.
 
 ## Try It
 
