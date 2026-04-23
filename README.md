@@ -90,8 +90,8 @@ The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic A
 
 ## Try It
 
-- [Julia notebook](notebooks/julia/basics.ipynb) — open in JupyterLab, Google Colab, or [Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/julia/basics.ipynb)
-- [Python notebook](notebooks/python/basics.ipynb) — open in JupyterLab, Google Colab, or [Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/python/basics.ipynb)
+- [Julia notebook](notebooks/julia/basics.ipynb) — open in JupyterLab, [Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/julia/basics.ipynb), or [Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/julia/basics.ipynb)
+- [Python notebook](notebooks/python/basics.ipynb) — open in JupyterLab, [Google Colab](https://colab.research.google.com/github/sashakile/XAct.jl/blob/main/notebooks/python/basics.ipynb), or [Binder](https://mybinder.org/v2/gh/sashakile/XAct.jl/main?urlpath=lab/tree/notebooks/python/basics.ipynb)
 - Local: `just lab` to launch JupyterLab
 
 ## Components
