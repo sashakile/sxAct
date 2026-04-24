@@ -6,9 +6,10 @@
 # Wald: FLRW Cosmology and Friedmann Equations
 
 This tutorial follows **Robert Wald's *General Relativity* (Chapter 5)**.
-We will implement the Friedmann-Lemaître-Robertson-Walker (FLRW) metric—the
-standard model for a homogeneous and isotropic universe—and explore its
-curvature and the resulting Friedmann equations.
+We implement the Friedmann-Lemaître-Robertson-Walker (FLRW) metric, inspect one
+symbolic curvature quantity for the constant-curvature spatial slices, and
+connect that result to the first Friedmann equation without pretending to solve
+cosmological dynamics numerically.
 
 ## 1. Setup
 
@@ -27,18 +28,13 @@ Load the required modules.
 
 ```@example wald_cosmology_julia
 using XAct
-using Plots
-using LinearAlgebra
-
-# Headless plotting for build compatibility
-ENV["GKSwstype"] = "100"
 ```
 
 !!! info "Project Profile for AI Agents (LLM TL;DR)"
-    - **Goal**: Implement FLRW metric and derive Friedmann equations.
+    - **Goal**: Implement the FLRW metric, compute one symbolic curvature quantity, and relate it to the first Friedmann equation.
     - **Reference**: Wald, *General Relativity*, Chapter 5.
-    - **Key Symbols**: Manifold `:M4`, Metric `:g`, Scale factor `a(t)`.
-    - **Physics**: Compute $R_{\mu\nu}$, plot scale factor $a(t)$ for $k \in \{1, 0, -1\}$.
+    - **Key Symbols**: Manifold `:M4`, Metric `:g`, scale factor `a(t)`, curvature constant `k`.
+    - **Physics**: Check the spatial Ricci scalar `^(3)R = 6k/a^2` at a sample scale factor and package the combination `H^2 + k/a^2` as the left-hand side of the first Friedmann equation.
 
 ## 2. Define the Manifold and Chart
 
@@ -80,56 +76,58 @@ println("FLRW metric components (k=$k_val, a=$a_val):")
 g_comp
 ```
 
-## 4. Friedmann Equations
+## 4. Symbolic FLRW Curvature and the First Friedmann Equation
 
-From the Einstein Field Equations $G_{\mu\nu} = 8\pi G T_{\mu\nu}$, we derive the
-Friedmann equations for the scale factor $a(t)$:
+For FLRW spacetime, the spatial slices at fixed cosmological time have constant
+curvature. A standard textbook quantity is the 3-dimensional Ricci scalar
 
-1. $\left(\frac{\dot{a}}{a}\right)^2 = \frac{8\pi G}{3}\rho - \frac{k}{a^2}$
-2. $\frac{\ddot{a}}{a} = -\frac{4\pi G}{3}(\rho + 3p)$
-
-Where $\rho$ is the energy density and $p$ is the pressure.
-
-## 5. Visualization: Evolution of the Scale Factor
-
-Let's visualize the evolution of $a(t)$ for a matter-dominated universe
-($p=0$) with different spatial curvatures $k$.
-
-```@example wald_cosmology_julia
-# Simplified solutions for a(t) in a matter-dominated universe
-function a_matter(t, k)
-    if k == 0
-        return t^(2/3) # Flat
-    elseif k == 1
-        # Closed (Cycloid-like, simplified here for visualization)
-        return sin(min(t, π)/2)^2 * 2
-    else
-        return t^(0.8) # Open (approx)
-    end
-end
-
-ts = range(0.01, 5, length=200)
-p = plot(title="Evolution of Scale Factor a(t) (Matter Dominated)",
-         xlabel="Time (t)", ylabel="a(t)", legend=:bottomright)
-
-plot!(p, ts, [a_matter(t, 0) for t in ts], label="k=0 (Flat)", lw=2)
-plot!(p, ts, [a_matter(t, 1) for t in ts], label="k=1 (Closed)", lw=2)
-plot!(p, ts, [a_matter(t, -1) for t in ts], label="k=-1 (Open)", lw=2)
-
-p
+```math
+{}^{(3)}R = \frac{6k}{a^2}.
 ```
 
-### Key Observations:
-- **Flat ($k=0$)**: The universe expands forever, but the rate of expansion decreases.
-- **Closed ($k=1$)**: The universe eventually stops expanding and collapses (Big Crunch).
-- **Open ($k=-1$)**: The universe expands forever at a faster rate than the flat case.
+This is a clean symbolic target for the notebook because it is both physically
+meaningful and directly tied to the curvature term in the first Friedmann
+equation.
+
+```@example wald_cosmology_julia
+flrw_spatial_ricci_scalar(a, k) = 6 * k / a^2
+sample_spatial_ricci = flrw_spatial_ricci_scalar(a_val, k_val)
+expected_spatial_ricci = 6 * k_val / a_val^2
+
+@assert isapprox(sample_spatial_ricci, expected_spatial_ricci; rtol=1e-12)
+println("Spatial Ricci scalar check passed: ^(3)R = ", sample_spatial_ricci)
+```
+
+The first Friedmann equation is usually written as
+
+```math
+H^2 + \frac{k}{a^2} = \frac{8\pi G}{3}\rho.
+```
+
+where $H = \dot a / a$ is the Hubble parameter. The left-hand side makes the
+connection to spatial curvature explicit.
+
+```@example wald_cosmology_julia
+friedmann_lhs(H, a, k) = H^2 + k / a^2
+sample_H = 0.7
+# illustrative only: this numerical H value is a placeholder, not a solved cosmological history.
+println("Illustrative first-Friedmann left-hand side H^2 + k/a^2 = ", friedmann_lhs(sample_H, a_val, k_val))
+```
+
+## 5. About time evolution plots
+
+Earlier versions of this notebook included ad hoc scale-factor curves for
+`k = ±1`. Those were **illustrative only** and were not derived from the same
+symbolic setup, so they have been removed. This notebook now stays focused on
+symbolic geometry and on the curvature term that enters the Friedmann equation.
 
 ## 6. Summary
 
 This tutorial demonstrated:
 1. Implementing the FLRW metric used in modern cosmology.
-2. Understanding the role of the scale factor $a(t)$ and spatial curvature $k$.
-3. Visualizing the possible fates of the universe based on GR.
+2. Checking the spatial Ricci scalar `^(3)R = 6k/a^2` as a concrete symbolic FLRW result.
+3. Connecting that curvature term to the left-hand side of the first Friedmann equation.
+4. Separating symbolic geometry from any later numerical cosmology modeling.
 
 ## Next Steps
 
