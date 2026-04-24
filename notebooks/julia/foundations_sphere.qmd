@@ -103,44 +103,75 @@ The Riemann tensor $R^a{}_{bcd}$ measures the intrinsic curvature of the
 manifold. For a sphere of radius $R$, the Ricci scalar $R = g^{ab} R_{ab}$
 should be a constant: $R = 2/R^2$.
 
+At the abstract-tensor level, `XAct.jl` keeps the scalar curvature symbolic:
+
 ```{julia}
 # Riemann, Ricci, and RicciScalar are auto-created by def_metric!
 Riem = tensor(:RiemannCD)
 Ric  = tensor(:RicciCD)
 RS   = tensor(:RicciScalarCD)
 
-# For a sphere of R=1, the Ricci Scalar should be exactly 2.
-# We use Contract to evaluate the scalar expression.
-val = Contract(RS[])
-println("Ricci Scalar (expected 2.0): ", val)
+abstract_scalar = Contract(RS[])
+println("Abstract Ricci scalar expression:")
+abstract_scalar
 ```
 
-## 6. Symbolic Algebra: Leveraging the Engine
+To make the textbook claim explicit, we now do a component-level check using the
+metric coefficients of the sphere. For the diagonal line element
+$ds^2 = R^2 d\theta^2 + R^2 \sin^2\theta d\phi^2$, the only non-zero Christoffel
+symbols are $\Gamma^\theta_{\phi\phi} = -\sin\theta\cos\theta$ and
+$\Gamma^\phi_{\theta\phi} = \cot\theta$. From them we can compute the Gaussian
+curvature $K = 1/R^2$, hence the scalar curvature $R = 2K = 2/R^2$.
+
+```{julia}
+function sphere_christoffels(θ)
+    Γθ_φφ = -sin(θ) * cos(θ)
+    Γφ_θφ = cos(θ) / sin(θ)
+    return (; Γθ_φφ, Γφ_θφ)
+end
+
+function sphere_gaussian_curvature(R, θ)
+    Γ = sphere_christoffels(θ)
+    dθ_Γθ_φφ = sin(θ)^2 - cos(θ)^2
+    rθ_φθφ = dθ_Γθ_φφ - Γ.Γθ_φφ * Γ.Γφ_θφ
+    rθφθφ = R^2 * rθ_φθφ
+    det_g = R^4 * sin(θ)^2
+    return rθφθφ / det_g
+end
+
+sphere_ricci_scalar(R, θ) = 2 * sphere_gaussian_curvature(R, θ)
+
+K_val = sphere_gaussian_curvature(R_val, θ_val)
+sphere_ricci = sphere_ricci_scalar(R_val, θ_val)
+
+@assert isapprox(K_val, 1 / R_val^2; atol=1e-12)
+@assert isapprox(sphere_ricci_scalar(R_val, θ_val), 2 / R_val^2; atol=1e-12)
+
+println("Gaussian curvature check passed: K = ", K_val)
+println("Ricci scalar check passed: R = ", sphere_ricci)
+```
+
+## 6. Symbolic Algebra: What the Engine Proves Abstractly
 
 The real power of `XAct.jl` lies in its ability to manipulate tensor expressions
-abstractly. Instead of just calculating numbers, we can verify geometric identities
-that must hold for *any* metric.
-
-For example, the **Einstein tensor** $G_{ab}$ is defined as:
-$G_{ab} = R_{ab} - \frac{1}{2} g_{ab} R$
-
-Let's use the engine to verify that the trace of the Einstein tensor in 2D
-is exactly $-R$ (which implies $R_{aa} = 0$ in 2D, a unique property of surface geometry).
+abstractly. Here we use it for a dimension-dependent identity: in 2D, the trace
+of the Einstein tensor satisfies
+$g^{ab} G_{ab} = (1 - d/2) R = 0$.
 
 ```{julia}
 G = tensor(:EinsteinCD)
 g = tensor(:g)
 
-# Compute the trace: g^{ab} G_{ab}
-# In 2D, this should simplify based on the definition.
 trace_G = Contract(g[a, b] * G[-a, -b])
+@assert string(trace_G) == "0"
 
-println("Trace of Einstein tensor (g^{ab} G_{ab}):")
+println("Trace of Einstein tensor in 2D (expected 0):")
 trace_G
 ```
 
-By leveraging `ToCanonical` and `Contract`, we can prove complex identities
-without ever choosing a coordinate system.
+A stronger geometric fact is that the full Einstein tensor vanishes identically
+in 2D because $R_{ab} = \tfrac{1}{2} g_{ab} R$. This notebook explicitly checks
+its trace symbolically and the scalar curvature numerically/components-wise.
 
 ## 7. Summary
 
