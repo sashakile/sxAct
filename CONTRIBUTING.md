@@ -75,9 +75,17 @@ Test markers:
 # Build the documentation
 just docs
 
+# Smoke-test Julia Quarto notebooks
+just test-notebooks
+
 # Build and serve locally on http://localhost:8000
 just serve-docs
 ```
+
+Notebook validation policy:
+- `just test-notebooks` is the shared Julia notebook smoke-test workflow. It extracts all Julia code cells from `notebooks/julia/*.qmd` and executes them in fresh Julia subprocesses.
+- `just docs` remains the shared rendering/Markdown conversion check for notebook-derived documentation, including Python notebooks.
+- Python notebook runtime validation is still manual/smoke-based for now because those notebooks depend on the `xact-py` wrapper and mixed Python/Julia environment setup.
 
 ## 4. Project Structure
 

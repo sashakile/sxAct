@@ -44,7 +44,24 @@ uv run pytest
 
 ## Testing Your Changes
 
+### Notebook Validation
+
+Use the shared notebook smoke-test workflow before changing Quarto notebook sources:
+
+```bash
+just test-notebooks
+```
+
+That command executes every Julia `.qmd` notebook in `notebooks/julia/` by extracting its Julia code cells and running them in fresh Julia subprocesses. It is the repository's lightweight notebook regression path.
+
+Python notebooks currently use a different validation strategy:
+- `just docs` validates the rendered conversion path for `notebooks/python/*.qmd`.
+- Runtime validation for Python notebooks remains manual/smoke-based for now because those notebooks depend on the packaged `xact-py` wrapper and Python/Julia environment setup rather than pure Documenter execution.
+
+When a notebook ticket asks for verification, use `just test-notebooks` for Julia notebooks and document any extra Python-specific manual checks explicitly.
+
 Before submitting a PR, please ensure:
 1. `julia --project=. test/runtests.jl` passes.
 2. `uv run pytest` passes.
 3. `just docs` builds the documentation without errors.
+4. `just test-notebooks` passes if you changed notebook sources or notebook-derived docs.
