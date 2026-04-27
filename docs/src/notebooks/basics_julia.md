@@ -31,8 +31,6 @@ In the Docker image or a local dev checkout this cell is a no-op.
 # Pkg.add("XAct")
 ```
 
-## 2. Setup
-
 ```@example basics_julia
 using XAct
 ```
@@ -93,12 +91,19 @@ ToCanonical(T_h[-b,-a] - T_h[-a,-b])
 ## 5. Contraction
 
 `Contract` lowers/raises indices via the metric. Define a vector $V^a$
-and contract with the metric to get $V_b$:
+and contract with the metric to get $V_b$, or compute the scalar magnitude
+squared $V^a V_a$:
 
 ```@example basics_julia
 def_tensor!(:V, ["a"], :M)
 V_h = tensor(:V)
+
+# Metric contraction to lower an index
 Contract(V_h[a] * g_h[-a,-b])
+
+# Scalar magnitude squared
+scalar_magnitude = Contract(V_h[a] * V_h[-a])
+println("V^a V_a = ", scalar_magnitude)
 ```
 
 ## 6. Riemann Tensor Identities
@@ -106,10 +111,11 @@ Contract(V_h[a] * g_h[-a,-b])
 The Riemann tensor has well-known symmetries that the canonicalizer
 automatically recognizes.
 
-First Bianchi identity — $R_{abcd} + R_{acdb} + R_{adbc} = 0$:
+First Bianchi identity (algebraic) — $R_{abcd} + R_{acdb} + R_{adbc} = 0$:
 
 ```@example basics_julia
-ToCanonical(Riem[-a,-b,-c,-d] + Riem[-a,-c,-d,-b] + Riem[-a,-d,-b,-c])
+first_bianchi = ToCanonical(Riem[-a,-b,-c,-d] + Riem[-a,-c,-d,-b] + Riem[-a,-d,-b,-c])
+println("First Bianchi sum: ", first_bianchi)
 ```
 
 Antisymmetry in the first pair — $R_{abcd} + R_{bacd} = 0$:

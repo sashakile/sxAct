@@ -1111,7 +1111,7 @@ version = "1.21.0+2"
 
 [[deps.XAct]]
 deps = ["LinearAlgebra", "Reexport"]
-path = "/var/home/sasha/para/areas/dev/gh/sk/XAct.jl"
+path = ".."
 uuid = "61ed89dc-cc38-478d-be53-e1ee1d7160f1"
 version = "0.7.1"
 

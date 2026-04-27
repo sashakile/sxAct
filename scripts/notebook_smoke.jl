@@ -50,7 +50,12 @@ function run_julia_notebook(path::AbstractString; stdout::IO=Base.stdout, stderr
     wrapper = """
     ENV[\"GKSwstype\"] = \"100\"
     m = Module(:NotebookSmoke)
-    Base.include_string(m, $(repr(code)), $(repr(String(path))))
+    try
+        Base.include_string(m, $(repr(code)), $(repr(String(path))))
+    catch e
+        @error "Notebook failed: $(basename(path))" exception=(e, catch_backtrace())
+        exit(1)
+    end
     """
 
     mktemp() do tmppath, io

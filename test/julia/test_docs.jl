@@ -61,7 +61,13 @@ end
         @test occursin("trace_reversed_wave_operator", gw_code)
         @test occursin("lorenz_gauge_condition", gw_code)
         @test occursin("The polarization plots below illustrate", gw_code)
-        @test isnothing(run_notebook_smoke_tests(io=devnull, notebook_stdout=devnull, notebook_stderr=devnull))
+
+        if get(ENV, "XACT_RUN_NOTEBOOK_SMOKE", "false") == "true"
+            @test isnothing(run_notebook_smoke_tests(io=devnull, notebook_stdout=devnull, notebook_stderr=devnull))
+        else
+            @info "Skipping notebook smoke subprocesses in unit-test workflow; run via docs workflow or set XACT_RUN_NOTEBOOK_SMOKE=true"
+            @test_skip true
+        end
     end
 
     # 3. Execute Literate tutorials as tests when Literate is available.
