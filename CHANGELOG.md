@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-05-05
+
+### Changed
+
+- Documented the completed sxAct → Elegua refactor across README, architecture, internals, and verification docs.
+- Clarified that sxAct consumes Elegua for TOML bridge parsing, live-run isolation, comparison-pipeline composition, and oracle HTTP transport.
+- Clarified that xAct-specific adapters, expression builders, comparison layers, compatibility dataclasses, and oracle snapshot artifacts remain sxAct-owned.
+
+### Testing
+
+- Added documentation guard tests for the sxAct → Elegua migration boundary.
+
 ## [0.7.1] - 2026-04-17
 
 ### Changed

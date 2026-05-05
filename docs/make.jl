@@ -89,7 +89,7 @@ makedocs(;
         edit_link="main",
         assets=String[],
         size_threshold=300 * 1024, # Increase to 300KiB for large API page
-        inventory_version="0.7.1",
+        inventory_version="0.7.2",
     ),
     warnonly=[
         :cross_references, :example_block, :docs_block, :missing_docs, :autodocs_block

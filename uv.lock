@@ -2018,7 +2018,7 @@ wheels = [
 
 [[package]]
 name = "sxact"
-version = "0.7.1"
+version = "0.7.2"
 source = { editable = "packages/sxact" }
 dependencies = [
     { name = "elegua" },
@@ -2037,7 +2037,7 @@ requires-dist = [
 
 [[package]]
 name = "sxact-workspace"
-version = "0.7.1"
+version = "0.7.2"
 source = { virtual = "." }
 dependencies = [
     { name = "elegua" },
@@ -2317,7 +2317,7 @@ wheels = [
 
 [[package]]
 name = "xact-py"
-version = "0.7.1"
+version = "0.7.2"
 source = { editable = "packages/xact-py" }
 dependencies = [
     { name = "juliacall" },

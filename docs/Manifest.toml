@@ -1113,7 +1113,7 @@ version = "1.21.0+2"
 deps = ["LinearAlgebra", "Reexport"]
 path = ".."
 uuid = "61ed89dc-cc38-478d-be53-e1ee1d7160f1"
-version = "0.7.1"
+version = "0.7.2"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
