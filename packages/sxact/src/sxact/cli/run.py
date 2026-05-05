@@ -95,6 +95,53 @@ def _sub_bindings(args: dict[str, Any], bindings: dict[str, str]) -> dict[str, A
 # ---------------------------------------------------------------------------
 
 
+def _comparison_oracle(adapter: Any) -> Any | None:
+    """Return an oracle usable by the sxAct L4 numeric comparison layer, if present."""
+    oracle = getattr(adapter, "comparison_oracle", None)
+    if oracle is not None:
+        return oracle
+    inner = getattr(adapter, "_inner", None)
+    return getattr(inner, "_oracle", None)
+
+
+def _sub_refs(text: str, bindings: dict[str, str]) -> str:
+    """Substitute Elegua runner bindings in expected expression text."""
+    return _REF_RE.sub(lambda m: bindings.get(m.group(1), m.group(0)), text)
+
+
+def _compare_live_expected_expr(result: Any, test_case: Any, adapter: Any) -> Any | None:
+    """Compare the last live token against expected.expr with sxAct Elegua layers.
+
+    Returns a ComparisonResult when a layered comparison was applicable, otherwise None.
+    """
+    exp = test_case.expected
+    tier = getattr(exp, "comparison_tier", None) if exp is not None else None
+    if exp is None or exp.expr is None or tier is None or tier < 3:
+        return None
+    if result.error or not result.tokens:
+        return None
+
+    from elegua.comparison import ComparisonPipeline
+    from elegua.models import ValidationToken
+    from elegua.task import TaskStatus
+
+    from sxact.elegua_bridge.comparison_layers import compare_canonical, make_compare_numeric
+
+    actual = result.tokens[-1]
+    expected = ValidationToken(
+        adapter_id="expected",
+        status=TaskStatus.OK,
+        result={"repr": _sub_refs(exp.expr, result.bindings), "type": "Expr"},
+    )
+
+    pipeline = ComparisonPipeline()
+    pipeline.register(3, "canonical", compare_canonical)
+    oracle = _comparison_oracle(adapter)
+    if oracle is not None:
+        pipeline.register(4, "numeric", make_compare_numeric(oracle))
+    return pipeline.compare(actual, expected)
+
+
 def _run_file_live(test_file: Any, adapter: Any, tag_filter: str | None) -> list[_RunResult]:
     """Run a test file in live mode using elegua.IsolatedRunner."""
     from elegua.isolation import IsolatedRunner
@@ -111,6 +158,27 @@ def _run_file_live(test_file: Any, adapter: Any, tag_filter: str | None) -> list
         if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
             continue
         verdict = evaluate_expected(tr, tc, normalizer=ast_normalize)
+        layered = _compare_live_expected_expr(tr, tc, adapter)
+        if layered is not None and layered.status == TaskStatus.OK:
+            last_result = tr.tokens[-1].result if tr.tokens else None
+            actual = (
+                last_result.get("repr")
+                if isinstance(last_result, dict)
+                else str(last_result)
+                if last_result is not None
+                else None
+            )
+            results.append(
+                _RunResult(
+                    file_id=test_file.meta.id,
+                    test_id=tc.id,
+                    status="pass",
+                    actual=actual,
+                    expected=tc.expected.expr if tc.expected else None,
+                    message=f"matched at L{layered.layer} {layered.layer_name}",
+                )
+            )
+            continue
         # Escalate EXECUTION_ERROR tokens to "error" when no expected block vetted them.
         # evaluate_expected returns "pass" for no-expected tests even when the adapter
         # reported an error token; the CLI should surface these as errors.

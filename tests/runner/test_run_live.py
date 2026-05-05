@@ -12,6 +12,7 @@ from elegua.models import ValidationToken
 from elegua.task import EleguaTask, TaskStatus
 
 from sxact.cli.run import _run_file_live
+from sxact.oracle.result import Result
 from sxact.runner.loader import Expected, Operation, TestCase, TestFile, TestMeta
 
 # ---------------------------------------------------------------------------
@@ -19,10 +20,22 @@ from sxact.runner.loader import Expected, Operation, TestCase, TestFile, TestMet
 # ---------------------------------------------------------------------------
 
 
+class _ZeroOracle:
+    """Numeric-comparison oracle that reports every sampled difference as zero."""
+
+    def evaluate(self, expr: str) -> Result:
+        return Result(status="ok", type="Scalar", repr="0.0", normalized="0.0")
+
+
 class _StubElegua(Adapter):
     """Minimal elegua Adapter for testing _run_file_live."""
 
-    def __init__(self, tokens: list[ValidationToken] | None = None) -> None:
+    def __init__(
+        self,
+        tokens: list[ValidationToken] | None = None,
+        comparison_oracle: object | None = None,
+    ) -> None:
+        self.comparison_oracle = comparison_oracle
         self._tokens = list(tokens or [])
         self._call_idx = 0
         self.initialized = False
@@ -128,6 +141,22 @@ class TestRunFileLiveBasic:
         assert results[0].status == "fail"
         assert results[0].actual == "2"
         assert results[0].expected == "3"
+
+    def test_expr_match_can_use_l4_numeric_comparison(self) -> None:
+        tf = _make_tf([_make_tc(expected=Expected(expr="1", comparison_tier=3))])
+        adapter = _StubElegua(
+            [
+                ValidationToken(
+                    adapter_id="stub",
+                    status=TaskStatus.OK,
+                    result={"repr": "Sin[x]^2 + Cos[x]^2", "type": "Expr"},
+                )
+            ],
+            comparison_oracle=_ZeroOracle(),
+        )
+        results = _run_file_live(tf, adapter, None)
+        assert results[0].status == "pass"
+        assert results[0].message == "matched at L4 numeric"
 
     def test_skip_returns_skip(self) -> None:
         tf = _make_tf([_make_tc(skip="not implemented")])
