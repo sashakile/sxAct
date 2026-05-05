@@ -2024,7 +2024,6 @@ dependencies = [
     { name = "elegua" },
     { name = "jsonschema" },
     { name = "numpy" },
-    { name = "requests" },
     { name = "xact-py" },
 ]
 
@@ -2033,7 +2032,6 @@ requires-dist = [
     { name = "elegua" },
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "numpy", specifier = ">=2.2.6" },
-    { name = "requests", specifier = ">=2.28.0" },
     { name = "xact-py", editable = "packages/xact-py" },
 ]
 
