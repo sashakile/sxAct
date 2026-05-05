@@ -177,10 +177,7 @@ def _cmd_property(args: argparse.Namespace) -> int:
     property_files = []
     for p in toml_files:
         try:
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                import tomli as tomllib
+            import tomllib
 
             raw = tomllib.loads(p.read_text())
             if raw.get("layer") == "property":

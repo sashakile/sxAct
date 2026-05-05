@@ -21,12 +21,11 @@ import statistics
 import subprocess
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from sxact.adapter.base import TestAdapter
     from sxact.runner.loader import TestCase, TestFile
 
 # ---------------------------------------------------------------------------
@@ -189,6 +188,7 @@ def bench_test_case(
 
     from elegua.adapter import Adapter
     from elegua.isolation import IsolatedRunner
+
     from sxact.elegua_bridge.adapters import _wrap_adapter
 
     elegua_adapter = adapter if isinstance(adapter, Adapter) else _wrap_adapter(adapter)
@@ -221,7 +221,7 @@ def bench_test_case(
         p99_ms=_percentile(99),
         min_ms=round(min(times), 4),
         max_ms=round(max(times), 4),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
 
@@ -276,7 +276,7 @@ def save_baseline(
 
     data = {
         "machine": machine.to_dict(),
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorded_at": datetime.now(UTC).isoformat(),
         "benchmarks": [r.to_dict() for r in existing.values()],
     }
     path.parent.mkdir(parents=True, exist_ok=True)

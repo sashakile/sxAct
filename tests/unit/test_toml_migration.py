@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from elegua.bridge import TestFile, load_test_file
 from elegua.errors import SchemaError
 

@@ -16,7 +16,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TEST_DIR = Path("tests/xperm/butler_examples")
@@ -62,7 +62,7 @@ def process_single_file(toml_path: Path, dry_run: bool) -> dict:
     from sxact.adapter.julia_stub import JuliaAdapter
     from sxact.runner.loader import LoadError, load_test_file
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
 
     try:
         test_file = load_test_file(toml_path)

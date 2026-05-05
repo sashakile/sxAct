@@ -1,10 +1,10 @@
 """Tests for the elegua L4 numeric sampling comparison layer."""
 
 import pytest
-
 from elegua.comparison import ComparisonPipeline
 from elegua.models import ValidationToken
 from elegua.task import TaskStatus
+
 from sxact.compare.sampling import TensorContext
 from sxact.compare.tensor_objects import Manifold, Metric, TensorField
 from sxact.elegua_bridge.comparison_layers import make_compare_numeric
@@ -80,8 +80,8 @@ class TestMakeCompareNumeric:
 
     def test_tensor_ctx_forwarded(self) -> None:
         manifold = Manifold("M", 2)
-        metric = Metric("g", manifold)
-        tensor = TensorField("T", rank=2, manifold=manifold)
+        Metric("g", manifold)
+        TensorField("T", rank=2, manifold=manifold)
         import numpy as np
 
         ctx = TensorContext(

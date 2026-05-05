@@ -3,6 +3,7 @@
 from elegua.comparison import ComparisonPipeline
 from elegua.models import ValidationToken
 from elegua.task import TaskStatus
+
 from sxact.elegua_bridge.comparison_layers import compare_canonical
 
 

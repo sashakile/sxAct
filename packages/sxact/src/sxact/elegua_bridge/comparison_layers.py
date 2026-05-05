@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from elegua.comparison import LayerFn
 from elegua.models import ValidationToken
 from elegua.task import TaskStatus
+
 from sxact.normalize import ast_normalize
 
 if TYPE_CHECKING:

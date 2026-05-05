@@ -18,16 +18,10 @@ from __future__ import annotations
 import random
 import re
 import string
-import sys
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
 
 # ---------------------------------------------------------------------------
 # Data model

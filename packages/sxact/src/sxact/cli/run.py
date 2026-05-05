@@ -100,13 +100,14 @@ def _run_file_live(test_file: Any, adapter: Any, tag_filter: str | None) -> list
     from elegua.isolation import IsolatedRunner
     from elegua.task import TaskStatus
     from elegua.verdict import evaluate_expected
+
     from sxact.normalize import ast_normalize
 
     with IsolatedRunner(adapter) as runner:
         run_results = runner.run(test_file)
 
     results: list[_RunResult] = []
-    for tc, tr in zip(test_file.tests, run_results):
+    for tc, tr in zip(test_file.tests, run_results, strict=False):
         if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
             continue
         verdict = evaluate_expected(tr, tc, normalizer=ast_normalize)

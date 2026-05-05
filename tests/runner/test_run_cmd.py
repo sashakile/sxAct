@@ -12,6 +12,10 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from elegua.adapter import Adapter
+from elegua.models import ValidationToken
+from elegua.task import EleguaTask, TaskStatus
+
 from sxact.cli import (
     _cmd_run,
     _print_json_run,
@@ -22,10 +26,6 @@ from sxact.cli import (
     _sub_bindings,
     _tc_matches_tag,
 )
-from elegua.adapter import Adapter
-from elegua.models import ValidationToken
-from elegua.task import EleguaTask, TaskStatus
-
 from sxact.oracle.result import Result
 from sxact.runner.loader import (
     Expected,

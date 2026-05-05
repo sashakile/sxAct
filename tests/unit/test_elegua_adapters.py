@@ -5,13 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from elegua.adapter import Adapter
 from elegua.models import ValidationToken
 from elegua.task import EleguaTask, TaskStatus
-from sxact.elegua_bridge.adapters import EleguaJuliaAdapter, EleguaPythonAdapter, EleguaWolframAdapter
-from sxact.oracle.result import Result
 
+from sxact.elegua_bridge.adapters import (
+    EleguaJuliaAdapter,
+    EleguaPythonAdapter,
+    EleguaWolframAdapter,
+)
+from sxact.oracle.result import Result
 
 # ---------------------------------------------------------------------------
 # Stub inner adapters (no Julia required)

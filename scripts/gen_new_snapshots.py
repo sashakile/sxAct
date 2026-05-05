@@ -17,7 +17,7 @@ If no paths are given, defaults to processing:
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ORACLE_DIR = Path("oracle")
@@ -62,7 +62,7 @@ def process_file(toml_path: Path, adapter, dry_run: bool) -> dict:
     """Process one TOML file with the given adapter and return results."""
     from sxact.runner.loader import LoadError, load_test_file
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
 
     try:
         test_file = load_test_file(toml_path)

@@ -6,7 +6,6 @@ All tests are oracle-free: the adapter is a lightweight elegua stub.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from elegua.adapter import Adapter
 from elegua.models import ValidationToken
@@ -14,7 +13,6 @@ from elegua.task import EleguaTask, TaskStatus
 
 from sxact.cli.run import _run_file_live
 from sxact.runner.loader import Expected, Operation, TestCase, TestFile, TestMeta
-
 
 # ---------------------------------------------------------------------------
 # Stub elegua adapter
