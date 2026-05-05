@@ -37,3 +37,12 @@ def test_oracle_client_reuses_elegua_http_client() -> None:
     assert "from elegua.oracle import OracleClient" in text
     assert "import requests" not in text
     assert "requests" not in pyproject
+
+
+def test_toml_loader_reuses_elegua_bridge_parser() -> None:
+    """sxAct should keep only compatibility wrapping around elegua.bridge loading."""
+    loader = SRC / "runner" / "loader.py"
+    text = loader.read_text()
+
+    assert "from elegua import bridge as elegua_bridge" in text
+    assert "elegua_bridge.load_test_file" in text

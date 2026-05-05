@@ -21,6 +21,7 @@ from typing import Any, cast
 
 import jsonschema
 import jsonschema.validators
+from elegua import bridge as elegua_bridge
 
 _SCHEMA_PATH = Path(__file__).parent / "schemas" / "test-schema.json"
 
@@ -138,7 +139,13 @@ def load_test_file(path: str | Path) -> TestFile:
 
     raw = _parse_toml(path)
     _validate_against_schema(raw, path)
-    return _build(raw, path)
+
+    try:
+        elegua_file = elegua_bridge.load_test_file(path)
+    except Exception as exc:  # pragma: no cover - schema validation should catch this first
+        raise LoadError(f"Elegua bridge failed to load {path.name}: {exc}", path=path) from exc
+
+    return _build_from_elegua(elegua_file, path)
 
 
 # ---------------------------------------------------------------------------
@@ -198,36 +205,33 @@ def _json_path(error: jsonschema.ValidationError) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _build(data: dict[str, Any], source: Path) -> TestFile:
+def _build_from_elegua(elegua_file: elegua_bridge.TestFile, source: Path) -> TestFile:
+    """Adapt Elegua's parsed TOML model to sxAct's compatibility dataclasses."""
     return TestFile(
-        meta=_build_meta(data["meta"]),
-        setup=[_build_operation(op) for op in data.get("setup", [])],
-        tests=[_build_test(tc) for tc in data.get("tests", [])],
+        meta=TestMeta(
+            id=elegua_file.meta.id,
+            description=elegua_file.meta.description,
+            tags=list(elegua_file.meta.tags),
+            layer=int(elegua_file.meta.layer),
+            oracle_is_axiom=bool(elegua_file.meta.oracle_is_axiom),
+            skip=elegua_file.meta.skip,
+        ),
+        setup=[_build_operation(op) for op in elegua_file.setup],
+        tests=[_build_test(tc) for tc in elegua_file.tests],
         source_path=source,
     )
 
 
-def _build_meta(m: dict[str, Any]) -> TestMeta:
-    return TestMeta(
-        id=m["id"],
-        description=m["description"],
-        tags=list(m.get("tags", [])),
-        layer=int(m.get("layer", 1)),
-        oracle_is_axiom=bool(m.get("oracle_is_axiom", True)),
-        skip=m.get("skip"),
-    )
-
-
-def _build_operation(op: dict[str, Any]) -> Operation:
+def _build_operation(op: elegua_bridge.Operation) -> Operation:
     return Operation(
-        action=op["action"],
-        args=dict(op.get("args", {})),
-        store_as=op.get("store_as"),
+        action=op.action,
+        args=dict(op.args),
+        store_as=op.store_as,
     )
 
 
-def _build_expected(exp: dict[str, Any]) -> Expected:
-    props_raw = exp.get("properties")
+def _build_expected(exp: elegua_bridge.Expected) -> Expected:
+    props_raw = exp.properties
     props = None
     if props_raw is not None:
         props = ExpectedProperties(
@@ -237,24 +241,23 @@ def _build_expected(exp: dict[str, Any]) -> Expected:
             type=props_raw.get("type"),
         )
     return Expected(
-        expr=exp.get("expr"),
-        normalized=exp.get("normalized"),
-        value=exp.get("value"),
-        is_zero=exp.get("is_zero"),
+        expr=exp.expr,
+        normalized=exp.normalized,
+        value=exp.value,
+        is_zero=exp.is_zero,
         properties=props,
-        comparison_tier=exp.get("comparison_tier"),
-        expect_error=exp.get("expect_error"),
+        comparison_tier=exp.comparison_tier,
+        expect_error=exp.expect_error,
     )
 
 
-def _build_test(tc: dict[str, Any]) -> TestCase:
-    expected_raw = tc.get("expected")
+def _build_test(tc: elegua_bridge.TestCase) -> TestCase:
     return TestCase(
-        id=tc["id"],
-        description=tc["description"],
-        operations=[_build_operation(op) for op in tc["operations"]],
-        tags=list(tc.get("tags", [])),
-        dependencies=list(tc.get("dependencies", [])),
-        skip=tc.get("skip"),
-        expected=_build_expected(expected_raw) if expected_raw is not None else None,
+        id=tc.id,
+        description=tc.description,
+        operations=[_build_operation(op) for op in tc.operations],
+        tags=list(tc.tags),
+        dependencies=list(tc.dependencies),
+        skip=tc.skip,
+        expected=_build_expected(tc.expected) if tc.expected is not None else None,
     )
