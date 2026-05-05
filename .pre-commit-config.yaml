@@ -17,7 +17,9 @@ repos:
         language: system
         entry: uv run mypy packages/xact-py/src packages/sxact/src
         pass_filenames: false
-        types: [python]
+        types_or: [python, toml]
+        files: ^(packages/.*\.py|pyproject\.toml)$
+        stages: [pre-commit, pre-push]
 
   # ── Julia: JuliaFormatter ──────────────────────────────────────────────────
   # Uses a dedicated tooling env so it never conflicts with the main project deps.
