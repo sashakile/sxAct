@@ -1,10 +1,10 @@
 # Verification API (`sxact`)
 
 !!! info "Verification API TL;DR for AI Agents"
-    - **OracleClient**: HTTP client for Dockerized Wolfram Engine (`health`, `evaluate`, `evaluate_with_xact`, `cleanup`)
-    - **Normalization**: `normalize()` (regex) and `ast_normalize()` (AST-based, preferred)
-    - **Comparison**: Three-tier (`compare()`): normalized string → symbolic Simplify → numeric sampling
-    - **Snapshots**: `SnapshotComparator` for offline hash-based regression testing
+    - **OracleClient**: sxAct compatibility wrapper around `elegua.oracle.OracleClient` (`health`, `evaluate`, `evaluate_with_xact`, `cleanup`)
+    - **Normalization**: `normalize()` (regex) and `ast_normalize()` (AST-based, preferred); also exposed as the sxAct L3 Elegua comparison layer
+    - **Comparison**: Legacy three-tier `compare()` plus sxAct L3/L4 plugins for Elegua's `ComparisonPipeline`
+    - **Snapshots**: `SnapshotComparator` for offline hash-based regression testing; snapshot artifacts remain sxAct-owned
 
 The `sxact` Python package is a specialized framework for verifying the mathematical correctness of `XAct.jl` against the Wolfram Language implementation.
 
@@ -12,7 +12,7 @@ The `sxact` Python package is a specialized framework for verifying the mathemat
 
 `sxact.oracle.client.OracleClient(base_url="http://localhost:8765")`
 
-Manages the connection to the Dockerized Wolfram Engine.
+Manages the connection to the Dockerized Wolfram Engine. This class is a compatibility wrapper around `elegua.oracle.OracleClient`: Elegua owns the HTTP transport, while sxAct adapts responses to the historical `sxact.oracle.result.Result` dataclass used by existing adapters, comparators, and snapshot code.
 
 | Method | Description |
 | :--- | :--- |
@@ -46,7 +46,7 @@ AST-based normalizer (preferred for Tier 1 comparison). Handles arbitrarily nest
 
 `sxact.compare.comparator`
 
-Implements a multi-tier comparison strategy.
+Implements the legacy sxAct multi-tier comparison strategy. New live-runner integration composes the same xAct-specific logic through Elegua's `ComparisonPipeline`, using `sxact.elegua_bridge.comparison_layers.compare_canonical` for L3 canonical comparison and `make_compare_numeric(oracle)` for L4 numeric sampling.
 
 ### `compare(lhs, rhs, oracle=None, mode=EqualityMode.SYMBOLIC, tensor_ctx=None)`
 
@@ -80,7 +80,7 @@ Returns a `SamplingResult(equal, confidence, samples)`.
 
 `sxact.snapshot.compare`
 
-Deterministic hash-based regression testing that allows verification without a live Wolfram Engine.
+Deterministic hash-based regression testing that allows verification without a live Wolfram Engine. Snapshot storage and comparison remain sxAct-specific because the JSON layout, content hashes, and CLI reporting are tied to XAct.jl oracle artifacts rather than Elegua's domain-agnostic runtime model.
 
 ### `SnapshotComparator`
 

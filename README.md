@@ -62,7 +62,7 @@ xact.canonicalize(T_h[-b,-a] - T_h[-a,-b])  # returns "0"
 | `XAct.jl` / `XAct` | Julia package and module | The native Julia tensor algebra engine |
 | `xact-py` | Python package name | The package published to PyPI |
 | `xact` | Python import name | The public Python API you write in code |
-| `sxact` | Python verification framework | The parity-testing and oracle-comparison tooling |
+| `sxact` | Python verification framework | The xAct-specific parity-testing, oracle-snapshot, adapter, and Eleguá bridge tooling |
 
 The docs landing page has the same map in the ["What is what?"](https://saxa.xyz/XAct.jl/#what-is-what) section.
 
@@ -97,7 +97,7 @@ The [`xact-py`](https://pypi.org/project/xact-py/) package provides a Pythonic A
 ## Components
 
 - **XAct.jl** (Julia): The computational engine — canonicalization, contraction, covariant derivatives, perturbation theory, coordinate components (xCoba), Riemann invariants (Invar). Native rewrite of the Wolfram [xAct](http://xact.es/) modules xPerm, xTensor, xCoba, and Invar.
-- **sxact** (Python): Automated parity testing against the Wolfram Engine using TOML test cases and oracle snapshots.
+- **sxact** (Python): Automated parity testing against the Wolfram Engine using TOML test cases and oracle snapshots. It consumes [Eleguá](https://github.com/sashakile/elegua) for shared validation infrastructure (TOML bridge parsing, live-run isolation, comparison-pipeline composition, and oracle HTTP transport) while retaining xAct-specific adapters, expression builders, comparison layers, and snapshot artifacts.
 
 ### Related Projects
 

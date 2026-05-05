@@ -53,29 +53,37 @@ v0.7.1 renamed the repository from `sxAct` to `XAct.jl` to comply with the Julia
 
 > For the current module structure and data flow, see [Architecture](architecture.md). This section explains the design decisions and how the layers evolved.
 
-`sxact` is the Python verification framework that lives in `packages/sxact/`. It is a separate package from `xact-py`: `sxact` is the verification framework (test runner, oracle, adapters); `xact-py` is the end-user public API. It has six layers.
+`sxact` is the Python verification framework that lives in `packages/sxact/`. It is a separate package from `xact-py`: `sxact` is the verification framework (test runner, oracle, adapters); `xact-py` is the end-user public API.
+
+Current status: the sxAct → Elegua refactor is complete. Domain-agnostic infrastructure now lives in the external `elegua` package; sxAct retains xAct-specific adapters, expression-building, comparison plugins, snapshot artifact handling, and compatibility dataclasses for existing callers. The old local isolation runner has been removed, the TOML loader delegates schema parsing to Elegua, and the oracle client delegates HTTP transport to Elegua while preserving sxAct's public `Result` API.
+
+It has six layers.
 
 ### 1. Oracle layer
 
-The oracle is a Dockerized Wolfram Engine with xAct loaded. The `sxact.oracle.client.OracleClient` sends Wolfram Language expressions over HTTP and gets back string results. Each call uses a `context_id` to give each test case an isolated Wolfram namespace, preventing symbol definitions from one test leaking into another.
+The oracle is a Dockerized Wolfram Engine with xAct loaded. The `sxact.oracle.client.OracleClient` sends Wolfram Language expressions over HTTP and gets back string results. It is now a compatibility wrapper: it delegates HTTP transport to `elegua.oracle.OracleClient`, then adapts Elegua's result object back into sxAct's historical `Result` dataclass. Each call uses a `context_id` to give each test case an isolated Wolfram namespace, preventing symbol definitions from one test leaking into another.
 
 When a live oracle is not available, pre-recorded JSON snapshots (SHA-256 content-hashed) replace it. Snapshots are stored in the `oracle/` directory and committed to the repository. Any test that passed against the live oracle can be re-run at any time without Wolfram Engine access.
 
 ### 2. Adapter layer
 
-The adapter layer translates abstract test actions into concrete calls to a backend. Two adapters exist:
+The adapter layer translates abstract test actions into concrete calls to a backend. The backend-specific adapters remain sxAct-owned, and `sxact.elegua_bridge.adapters` wraps them in Elegua's `Adapter` protocol for live runs and benchmarks:
 
 - **`julia_stub.py`** — the machine-facing Julia adapter. Dispatches 34+ named actions (`DefManifold`, `ToCanonical`, `Contract`, `RiemannSimplify`, …) to the Julia engine via `juliacall`. This adapter intentionally uses test-runner concepts (`store_as`, `Assert`, `Evaluate`) that are absent from the public Python API.
+- **`python_adapter.py` / `python_stub.py`** — the machine-facing Python/xact-py adapters used when the same TOML action vocabulary is driven through the public Python wrapper boundary.
 - **`wolfram.py`** — the Wolfram oracle adapter. Sends the same actions to the Docker oracle for comparison.
+- **`sxact.elegua_bridge.adapters`** — thin wrappers (`EleguaJuliaAdapter`, `EleguaPythonAdapter`, `EleguaWolframAdapter`) that convert sxAct `Result` values into Elegua `ValidationToken`s.
 
 ### 3. Runner layer
 
 The TOML runner (`sxact.runner`) defines the test lifecycle:
 
-1. Parse a TOML test file into `setup` blocks and `tests` blocks.
-2. Execute each `setup` action against the adapter (define manifolds, tensors, metrics).
-3. Execute each `test` action and collect the result.
-4. Compare the result against the oracle snapshot (or a live oracle response).
+1. Parse a TOML test file through `elegua.bridge.load_test_file()`.
+2. Adapt Elegua's parsed model into sxAct compatibility dataclasses so existing snapshot, benchmark, and CLI code keeps its public shape.
+3. For live mode, execute `setup` and `test` actions through `elegua.IsolatedRunner` using sxAct's Elegua adapter wrappers.
+4. For snapshot mode, run the adapter and compare against sxAct's stored oracle snapshots.
+
+Property-runner TOML files remain a separate sxAct-specific format and are intentionally not parsed by the Elegua bridge.
 
 The CLI entry point is `xact-test`:
 
@@ -126,15 +134,14 @@ Raw string results from Julia and Wolfram rarely match character-for-character b
 
 ### 5. Comparison layer
 
-After normalization, the comparator (`sxact.compare`) applies three tiers:
+After normalization, comparison is available in two forms:
 
-| Tier | Method | Confidence |
-| :--- | :--- | :--- |
-| 1 — Identity | Bitwise string equality after normalization | 1.0 |
-| 2 — Structural | AST-level structural equivalence | 1.0 |
-| 3 — Invariant | Numeric substitution sampling (N random tensors) | < 1.0 |
+| Layer | Current use | Method | Confidence |
+| :--- | :--- | :--- | :--- |
+| sxAct legacy comparator | Direct `sxact.compare.compare()` callers and snapshot-era compatibility | Normalized string → symbolic oracle check → numeric sampling | 1.0 for symbolic tiers; probabilistic for numeric sampling |
+| Elegua `ComparisonPipeline` | Live `xact-test` runs and cross-adapter smoke tests | Generic pipeline with sxAct L3 canonical and L4 numeric plugins | Layer-dependent |
 
-Tier 3 is the fallback when symbolic equality cannot be confirmed. It evaluates both expressions at random numeric tensors and checks for numerical agreement. A pass at tier 3 does not prove symbolic equality, only numerical agreement within the sample.
+The sxAct-owned L3 plugin (`compare_canonical`) wraps `sxact.normalize.ast_normalize`. The L4 plugin (`make_compare_numeric`) wraps `sxact.compare.sampling.sample_numeric` when a live oracle is available. Numeric sampling evaluates both expressions at random numeric tensors and checks for agreement; it does not prove symbolic equality beyond the sampled points.
 
 ### 6. Snapshot management
 
@@ -148,7 +155,7 @@ uv run xact-test snapshot tests/xtensor/ --output oracle/ --oracle-url http://lo
 uv run xact-test regen-oracle tests/xtensor/ --oracle-dir oracle/ --diff --yes
 ```
 
-The snapshot JSON stores the Wolfram result string and its SHA-256 hash. The runner verifies the hash before accepting a snapshot result, catching accidental file corruption. If the hash check fails, regenerate the affected snapshot with `xact-test regen-oracle` rather than editing the JSON directly.
+The snapshot JSON stores the Wolfram result string and its SHA-256 hash. The runner verifies the hash before accepting a snapshot result, catching accidental file corruption. If the hash check fails, regenerate the affected snapshot with `xact-test regen-oracle` rather than editing the JSON directly. The snapshot store and comparator remain sxAct-owned because they preserve the repository's oracle artifact layout and historical CLI reporting contract.
 
 ---
 
@@ -156,9 +163,13 @@ The snapshot JSON stores the Wolfram result string and its SHA-256 hash. The run
 
 [Eleguá](https://github.com/sashakile/elegua) is a domain-agnostic multi-tier test orchestrator, maintained in a separate repository. It provides generic infrastructure for validating equivalence across symbolic computing systems: kernel isolation, warm-up phases, blob storage for large payloads, and pluggable normalizers.
 
-The `sxact.elegua_bridge` module connects the xAct domain to Eleguá. It implements Eleguá's abstract adapter interface using the Julia stub adapter and the Wolfram oracle adapter. The bridge translates Eleguá's generic action vocabulary into xAct-specific TOML actions — for example, Eleguá's `evaluate(expr)` call maps to xAct's `ToCanonical` action.
+The `sxact.elegua_bridge` module connects the xAct domain to Eleguá. It contains only xAct-specific glue:
 
-In practice, most day-to-day verification uses the `xact-test` CLI directly against TOML files without going through Eleguá. Eleguá becomes relevant for multi-system comparisons (e.g., cross-validating a result in xAct, SymPy, and a custom CAS simultaneously) and for property-based testing that generates random inputs.
+- `expr_builder.build_xact_expr()` translates sxAct action payloads into Wolfram/xAct expressions.
+- `adapters.py` wraps Julia, Python, and Wolfram sxAct adapters as Eleguá `Adapter`s.
+- `comparison_layers.py` registers the sxAct canonical and numeric comparison layers for Eleguá's `ComparisonPipeline`.
+
+Day-to-day users still invoke `xact-test` directly. Internally, live `xact-test run --oracle-mode live` uses Eleguá for isolation and expected-result evaluation; snapshot mode keeps sxAct's snapshot comparator because snapshots are xAct-specific oracle artifacts. Eleguá is also the integration point for multi-system comparisons and future property-based validation.
 
 ---
 

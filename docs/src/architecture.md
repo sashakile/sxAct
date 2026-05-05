@@ -1,13 +1,14 @@
 # Architecture
 
 !!! info "Architecture TL;DR for AI Agents"
-    Five Julia modules (XCore → XPerm → XTensor → XInvar, plus TExpr) bundled as `XAct.jl`. Verified via Python `sxact` framework against Dockerized Wolfram Oracle using TOML test cases and snapshot comparison. Python public API exposed via `xact-py`. Wolfram migration tooling in `sxact.translate`.
+    Five Julia modules (XCore → XPerm → XTensor → XInvar, plus TExpr) bundled as `XAct.jl`. Verified via Python `sxact` framework against Dockerized Wolfram Oracle using TOML test cases and snapshot comparison. `sxact` now consumes Elegua for shared verification infrastructure: TOML schema loading via `elegua.bridge.load_test_file`, live test isolation via `elegua.IsolatedRunner`, and oracle HTTP transport via `elegua.oracle.OracleClient`. Python public API exposed via `xact-py`. Wolfram migration tooling in `sxact.translate`.
 
 `XAct.jl` is a Julia port of the Wolfram xAct tensor algebra suite with ergonomic additions (TExpr typed expression layer, Python bindings). The `sxact` package provides verification tooling and Wolfram migration utilities. Chacana (external repo) is a language-agnostic tensor DSL; this repo will accept Chacana as an input format to the translate tooling once the Chacana spec stabilises.
 
 ## Related Projects
 
-- **XAct.jl** (This Repo): The native computational engine and verification suite.
+- **XAct.jl** (This Repo): The native computational engine, `xact-py` wrapper, and `sxact` xAct-specific verification plugins.
+- [Elegua](https://github.com/sashakile/elegua) (External): Domain-agnostic validation infrastructure. `sxact` depends on it for adapter protocol, live-runner isolation, TOML bridge parsing, comparison-pipeline composition, and oracle HTTP transport.
 - [Chacana](https://github.com/sashakile/chacana) (External): A language-agnostic Tensor DSL and specification. Once the Chacana spec stabilises, this repo will accept Chacana as an input format to the translate tooling.
 
 ## Julia Core
@@ -40,9 +41,10 @@ The `sxact.translate` module provides Wolfram Language → Julia migration utili
 
 To ensure mathematical correctness, `XAct.jl` is verified against the original Wolfram implementation:
 
-- **Wolfram Oracle**: A Dockerized Wolfram Engine running xAct. Provides reference results for parity testing.
-- **Test Runner (`sxact`)**: A Python framework that drives TOML-defined test cases through the Julia and Wolfram adapters, comparing results via normalization, symbolic simplification, and numeric sampling.
-- **Oracle Snapshots**: Deterministic hash-based regression testing that allows verification without a live Wolfram Engine.
+- **Wolfram Oracle**: A Dockerized Wolfram Engine running xAct. Provides reference results for parity testing. `sxact.oracle.client.OracleClient` preserves the historical sxAct `Result` envelope while delegating HTTP transport to `elegua.oracle.OracleClient`.
+- **Elegua-backed Test Runner (`sxact`)**: A Python framework that drives TOML-defined test cases through Julia, Python, and Wolfram adapters. Regular TOML files are parsed through `elegua.bridge.load_test_file()` and wrapped in sxAct compatibility dataclasses; live execution uses `elegua.IsolatedRunner` with sxAct's xAct-specific adapters.
+- **Comparison Plugins**: `sxact.elegua_bridge` registers the xAct-specific L3 canonical-normalization layer and L4 numeric-sampling layer with Elegua's `ComparisonPipeline`.
+- **Oracle Snapshots**: Deterministic hash-based regression testing that allows verification without a live Wolfram Engine. The snapshot store and comparator remain sxAct-owned because they encode xAct oracle artifact layout and backwards-compatible result reporting.
 
 ## Data Flow
 
@@ -62,9 +64,12 @@ Python (xact-py)
 
 Verification Pipeline
   TOML test file
-    → xact-test CLI (sxact)
-      → JuliaAdapter (or WolframAdapter)
-        → Normalize + Compare against oracle snapshot
+    → elegua.bridge.load_test_file
+    → xact-test CLI (sxact compatibility layer)
+      → elegua.IsolatedRunner (live) or sxAct snapshot runner (offline)
+        → sxAct Elegua adapter wrapper (JuliaAdapter, PythonAdapter, or WolframAdapter)
+          → Elegua ComparisonPipeline with sxAct L3/L4 layers
+            → oracle snapshot or live Wolfram oracle result
 
 Migration
   Wolfram Language expression / notebook

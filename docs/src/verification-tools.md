@@ -2,6 +2,8 @@
 
 This guide walks through the `sxact` verification workflow: defining tests in TOML, running them against the Julia backend, and using oracle snapshots for regression testing.
 
+`sxact` now consumes [Elegua](https://github.com/sashakile/elegua) for the shared parts of the verification stack. Regular TOML files are parsed by an xAct-specific compatibility wrapper around `elegua.bridge.load_test_file()`, live mode runs tests through `elegua.IsolatedRunner`, and live comparisons use Elegua's `ComparisonPipeline` with sxAct L3/L4 plugins. Offline oracle snapshots remain sxAct-owned because their JSON layout and hashes are XAct.jl regression artifacts.
+
 ## Prerequisites
 
 - Julia 1.10+ installed
@@ -10,7 +12,7 @@ This guide walks through the `sxact` verification workflow: defining tests in TO
 
 ## 1. TOML Test Runner (Primary Workflow)
 
-The main verification tool is `xact-test`, which runs declarative TOML test files against an adapter (Julia or Wolfram) and compares results to oracle snapshots.
+The main verification tool is `xact-test`, which runs declarative TOML test files against an adapter (Julia, Python, or Wolfram) and compares results to oracle snapshots or live oracle responses. The CLI preserves the historical sxAct interface while delegating live-run isolation and TOML schema parsing to Elegua.
 
 ### Running tests
 
@@ -27,7 +29,7 @@ uv run xact-test run tests/xperm/ --adapter julia --oracle-mode snapshot --oracl
 
 ### Test file structure
 
-Tests are TOML files with a `[meta]` header, `[[setup]]` blocks for definitions, and `[[tests]]` blocks for assertions:
+Tests are TOML files with a `[meta]` header, `[[setup]]` blocks for definitions, and `[[tests]]` blocks for assertions. The loader accepts the sxAct TOML shape by parsing it through Elegua's bridge and adapting the parsed model back into sxAct compatibility dataclasses:
 
 ```toml
 [meta]
@@ -74,6 +76,8 @@ result = client.evaluate_with_xact(
     context_id="my-test-001"     # prevents symbol pollution between tests
 )
 ```
+
+`sxact.oracle.client.OracleClient` is a compatibility wrapper around `elegua.oracle.OracleClient`; it keeps sxAct's `Result` API stable while relying on Elegua for HTTP transport.
 
 For full API details, see [Verification API Reference](api-verification.md#1-oracleclient).
 
