@@ -22,6 +22,10 @@ from sxact.cli import (
     _sub_bindings,
     _tc_matches_tag,
 )
+from elegua.adapter import Adapter
+from elegua.models import ValidationToken
+from elegua.task import EleguaTask, TaskStatus
+
 from sxact.oracle.result import Result
 from sxact.runner.loader import (
     Expected,
@@ -93,6 +97,28 @@ def _make_adapter(*results: Result) -> MagicMock:
     adapter.execute.side_effect = list(results)
     adapter.normalize.side_effect = lambda expr: expr
     adapter.equals.side_effect = lambda a, b, mode, ctx=None: a == b
+    return adapter
+
+
+def _ok_token(repr_str: str = "T") -> ValidationToken:
+    return ValidationToken(
+        adapter_id="mock", status=TaskStatus.OK, result={"repr": repr_str, "type": "Expr"}
+    )
+
+
+def _err_token(msg: str = "oops") -> ValidationToken:
+    return ValidationToken(
+        adapter_id="mock", status=TaskStatus.EXECUTION_ERROR, metadata={"error": msg}
+    )
+
+
+def _make_elegua_adapter(*tokens: ValidationToken) -> MagicMock:
+    """Elegua-protocol adapter mock: execute(task) -> ValidationToken."""
+    adapter = MagicMock(spec=Adapter)
+    adapter.initialize.return_value = None
+    adapter.teardown.return_value = None
+    adapter.execute.side_effect = list(tokens)
+    adapter.adapter_id = "mock"
     return adapter
 
 
@@ -195,7 +221,7 @@ class TestRunFileLive:
         op = Operation(action="Evaluate", args={"expression": "1+1"})
         tc = _make_tc(id="tc_fail", ops=[op], expected=Expected(expr="3"))
         tf = _make_file(tests=[tc])
-        adapter = _make_adapter(_ok("2"))
+        adapter = _make_elegua_adapter(_ok_token("2"))
 
         results = _run_file_live(tf, adapter, tag_filter=None)
 
@@ -217,7 +243,7 @@ class TestRunFileLive:
         op = Operation(action="Evaluate", args={"expression": "bad"})
         tc = _make_tc(id="tc_err", ops=[op])
         tf = _make_file(tests=[tc])
-        adapter = _make_adapter(_err("syntax error"))
+        adapter = _make_elegua_adapter(_err_token("syntax error"))
 
         results = _run_file_live(tf, adapter, tag_filter=None)
 
@@ -256,11 +282,11 @@ class TestRunFileLive:
 
         captured: list[dict] = []
 
-        def capturing(ctx, action, args):
-            captured.append(dict(args))
-            return _ok("X")
+        def capturing(task: EleguaTask) -> ValidationToken:
+            captured.append(dict(task.payload))
+            return _ok_token("X")
 
-        adapter = _make_adapter()
+        adapter = _make_elegua_adapter()
         adapter.execute.side_effect = capturing
 
         _run_file_live(tf, adapter, tag_filter=None)

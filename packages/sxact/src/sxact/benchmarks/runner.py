@@ -160,7 +160,7 @@ class BenchResult:
 
 
 def bench_test_case(
-    adapter: TestAdapter[Any],
+    adapter: Any,
     test_file: TestFile,
     tc: TestCase,
     *,
@@ -168,13 +168,14 @@ def bench_test_case(
     n_measure: int = N_MEASURE_DEFAULT,
     adapter_name: str = "wolfram",
 ) -> BenchResult:
-    """Time *tc* by running it N times inside an :class:`IsolatedContext`.
+    """Time *tc* by running it N times inside an :class:`~elegua.IsolatedRunner`.
 
     The adapter is initialized once; warmup runs are discarded.
-    Timing covers only the :meth:`~IsolatedContext.run_test` call.
+    Each timed call includes setup operations (typically fast DefManifold/DefTensor
+    calls).  If *adapter* is a sxact TestAdapter it is wrapped automatically.
 
     Args:
-        adapter:      Instantiated adapter (Wolfram, Julia, or Python).
+        adapter:      Instantiated adapter (Wolfram, Julia, Python, or elegua Adapter).
         test_file:    Loaded :class:`TestFile` containing *tc*.
         tc:           The specific test case to benchmark.
         n_warmup:     Number of warmup iterations (not measured).
@@ -184,16 +185,23 @@ def bench_test_case(
     Returns:
         A :class:`BenchResult` with median, p95, p99, min, max in ms.
     """
-    from sxact.runner.isolation import IsolatedContext
+    import dataclasses
 
-    with IsolatedContext(adapter, test_file) as ctx:
+    from elegua.adapter import Adapter
+    from elegua.isolation import IsolatedRunner
+    from sxact.elegua_bridge.adapters import _wrap_adapter
+
+    elegua_adapter = adapter if isinstance(adapter, Adapter) else _wrap_adapter(adapter)
+    bench_file = dataclasses.replace(test_file, tests=[tc])
+
+    with IsolatedRunner(elegua_adapter) as runner:
         for _ in range(n_warmup):
-            ctx.run_test(tc)
+            runner.run(bench_file)
 
         times: list[float] = []
         for _ in range(n_measure):
             t0 = time.perf_counter()
-            ctx.run_test(tc)
+            runner.run(bench_file)
             times.append((time.perf_counter() - t0) * 1_000)
 
     times_sorted = sorted(times)

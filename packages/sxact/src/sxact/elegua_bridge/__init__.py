@@ -8,13 +8,14 @@ Provides domain-specific components that plug into the Elegua testing framework:
 - ``EleguaJuliaAdapter``: elegua.Adapter wrapper for Julia XCore + XTensor backend
 """
 
-from sxact.elegua_bridge.adapters import EleguaJuliaAdapter, EleguaPythonAdapter
+from sxact.elegua_bridge.adapters import EleguaJuliaAdapter, EleguaPythonAdapter, EleguaWolframAdapter
 from sxact.elegua_bridge.comparison_layers import compare_canonical, make_compare_numeric
 from sxact.elegua_bridge.expr_builder import build_xact_expr
 
 __all__ = [
     "EleguaJuliaAdapter",
     "EleguaPythonAdapter",
+    "EleguaWolframAdapter",
     "build_xact_expr",
     "compare_canonical",
     "make_compare_numeric",

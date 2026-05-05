@@ -144,3 +144,49 @@ class EleguaJuliaAdapter(_EleguaAdapterBase):
         if self._ctx is None:
             raise RuntimeError("get_tensor_context() called before initialize()")
         return self._inner.get_tensor_context(self._ctx, rng)
+
+
+class EleguaWolframAdapter(_EleguaAdapterBase):
+    """elegua.Adapter wrapper around sxact's WolframAdapter (HTTP oracle backend).
+
+    Accepts an optional ``inner`` adapter for dependency injection.  If omitted,
+    creates a ``WolframAdapter()`` instance using default oracle URL.
+    """
+
+    def __init__(self, inner: Any | None = None) -> None:
+        if inner is None:
+            from sxact.adapter.wolfram import WolframAdapter
+
+            inner = WolframAdapter()
+        self._inner = inner
+        self._ctx: Any = None
+
+    @property
+    def adapter_id(self) -> str:
+        return "wolfram"
+
+
+def _wrap_adapter(adapter: Any) -> Adapter:
+    """Wrap a sxact TestAdapter as an elegua Adapter.
+
+    Identifies adapter type by isinstance check and wraps it in the appropriate
+    elegua wrapper.  Raises TypeError for unknown adapter types.
+    """
+    from sxact.adapter.julia_stub import JuliaAdapter as _Julia
+    from sxact.adapter.python_stub import PythonAdapter as _Python
+
+    if isinstance(adapter, _Julia):
+        return EleguaJuliaAdapter(adapter)
+    if isinstance(adapter, _Python):
+        return EleguaPythonAdapter(adapter)
+    try:
+        from sxact.adapter.wolfram import WolframAdapter as _Wolfram
+
+        if isinstance(adapter, _Wolfram):
+            return EleguaWolframAdapter(adapter)
+    except ImportError:
+        pass
+    raise TypeError(
+        f"Cannot wrap {type(adapter).__name__!r} as elegua Adapter: "
+        "not a known sxact adapter type"
+    )

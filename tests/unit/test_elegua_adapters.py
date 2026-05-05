@@ -9,7 +9,7 @@ import pytest
 from elegua.adapter import Adapter
 from elegua.models import ValidationToken
 from elegua.task import EleguaTask, TaskStatus
-from sxact.elegua_bridge.adapters import EleguaJuliaAdapter, EleguaPythonAdapter
+from sxact.elegua_bridge.adapters import EleguaJuliaAdapter, EleguaPythonAdapter, EleguaWolframAdapter
 from sxact.oracle.result import Result
 
 
@@ -197,3 +197,48 @@ class TestEleguaJuliaAdapterConformance:
         adapter = EleguaJuliaAdapter(_JuliaStubInner())
         with pytest.raises(RuntimeError, match="before initialize"):
             adapter.get_tensor_context()
+
+
+# ---------------------------------------------------------------------------
+# EleguaWolframAdapter tests
+# ---------------------------------------------------------------------------
+
+
+class TestEleguaWolframAdapterConformance:
+    def test_is_elegua_adapter(self) -> None:
+        assert issubclass(EleguaWolframAdapter, Adapter)
+
+    def test_adapter_id(self) -> None:
+        adapter = EleguaWolframAdapter(_StubInner())
+        assert adapter.adapter_id == "wolfram"
+
+    def test_execute_not_initialized_returns_error(self) -> None:
+        adapter = EleguaWolframAdapter(_StubInner())
+        task = EleguaTask(action="Evaluate", payload={"expression": "1+1"})
+        token = adapter.execute(task)
+        assert token.status == TaskStatus.EXECUTION_ERROR
+
+    def test_initialize_then_execute_returns_ok(self) -> None:
+        stub = _StubInner(Result(status="ok", type="Expr", repr="2", normalized="2"))
+        adapter = EleguaWolframAdapter(stub)
+        adapter.initialize()
+        task = EleguaTask(action="Evaluate", payload={"expression": "1+1"})
+        token = adapter.execute(task)
+        assert token.status == TaskStatus.OK
+        assert token.result is not None
+        assert token.result["repr"] == "2"
+
+    def test_teardown_calls_inner(self) -> None:
+        stub = _StubInner()
+        adapter = EleguaWolframAdapter(stub)
+        adapter.initialize()
+        adapter.teardown()
+        assert stub.torn_down
+
+    def test_context_manager_protocol(self) -> None:
+        stub = _StubInner()
+        adapter = EleguaWolframAdapter(stub)
+        with adapter as a:
+            assert a is adapter
+        assert stub.initialized
+        assert stub.torn_down

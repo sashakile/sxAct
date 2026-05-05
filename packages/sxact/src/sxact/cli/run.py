@@ -96,25 +96,48 @@ def _sub_bindings(args: dict[str, Any], bindings: dict[str, str]) -> dict[str, A
 
 
 def _run_file_live(test_file: Any, adapter: Any, tag_filter: str | None) -> list[_RunResult]:
-    """Run a test file in live mode using IsolatedContext."""
-    from sxact.runner.isolation import IsolatedContext
+    """Run a test file in live mode using elegua.IsolatedRunner."""
+    from elegua.isolation import IsolatedRunner
+    from elegua.task import TaskStatus
+    from elegua.verdict import evaluate_expected
+    from sxact.normalize import ast_normalize
+
+    with IsolatedRunner(adapter) as runner:
+        run_results = runner.run(test_file)
 
     results: list[_RunResult] = []
-    with IsolatedContext(adapter, test_file) as iso:
-        for tc in test_file.tests:
-            if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
-                continue
-            tr = iso.run_test(tc)
-            results.append(
-                _RunResult(
-                    file_id=test_file.meta.id,
-                    test_id=tc.id,
-                    status=tr.status,
-                    actual=tr.actual,
-                    expected=tr.expected,
-                    message=tr.message,
+    for tc, tr in zip(test_file.tests, run_results):
+        if tag_filter and not _tc_matches_tag(tc.tags, test_file.meta.tags, tag_filter):
+            continue
+        verdict = evaluate_expected(tr, tc, normalizer=ast_normalize)
+        # Escalate EXECUTION_ERROR tokens to "error" when no expected block vetted them.
+        # evaluate_expected returns "pass" for no-expected tests even when the adapter
+        # reported an error token; the CLI should surface these as errors.
+        if verdict.status == "pass" and tr.tokens and not tr.skipped:
+            last = tr.tokens[-1]
+            if last.status == TaskStatus.EXECUTION_ERROR:
+                error_msg = (last.metadata or {}).get("error") if last.metadata else None
+                verdict_status = "error"
+                verdict_message = error_msg or "execution error"
+                results.append(
+                    _RunResult(
+                        file_id=test_file.meta.id,
+                        test_id=tc.id,
+                        status=verdict_status,
+                        message=verdict_message,
+                    )
                 )
+                continue
+        results.append(
+            _RunResult(
+                file_id=test_file.meta.id,
+                test_id=tc.id,
+                status=verdict.status,
+                actual=verdict.actual,
+                expected=verdict.expected,
+                message=verdict.message,
             )
+        )
     return results
 
 
@@ -435,7 +458,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
         try:
             if args.oracle_mode == "live":
-                results = _run_file_live(test_file, adapter, tag_filter)
+                from sxact.elegua_bridge.adapters import _wrap_adapter
+
+                results = _run_file_live(test_file, _wrap_adapter(adapter), tag_filter)
             else:
                 results = _run_file_snapshot(test_file, adapter, tag_filter, store)
         except AdapterError as exc:

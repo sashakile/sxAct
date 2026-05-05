@@ -67,6 +67,9 @@ class TestMeta:
     layer: int = 1
     oracle_is_axiom: bool = True
     skip: str | None = None
+    # Elegua-compatible fields — empty defaults allow IsolatedRunner duck typing
+    requires: frozenset[str] = field(default_factory=frozenset)
+    tier_overrides: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
 @dataclass
