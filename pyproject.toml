@@ -41,7 +41,6 @@ members = ["packages/*"]
 [tool.uv.sources]
 sxact = { workspace = true }
 xact-py = { workspace = true }
-elegua = { path = "../elegua", editable = true }
 
 [tool.mypy]
 python_version = "3.11"
