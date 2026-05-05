@@ -185,14 +185,16 @@ def bench_test_case(
         A :class:`BenchResult` with median, p95, p99, min, max in ms.
     """
     import dataclasses
+    from typing import cast
 
     from elegua.adapter import Adapter
+    from elegua.bridge import TestFile as EleguaTestFile
     from elegua.isolation import IsolatedRunner
 
     from sxact.elegua_bridge.adapters import _wrap_adapter
 
     elegua_adapter = adapter if isinstance(adapter, Adapter) else _wrap_adapter(adapter)
-    bench_file = dataclasses.replace(test_file, tests=[tc])
+    bench_file = cast(EleguaTestFile, dataclasses.replace(test_file, tests=[tc]))
 
     with IsolatedRunner(elegua_adapter) as runner:
         for _ in range(n_warmup):

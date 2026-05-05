@@ -15,7 +15,7 @@ remains satisfied. Each adapter instance is single-use per session
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from elegua.adapter import Adapter
 from elegua.models import ValidationToken
@@ -143,7 +143,7 @@ class EleguaJuliaAdapter(_EleguaAdapterBase):
         """
         if self._ctx is None:
             raise RuntimeError("get_tensor_context() called before initialize()")
-        return self._inner.get_tensor_context(self._ctx, rng)
+        return cast("TensorContext", self._inner.get_tensor_context(self._ctx, rng))
 
 
 class EleguaWolframAdapter(_EleguaAdapterBase):
